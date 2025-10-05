@@ -5,6 +5,7 @@ import CustomerDashboard from './features/customer/pages/CustomerDashboard';
 import NavBar from './sharedComponents/NavBar';
 import HeroSection from './sharedComponents/HeroSection';
 import CategoryFilterBar from './sharedComponents/CategoryFilterBar';
+import LoginOwner from './login'
 
 const App: React.FC = () => {
   return (
@@ -20,9 +21,8 @@ const App: React.FC = () => {
           <Router>
             <Routes>
               <Route path="/" element={<CustomerDashboard />} />
-              <Route
-                path="/restaurantOwner/*"
-                element={<RestaurantOwnerDashboardPage />}
+              <Route path="/ownerlogin" element={<LoginOwner />} />
+              <Route path="/restaurantOwner/*" element={<RestaurantOwnerDashboardPage />}
               />
             </Routes>
           </Router>
