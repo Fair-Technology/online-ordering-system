@@ -1,7 +1,7 @@
 import { useMsal } from '@azure/msal-react';
 
 const Footer = () => {
-  const { instance, accounts } = useMsal();
+  const { instance } = useMsal();
 
   const handleLogin = () => {
     instance.loginRedirect();

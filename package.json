@@ -6,9 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "lint": "eslint .",
     "preview": "vite preview",
-    "type-check": "tsc --noEmit"
+    "check": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@azure/msal-browser": "^4.24.0",
