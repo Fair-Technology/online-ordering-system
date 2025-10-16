@@ -1,5 +1,5 @@
 import React from 'react';
-import ItemCard from '../../../sharedComponents/ItemCard';
+import ItemCard from '../../../components/ItemCard';
 import { Item } from '../../restaurantOwner/types';
 
 interface CustomerMenuListProps {
