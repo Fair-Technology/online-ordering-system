@@ -1,17 +1,19 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import OnlineOrderingSystem from './pages/onlineOrderingSystem';
 import ShopView from './pages/shopView';
-import OwnerDashboard from './pages/ownerDashboard';
+import OwnerDashboard from './pages/ownerDashboard/ownerDashboard';
 import NotFound from './pages/notFound';
+import ProtectedRoute from './routes/ProtectedRoute';
 
 const App: React.FC = () => {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<OnlineOrderingSystem />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/owner/*" element={<OwnerDashboard />} />
+        </Route>
         <Route path="/:shopId" element={<ShopView />} />
-        <Route path="/owner" element={<OwnerDashboard />} />
         <Route path="/*" element={<NotFound />} />
       </Routes>
     </Router>

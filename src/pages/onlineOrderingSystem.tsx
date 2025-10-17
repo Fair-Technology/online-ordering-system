@@ -4,7 +4,7 @@ const OnlineOrderingSystem = () => {
       <h1 className="text-2xl font-semibold">
         Welcome to Online Ordering System
       </h1>
-      <button>Buton to Create your own shop</button>
+      <button>Button to Create your own shop</button>
     </div>
   );
 };

@@ -4,7 +4,10 @@ const Footer = () => {
   const { instance } = useMsal();
 
   const handleLogin = () => {
-    instance.loginRedirect();
+    instance.loginRedirect({
+      scopes: ['openid'],
+      redirectStartPage: '/owner',
+    });
   };
 
   return (
