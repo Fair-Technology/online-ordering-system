@@ -5,10 +5,14 @@ import DashboardHome from './views/DashboardHome';
 import ShopsPage from './views/ShopsPage';
 import ProductsPage from './views/ProductsPage';
 import SettingsPage from './views/SettingsPage';
+import AuthHandler from '../../components/AuthHandler';
 
 const OwnerDashboard = () => {
   return (
     <div className="flex h-screen bg-gray-100">
+      {/* Authentication Handler - handles user saving after login */}
+      <AuthHandler />
+
       {/* Sidebar */}
       <Sidebar />
 
