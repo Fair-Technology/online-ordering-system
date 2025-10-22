@@ -18,7 +18,7 @@ const Footer = () => {
   const handleLogin = () => {
     instance.loginRedirect({
       scopes: ['openid', 'profile', 'email'],
-      redirectStartPage: '/owner',
+      redirectStartPage: '/user-creation',
     });
   };
 
