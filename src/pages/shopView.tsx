@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { groupItemsByCategory } from '../utils/groupItemsByCategory';
 import { dummyItems } from '../features/customer/data/dummyMenuData';
-import { Item } from '../features/restaurantOwner/types';
+import { Item } from '../features/restaurantOwner-old/types';
 import NavBar from '../components/NavBar';
 import HeroSection from '../components/HeroSection';
 import CategoryFilterBar from '../components/CategoryFilterBar';

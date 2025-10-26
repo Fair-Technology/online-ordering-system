@@ -1,4 +1,4 @@
-import { Item } from '../../restaurantOwner/types';
+import { Item } from '../../restaurantOwner-old/types';
 
 export const dummyItems: Item[] = [
   {

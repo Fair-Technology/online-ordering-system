@@ -1,6 +1,6 @@
 import React from 'react';
 import ItemCard from '../../../components/ItemCard';
-import { Item } from '../../restaurantOwner/types';
+import { Item } from '../../restaurantOwner-old/types';
 
 interface CustomerMenuListProps {
   groupedItems: Record<string, Item[]>;

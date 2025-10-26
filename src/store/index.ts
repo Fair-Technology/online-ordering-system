@@ -1,14 +1,12 @@
-import { configureStore } from "@reduxjs/toolkit";
-import { superAdminApi } from "./api/superAdminApi";
-import { itemApi } from "./api/itemApi";
+import { configureStore } from '@reduxjs/toolkit';
+import { ownerApi } from './api/ownerApi';
 
 export const store = configureStore({
   reducer: {
-    [superAdminApi.reducerPath]: superAdminApi.reducer,
-    [itemApi.reducerPath]: itemApi.reducer,
+    [ownerApi.reducerPath]: ownerApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware().concat(superAdminApi.middleware, itemApi.middleware),
+    getDefaultMiddleware().concat(ownerApi.middleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

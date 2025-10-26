@@ -1,12 +1,26 @@
 import { useMsal } from '@azure/msal-react';
+import { useEffect } from 'react';
 
 const Footer = () => {
-  const { instance } = useMsal();
+  const { instance, accounts } = useMsal();
+
+  useEffect(() => {
+    console.log('Footer useEffect triggered, accounts:', accounts.length);
+    if (accounts.length > 0) {
+      console.log('User found in footer ');
+    }
+  }, [accounts]);
 
   const handleLogin = () => {
     instance.loginRedirect({
-      scopes: ['openid'],
-      redirectStartPage: '/owner',
+      scopes: ['openid', 'profile', 'email'],
+      redirectStartPage: '/user-creation',
+    });
+  };
+
+  const handleLogout = () => {
+    instance.logoutRedirect({
+      postLogoutRedirectUri: '/',
     });
   };
 
@@ -16,7 +30,7 @@ const Footer = () => {
         <div className="text-sm text-gray-600 mb-3 sm:mb-0">
           &copy; 2025 Fair-Technology
         </div>
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-4 items-center">
           <a href="#" className="text-gray-700 hover:text-indigo-600 text-sm">
             Home
           </a>
@@ -32,12 +46,27 @@ const Footer = () => {
           <a href="#" className="text-gray-700 hover:text-indigo-600 text-sm">
             Terms
           </a>
-          <a
-            onClick={handleLogin}
-            className="text-gray-700 hover:text-grey-100 hover:underline  text-sm cursor-pointer"
-          >
-            Admin Login
-          </a>
+
+          {accounts.length > 0 ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">
+                Welcome, {accounts[0].name?.split(' ')[0] || 'User'}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="text-gray-700 hover:text-red-600 text-sm cursor-pointer"
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleLogin}
+              className="text-gray-700 hover:text-indigo-600 hover:underline text-sm cursor-pointer"
+            >
+              Admin Login
+            </button>
+          )}
         </div>
       </div>
     </footer>

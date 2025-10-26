@@ -1,4 +1,4 @@
-import { Item } from '../features/restaurantOwner/types';
+import { Item } from '../features/restaurantOwner-old/types';
 
 // keep a fixed order of categories
 const CATEGORY_ORDER = [
