@@ -1,23 +1,30 @@
 // Shared enums and helpers
-export const SHOP_STATUSES = ["open", "closed"] as const;
+export const SHOP_STATUSES = ['open', 'closed'] as const;
 export type ShopStatus = (typeof SHOP_STATUSES)[number];
 
-export const PAYMENT_POLICIES = ["pay_on_pickup", "prepaid_only"] as const;
+export const PAYMENT_POLICIES = ['pay_on_pickup', 'prepaid_only'] as const;
 export type PaymentPolicy = (typeof PAYMENT_POLICIES)[number];
 
-export const ORDER_ACCEPTANCE_MODES = ["auto", "manual"] as const;
+export const ORDER_ACCEPTANCE_MODES = ['auto', 'manual'] as const;
 export type OrderAcceptanceMode = (typeof ORDER_ACCEPTANCE_MODES)[number];
 
-export const SHOP_MEMBER_ROLES = ["owner", "admin", "staff"] as const;
+export const SHOP_MEMBER_ROLES = ['owner', 'admin', 'staff'] as const;
 export type ShopMemberRole = (typeof SHOP_MEMBER_ROLES)[number];
 
-export const USER_ROLES = ["customer", "shopAdmin"] as const;
+export const USER_ROLES = ['customer', 'shopAdmin'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
-export const ORDER_STATUSES = ["placed", "accepted", "rejected", "ready_for_pickup", "completed", "cancelled"] as const;
+export const ORDER_STATUSES = [
+  'placed',
+  'accepted',
+  'rejected',
+  'ready_for_pickup',
+  'completed',
+  'cancelled',
+] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
-export const PAYMENT_STATUSES = ["unpaid", "paid"] as const;
+export const PAYMENT_STATUSES = ['unpaid', 'paid'] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 // Shared structures
@@ -44,6 +51,8 @@ export interface ShopSummary {
 }
 
 export interface ShopSettingsUpdateRequest {
+  name?: string;
+  address?: string;
   status?: ShopStatus;
   acceptingOrders?: boolean;
   paymentPolicy?: PaymentPolicy;
@@ -58,6 +67,13 @@ export interface CreateShopRequest {
   name: string;
   address: string;
   ownerUserId: string;
+  isActive: boolean;
+  status: ShopStatus;
+  acceptingOrders: boolean;
+  paymentPolicy: PaymentPolicy;
+  orderAcceptanceMode: OrderAcceptanceMode;
+  allowGuestCheckout: boolean;
+  fulfillmentOptions: FulfillmentOptions;
 }
 
 export type CreateShopResponse = ShopSummary;
@@ -77,7 +93,7 @@ export interface ShopMemberResponse {
 
 export interface CreateShopMemberRequest {
   userId: string;
-  role: Extract<ShopMemberRole, "admin" | "staff">;
+  role: Extract<ShopMemberRole, 'admin' | 'staff'>;
   permissions?: string[];
   isActive?: boolean;
 }
@@ -188,8 +204,9 @@ export interface CreateProductRequest {
   ownerUserId: string;
   name: string;
   description?: string;
-  variantSchemes?: VariantScheme[];
-  addonGroups?: AddonGroup[];
+  variantSchemes: VariantScheme[];
+  addonGroups: AddonGroup[];
+  isActive: boolean;
 }
 
 export interface UpdateProductRequest {
@@ -215,8 +232,8 @@ export interface ProductInShopResponse {
 export interface CreateProductInShopRequest {
   productId: string;
   priceOverride?: number;
-  isAvailable?: boolean;
-  categoryIds?: string[];
+  isAvailable: boolean;
+  categoryIds: string[];
   sortOrder?: number;
 }
 
@@ -335,4 +352,3 @@ export interface UserShopView {
 }
 
 export type UserShopsResponse = UserShopView[];
-

@@ -1,12 +1,72 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { skipToken } from '@reduxjs/toolkit/query';
-import type { ProductResponse } from '../../../types/apiTypes';
+import type {
+  CreateProductInShopRequest,
+  CreateProductRequest,
+  ProductResponse,
+} from '../../../types/apiTypes';
 import {
   useProductsCreateMutation,
+  useProductsInShopCreateMutation,
   useShopsMenuQuery,
   useUsersGetShopsQuery,
 } from '../../../store/api/ownerApi';
+
+type VariantInput = {
+  id: string;
+  label: string;
+  basePrice: string;
+  sku: string;
+  isActive: boolean;
+};
+
+type AddonOptionInput = {
+  id: string;
+  name: string;
+  priceDelta: string;
+  isActive: boolean;
+};
+
+type AddonGroupInput = {
+  id: string;
+  name: string;
+  required: boolean;
+  maxSelectable: string;
+  options: AddonOptionInput[];
+};
+
+const createVariantInput = (): VariantInput => ({
+  id: crypto.randomUUID(),
+  label: '',
+  basePrice: '',
+  sku: '',
+  isActive: true,
+});
+
+const createAddonOptionInput = (): AddonOptionInput => ({
+  id: crypto.randomUUID(),
+  name: '',
+  priceDelta: '0',
+  isActive: true,
+});
+
+const createAddonGroupInput = (): AddonGroupInput => ({
+  id: crypto.randomUUID(),
+  name: '',
+  required: false,
+  maxSelectable: '1',
+  options: [createAddonOptionInput()],
+});
+
+const createDefaultProductForm = () => ({
+  name: '',
+  description: '',
+  isActive: true,
+  variantSchemeName: 'Sizes',
+  variants: [createVariantInput()],
+  addonGroups: [] as AddonGroupInput[],
+});
 
 const ProductsPage = () => {
   const { accounts } = useMsal();
@@ -34,18 +94,136 @@ const ProductsPage = () => {
     data: menuData,
     isLoading: isMenuLoading,
     isError: isMenuError,
+    refetch: refetchMenu,
   } = useShopsMenuQuery(menuQueryArg);
 
   const products = menuData?.products ?? [];
   const [createProduct, { isLoading: isCreating }] =
     useProductsCreateMutation();
+  const [linkProductToShop, { isLoading: isLinking }] =
+    useProductsInShopCreateMutation();
 
-  const [newProduct, setNewProduct] = useState({
-    name: '',
-    description: '',
-  });
+  const [newProduct, setNewProduct] = useState(createDefaultProductForm);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [placement, setPlacement] = useState({
+    priceOverride: '',
+    isAvailable: true,
+    categoryIds: '',
+  });
+
+  const updateVariantField = <K extends keyof VariantInput>(
+    variantId: string,
+    field: K,
+    value: VariantInput[K],
+  ) => {
+    setNewProduct((prev) => ({
+      ...prev,
+      variants: prev.variants.map((variant) =>
+        variant.id === variantId
+          ? {
+              ...variant,
+              [field]: value,
+            }
+          : variant,
+      ),
+    }));
+  };
+
+  const addVariant = () => {
+    setNewProduct((prev) => ({
+      ...prev,
+      variants: [...prev.variants, createVariantInput()],
+    }));
+  };
+
+  const removeVariant = (variantId: string) => {
+    setNewProduct((prev) => {
+      if (prev.variants.length === 1) return prev;
+      return {
+        ...prev,
+        variants: prev.variants.filter((variant) => variant.id !== variantId),
+      };
+    });
+  };
+
+  const addAddonGroup = () => {
+    setNewProduct((prev) => ({
+      ...prev,
+      addonGroups: [...prev.addonGroups, createAddonGroupInput()],
+    }));
+  };
+
+  const removeAddonGroup = (groupId: string) => {
+    setNewProduct((prev) => ({
+      ...prev,
+      addonGroups: prev.addonGroups.filter((group) => group.id !== groupId),
+    }));
+  };
+
+  const updateAddonGroupField = <K extends keyof Omit<AddonGroupInput, 'options'>>(
+    groupId: string,
+    field: K,
+    value: Omit<AddonGroupInput, 'options'>[K],
+  ) => {
+    setNewProduct((prev) => ({
+      ...prev,
+      addonGroups: prev.addonGroups.map((group) =>
+        group.id === groupId ? { ...group, [field]: value } : group,
+      ),
+    }));
+  };
+
+  const addAddonOption = (groupId: string) => {
+    setNewProduct((prev) => ({
+      ...prev,
+      addonGroups: prev.addonGroups.map((group) =>
+        group.id === groupId
+          ? { ...group, options: [...group.options, createAddonOptionInput()] }
+          : group,
+      ),
+    }));
+  };
+
+  const updateAddonOption = <K extends keyof AddonOptionInput>(
+    groupId: string,
+    optionId: string,
+    field: K,
+    value: AddonOptionInput[K],
+  ) => {
+    setNewProduct((prev) => ({
+      ...prev,
+      addonGroups: prev.addonGroups.map((group) =>
+        group.id === groupId
+          ? {
+              ...group,
+              options: group.options.map((option) =>
+                option.id === optionId
+                  ? { ...option, [field]: value }
+                  : option,
+              ),
+            }
+          : group,
+      ),
+    }));
+  };
+
+  const removeAddonOption = (groupId: string, optionId: string) => {
+    setNewProduct((prev) => ({
+      ...prev,
+      addonGroups: prev.addonGroups.map((group) =>
+        group.id === groupId
+          ? {
+              ...group,
+              options:
+                group.options.length === 1
+                  ? group.options
+                  : group.options.filter((option) => option.id !== optionId),
+            }
+          : group,
+      ),
+    }));
+  };
 
   const totalProducts = products.length;
   const activeProducts = products.filter((product) => product.isActive).length;
@@ -68,20 +246,89 @@ const ProductsPage = () => {
       setError('Unable to resolve owner identity.');
       return;
     }
+    if (!selectedShopId) {
+      setError('Select a shop before creating a product.');
+      return;
+    }
     if (!newProduct.name.trim()) {
       setError('A product name is required.');
+      return;
+    }
+    if (
+      newProduct.variants.length === 0 ||
+      newProduct.variants.some(
+        (variant) => !variant.label.trim() || !variant.basePrice.trim(),
+      )
+    ) {
+      setError('Each variant requires a label and price.');
       return;
     }
     try {
       setError(null);
       setFeedback(null);
-      await createProduct({
+      const payload: CreateProductRequest = {
         ownerUserId,
         name: newProduct.name.trim(),
         description: newProduct.description.trim() || undefined,
+        isActive: newProduct.isActive,
+        variantSchemes: [
+          {
+            id: crypto.randomUUID(),
+            name: newProduct.variantSchemeName.trim() || 'Default',
+            variants: newProduct.variants.map((variant) => ({
+              id: variant.id,
+              label: variant.label.trim(),
+              basePrice: Number(variant.basePrice),
+              sku: variant.sku.trim() || undefined,
+              isActive: variant.isActive,
+            })),
+          },
+        ],
+        addonGroups: newProduct.addonGroups
+          .filter((group) => group.name.trim())
+          .map((group) => ({
+            id: group.id,
+            name: group.name.trim(),
+            required: group.required,
+            maxSelectable: group.maxSelectable
+              ? Number(group.maxSelectable)
+              : undefined,
+            options: group.options
+              .filter((option) => option.name.trim())
+              .map((option) => ({
+                id: option.id,
+                name: option.name.trim(),
+                priceDelta: Number(option.priceDelta) || 0,
+                isActive: option.isActive,
+              })),
+          })),
+      };
+
+      const createdProduct = await createProduct(payload).unwrap();
+
+      const placementPayload: CreateProductInShopRequest = {
+        productId: createdProduct.id,
+        priceOverride: placement.priceOverride
+          ? Number(placement.priceOverride)
+          : undefined,
+        isAvailable: placement.isAvailable,
+        categoryIds: placement.categoryIds
+          ? placement.categoryIds
+              .split(',')
+              .map((id) => id.trim())
+              .filter(Boolean)
+          : [],
+      };
+
+      await linkProductToShop({
+        shopId: selectedShopId,
+        body: placementPayload,
       }).unwrap();
-      setFeedback('Product created.');
-      setNewProduct({ name: '', description: '' });
+
+      setFeedback('Product created and added to the shop.');
+      setNewProduct(createDefaultProductForm());
+      setPlacement({ priceOverride: '', isAvailable: true, categoryIds: '' });
+      await refetchMenu();
     } catch (err) {
       setFeedback(null);
       setError(
@@ -125,8 +372,7 @@ const ProductsPage = () => {
 
   const isLoadingProducts =
     menuQueryArg === skipToken ? isShopsLoading : isMenuLoading;
-  const isProductsError =
-    menuQueryArg === skipToken ? false : isMenuError;
+  const isProductsError = menuQueryArg === skipToken ? false : isMenuError;
 
   const noShopsAvailable =
     !isShopsLoading && (userShops?.length ?? 0) === 0;
@@ -252,56 +498,413 @@ const ProductsPage = () => {
             Products represent the canonical definition across every shop.
           </p>
           <form className="space-y-4" onSubmit={handleCreateProduct}>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Name
+            <div className="grid gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Name
+                </label>
+                <input
+                  required
+                  className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={newProduct.name}
+                  onChange={(event) =>
+                    setNewProduct((prev) => ({
+                      ...prev,
+                      name: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Description
+                </label>
+                <textarea
+                  className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  value={newProduct.description}
+                  onChange={(event) =>
+                    setNewProduct((prev) => ({
+                      ...prev,
+                      description: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={newProduct.isActive}
+                  onChange={(event) =>
+                    setNewProduct((prev) => ({
+                      ...prev,
+                      isActive: event.target.checked,
+                    }))
+                  }
+                />
+                Product is active
               </label>
-              <input
-                required
-                className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={newProduct.name}
-                onChange={(event) =>
-                  setNewProduct((prev) => ({
-                    ...prev,
-                    name: event.target.value,
-                  }))
-                }
-              />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Description
+
+            <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">
+                    Variant scheme
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Group related variants like sizes or meal options.
+                  </p>
+                </div>
+                <input
+                  className="w-44 border border-gray-300 rounded-md px-2 py-1 text-sm"
+                  value={newProduct.variantSchemeName}
+                  onChange={(event) =>
+                    setNewProduct((prev) => ({
+                      ...prev,
+                      variantSchemeName: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="space-y-3">
+                {newProduct.variants.map((variant, index) => (
+                  <div
+                    key={variant.id}
+                    className="rounded-lg border border-gray-200 p-3 space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-700">
+                        Variant #{index + 1}
+                      </p>
+                      <button
+                        type="button"
+                        className="text-xs text-red-600"
+                        onClick={() => removeVariant(variant.id)}
+                        disabled={newProduct.variants.length === 1}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600">
+                          Label
+                        </label>
+                        <input
+                          className="mt-1 w-full border border-gray-300 rounded-md px-2 py-1"
+                          value={variant.label}
+                          onChange={(event) =>
+                            updateVariantField(
+                              variant.id,
+                              'label',
+                              event.target.value,
+                            )
+                          }
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600">
+                          Base price
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          className="mt-1 w-full border border-gray-300 rounded-md px-2 py-1"
+                          value={variant.basePrice}
+                          onChange={(event) =>
+                            updateVariantField(
+                              variant.id,
+                              'basePrice',
+                              event.target.value,
+                            )
+                          }
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600">
+                          SKU (optional)
+                        </label>
+                        <input
+                          className="mt-1 w-full border border-gray-300 rounded-md px-2 py-1"
+                          value={variant.sku}
+                          onChange={(event) =>
+                            updateVariantField(
+                              variant.id,
+                              'sku',
+                              event.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <label className="flex items-center gap-2 text-xs font-medium text-gray-600 pt-6">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={variant.isActive}
+                          onChange={(event) =>
+                            updateVariantField(
+                              variant.id,
+                              'isActive',
+                              event.target.checked,
+                            )
+                          }
+                        />
+                        Variant is active
+                      </label>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="text-sm text-blue-600 font-medium"
+                  onClick={addVariant}
+                >
+                  + Add another variant
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-dashed border-gray-300 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-700">
+                  Addon groups (optional)
+                </p>
+                <button
+                  type="button"
+                  className="text-sm text-blue-600 font-medium"
+                  onClick={addAddonGroup}
+                >
+                  + Add group
+                </button>
+              </div>
+              {newProduct.addonGroups.length === 0 ? (
+                <p className="text-xs text-gray-500">
+                  Addons let customers pick extras like toppings or sauces.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {newProduct.addonGroups.map((group, groupIndex) => (
+                    <div
+                      key={group.id}
+                      className="rounded-lg border border-gray-200 p-3 space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-700">
+                          Group #{groupIndex + 1}
+                        </p>
+                        <button
+                          type="button"
+                          className="text-xs text-red-600"
+                          onClick={() => removeAddonGroup(group.id)}
+                        >
+                          Remove group
+                        </button>
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600">
+                            Name
+                          </label>
+                          <input
+                            className="mt-1 w-full border border-gray-300 rounded-md px-2 py-1"
+                            value={group.name}
+                            onChange={(event) =>
+                              updateAddonGroupField(
+                                group.id,
+                                'name',
+                                event.target.value,
+                              )
+                            }
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600">
+                            Max selectable
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            className="mt-1 w-full border border-gray-300 rounded-md px-2 py-1"
+                            value={group.maxSelectable}
+                            onChange={(event) =>
+                              updateAddonGroupField(
+                                group.id,
+                                'maxSelectable',
+                                event.target.value,
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={group.required}
+                          onChange={(event) =>
+                            updateAddonGroupField(
+                              group.id,
+                              'required',
+                              event.target.checked,
+                            )
+                          }
+                        />
+                        Selection required
+                      </label>
+                      <div className="space-y-3 rounded border border-gray-100 p-3">
+                        {group.options.map((option, optionIndex) => (
+                          <div
+                            key={option.id}
+                            className="grid gap-3 md:grid-cols-3"
+                          >
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600">
+                                Option #{optionIndex + 1}
+                              </label>
+                              <input
+                                className="mt-1 w-full border border-gray-300 rounded-md px-2 py-1"
+                                value={option.name}
+                                onChange={(event) =>
+                                  updateAddonOption(
+                                    group.id,
+                                    option.id,
+                                    'name',
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600">
+                                Price delta
+                              </label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                className="mt-1 w-full border border-gray-300 rounded-md px-2 py-1"
+                                value={option.priceDelta}
+                                onChange={(event) =>
+                                  updateAddonOption(
+                                    group.id,
+                                    option.id,
+                                    'priceDelta',
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <label className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4"
+                                  checked={option.isActive}
+                                  onChange={(event) =>
+                                    updateAddonOption(
+                                      group.id,
+                                      option.id,
+                                      'isActive',
+                                      event.target.checked,
+                                    )
+                                  }
+                                />
+                                Active
+                              </label>
+                              <button
+                                type="button"
+                                className="text-xs text-red-600"
+                                onClick={() =>
+                                  removeAddonOption(group.id, option.id)
+                                }
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          className="text-xs text-blue-600"
+                          onClick={() => addAddonOption(group.id)}
+                        >
+                          + Add option
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 p-4 space-y-3">
+              <p className="text-sm font-medium text-gray-700">
+                Shop-specific placement
+              </p>
+              <div>
+                <label className="block text-xs font-medium text-gray-600">
+                  Price override (optional)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1"
+                  value={placement.priceOverride}
+                  onChange={(event) =>
+                    setPlacement((prev) => ({
+                      ...prev,
+                      priceOverride: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600">
+                  Category IDs (comma separated)
+                </label>
+                <input
+                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1"
+                  value={placement.categoryIds}
+                  onChange={(event) =>
+                    setPlacement((prev) => ({
+                      ...prev,
+                      categoryIds: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <label className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={placement.isAvailable}
+                  onChange={(event) =>
+                    setPlacement((prev) => ({
+                      ...prev,
+                      isAvailable: event.target.checked,
+                    }))
+                  }
+                />
+                Item available in this shop
               </label>
-              <textarea
-                className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={3}
-                value={newProduct.description}
-                onChange={(event) =>
-                  setNewProduct((prev) => ({
-                    ...prev,
-                    description: event.target.value,
-                  }))
-                }
-              />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Owner user ID
-              </label>
-              <input
-                className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                value={ownerUserId}
-                readOnly
-              />
-            </div>
+
             {error && <p className="text-sm text-red-600">{error}</p>}
             {feedback && <p className="text-sm text-green-600">{feedback}</p>}
             <button
               type="submit"
-              disabled={isCreating}
-              className="w-full bg-blue-600 text-white rounded-md py-2 font-medium hover:bg-blue-700 disabled:opacity-60"
+              disabled={isCreating || isLinking}
+              className="w-full rounded-md bg-blue-600 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
             >
-              {isCreating ? 'Saving…' : 'Create product'}
+              {isCreating || isLinking ? 'Saving…' : 'Create product'}
             </button>
           </form>
         </div>

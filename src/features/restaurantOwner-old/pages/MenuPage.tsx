@@ -93,6 +93,7 @@ const MenuPage: React.FC = () => {
         ownerUserId,
         name: newItem.name,
         description: newItem.description,
+        isActive: newItem.isAvailable,
         variantSchemes: [
           {
             id: crypto.randomUUID(),
@@ -107,6 +108,7 @@ const MenuPage: React.FC = () => {
             ],
           },
         ],
+        addonGroups: [],
       }).unwrap();
 
       await linkProductToShop({
@@ -115,6 +117,7 @@ const MenuPage: React.FC = () => {
           productId: product.id,
           priceOverride: newItem.price,
           isAvailable: newItem.isAvailable,
+          categoryIds: [],
         },
       }).unwrap();
 
