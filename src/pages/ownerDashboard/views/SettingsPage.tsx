@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useMsal } from '@azure/msal-react';
+import { skipToken } from '@reduxjs/toolkit/query';
 import {
   ORDER_ACCEPTANCE_MODES,
   PAYMENT_POLICIES,
@@ -10,11 +12,11 @@ import {
   type UpsertShopHoursRequest,
 } from '../../../types/apiTypes';
 import {
-  useGetShopByIdQuery,
-  useGetShopHoursQuery,
-  useGetUserShopsQuery,
-  useUpdateShopSettingsMutation,
-  useUpsertShopHoursMutation,
+  useShopHoursGetQuery,
+  useShopHoursUpsertMutation,
+  useShopsGetByIdQuery,
+  useShopsUpdateMutation,
+  useUsersGetShopsQuery,
 } from '../../../store/api/ownerApi';
 
 type Weekday =
@@ -39,20 +41,27 @@ const weekdays: { key: Weekday; label: string }[] = [
 const defaultHoursWindow = { open: '09:00', close: '17:00' };
 
 const SettingsPage = () => {
-  const { data: userShops, isLoading: isLoadingShops } = useGetUserShopsQuery();
+  const { accounts } = useMsal();
+  const ownerUserId =
+    accounts[0]?.localAccountId ||
+    accounts[0]?.homeAccountId ||
+    accounts[0]?.username ||
+    '';
+  const shopsQueryArg = ownerUserId ? { userId: ownerUserId } : skipToken;
+  const { data: userShops, isLoading: isLoadingShops } =
+    useUsersGetShopsQuery(shopsQueryArg);
   const [selectedShopId, setSelectedShopId] = useState<string | undefined>();
 
-  const { data: shopDetails } = useGetShopByIdQuery(selectedShopId ?? '', {
-    skip: !selectedShopId,
-  });
+  const shopDetailsQueryArg = selectedShopId ?? skipToken;
+  const { data: shopDetails } = useShopsGetByIdQuery(shopDetailsQueryArg);
 
-  const { data: shopHours } = useGetShopHoursQuery(
-    { shopId: selectedShopId ?? '' },
-    { skip: !selectedShopId },
-  );
+  const shopHoursQueryArg = selectedShopId
+    ? { shopId: selectedShopId }
+    : skipToken;
+  const { data: shopHours } = useShopHoursGetQuery(shopHoursQueryArg);
 
-  const [updateSettings, updateSettingsMeta] = useUpdateShopSettingsMutation();
-  const [upsertHours, upsertHoursMeta] = useUpsertShopHoursMutation();
+  const [updateSettings, updateSettingsMeta] = useShopsUpdateMutation();
+  const [upsertHours, upsertHoursMeta] = useShopHoursUpsertMutation();
 
   const [settingsDraft, setSettingsDraft] = useState<ShopSettingsUpdateRequest>(
     {},

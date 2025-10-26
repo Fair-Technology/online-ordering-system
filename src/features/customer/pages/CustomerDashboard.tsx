@@ -1,5 +1,5 @@
 import CustomerMenuList from '../components/CustomerMenuList';
-import { Item } from '../../restaurantOwner/types';
+import { Item } from '../../restaurantOwner-old/types';
 import { dummyItems } from '../data/dummyMenuData';
 import { groupItemsByCategory } from '../../../utils/groupItemsByCategory';
 

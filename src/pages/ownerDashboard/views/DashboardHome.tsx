@@ -1,6 +1,8 @@
+import { useMsal } from '@azure/msal-react';
+import { skipToken } from '@reduxjs/toolkit/query';
 import {
-  useGetUserShopsQuery,
-  useListOrdersQuery,
+  useOrdersListQuery,
+  useUsersGetShopsQuery,
 } from '../../../store/api/ownerApi';
 
 const formatRelativeTime = (value: string) => {
@@ -51,16 +53,25 @@ const StatCard = ({
 );
 
 const DashboardHome = () => {
+  const { accounts } = useMsal();
+  const ownerUserId =
+    accounts[0]?.localAccountId ||
+    accounts[0]?.homeAccountId ||
+    accounts[0]?.username ||
+    '';
+  const shopsQueryArg = ownerUserId ? { userId: ownerUserId } : skipToken;
   const {
     data: userShops,
     isLoading: isShopsLoading,
     isError: isShopsError,
-  } = useGetUserShopsQuery();
+  } = useUsersGetShopsQuery(shopsQueryArg);
+  const primaryShopId = userShops?.[0]?.shopId;
+  const ordersQueryArg = primaryShopId ? { shopId: primaryShopId } : skipToken;
   const {
     data: orders,
     isLoading: isOrdersLoading,
     isError: isOrdersError,
-  } = useListOrdersQuery();
+  } = useOrdersListQuery(ordersQueryArg);
 
   const activeShopCount =
     userShops?.filter((shop) => shop.acceptingOrders).length ?? 0;
@@ -178,37 +189,47 @@ const DashboardHome = () => {
               <p className="text-sm text-gray-500">Newest five orders</p>
             </div>
           </div>
-          {isOrdersLoading && <EmptyState message="Loading orders…" />}
-          {isOrdersError && (
+          {primaryShopId && isOrdersLoading && (
+            <EmptyState message="Loading orders…" />
+          )}
+          {primaryShopId && isOrdersError && (
             <EmptyState message="Orders could not be loaded." />
           )}
-          {!isOrdersLoading && !isOrdersError && latestOrders.length === 0 && (
-            <EmptyState message="No orders found for the selected period." />
+          {!primaryShopId && (
+            <EmptyState message="Select or create a shop to see orders." />
           )}
-          <ul className="divide-y divide-gray-100">
-            {latestOrders.map((order) => (
-              <li key={order.id} className="py-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      #{order.id.slice(0, 8)}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {order.customerName} • {order.totalAmount.toFixed(2)}
-                    </p>
+          {primaryShopId &&
+            !isOrdersLoading &&
+            !isOrdersError &&
+            latestOrders.length === 0 && (
+              <EmptyState message="No orders found for the selected period." />
+            )}
+          {primaryShopId && (
+            <ul className="divide-y divide-gray-100">
+              {latestOrders.map((order) => (
+                <li key={order.id} className="py-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        #{order.id.slice(0, 8)}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {order.customerName} • {order.totalAmount.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-blue-50 text-blue-700">
+                        {order.status.replace(/_/g, ' ')}
+                      </span>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {formatRelativeTime(order.updatedAt)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-blue-50 text-blue-700">
-                      {order.status.replace(/_/g, ' ')}
-                    </span>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {formatRelativeTime(order.updatedAt)}
-                    </p>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </section>

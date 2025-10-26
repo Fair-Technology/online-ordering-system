@@ -1,12 +1,14 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { useMsal } from '@azure/msal-react';
+import { skipToken } from '@reduxjs/toolkit/query';
 import {
   SHOP_STATUSES,
-  type ShopSummary,
+  type ShopStatus,
+  type UserShopView,
 } from '../../../types/apiTypes';
 import {
-  useCreateShopMutation,
-  useGetShopsQuery,
+  useShopsCreateMutation,
+  useUsersGetShopsQuery,
 } from '../../../store/api/ownerApi';
 
 const statusStyles: Record<string, string> = {
@@ -14,7 +16,7 @@ const statusStyles: Record<string, string> = {
   closed: 'bg-gray-100 text-gray-700',
 };
 
-const ShopStatusBadge = ({ status }: { status: ShopSummary['status'] }) => (
+const ShopStatusBadge = ({ status }: { status: ShopStatus }) => (
   <span
     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
       statusStyles[status] ?? 'bg-gray-100 text-gray-700'
@@ -32,24 +34,32 @@ const ShopsPage = () => {
     accounts[0]?.username ||
     '';
 
-  const { data: shops, isLoading, isError } = useGetShopsQuery();
-  const [createShop, { isLoading: isCreating }] = useCreateShopMutation();
+  const queryArg = ownerUserId ? { userId: ownerUserId } : skipToken;
+  const {
+    data: shops,
+    isLoading,
+    isError,
+    refetch: refetchShops,
+    isUninitialized,
+  } = useUsersGetShopsQuery(queryArg);
+  const [createShop, { isLoading: isCreating }] = useShopsCreateMutation();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [creationError, setCreationError] = useState<string | null>(null);
   const [creationSuccess, setCreationSuccess] = useState<string | null>(null);
   const [newShop, setNewShop] = useState({ name: '', address: '' });
 
+  const resolvedShops: UserShopView[] = shops ?? [];
   const filteredShops = useMemo(() => {
-    if (!shops) return [];
-    if (!searchTerm) return shops;
+    if (!resolvedShops.length) return [];
+    if (!searchTerm) return resolvedShops;
     const lower = searchTerm.toLowerCase();
-    return shops.filter(
+    return resolvedShops.filter(
       (shop) =>
-        shop.name.toLowerCase().includes(lower) ||
+        shop?.name?.toLowerCase().includes(lower) ||
         shop.address?.toLowerCase().includes(lower),
     );
-  }, [shops, searchTerm]);
+  }, [resolvedShops, searchTerm]);
 
   const handleCreateShop = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -69,6 +79,7 @@ const ShopsPage = () => {
       }).unwrap();
       setCreationSuccess('Shop created successfully.');
       setNewShop({ name: '', address: '' });
+      await refetchShops();
     } catch (error) {
       setCreationSuccess(null);
       setCreationError(
@@ -99,8 +110,9 @@ const ShopsPage = () => {
 
       <div className="grid gap-6 md:grid-cols-3">
         {SHOP_STATUSES.map((status) => {
-          const count =
-            shops?.filter((shop) => shop.status === status).length ?? 0;
+          const count = resolvedShops.filter(
+            (shop) => shop.status === status,
+          ).length;
           return (
             <div
               key={status}
@@ -123,12 +135,12 @@ const ShopsPage = () => {
                 <th className="px-4 py-3">Shop</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Accepting orders</th>
-                <th className="px-4 py-3">Payment policy</th>
+                <th className="px-4 py-3">Role</th>
                 <th className="px-4 py-3">Updated</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {isLoading && (
+              {(isUninitialized || queryArg === skipToken || isLoading) && (
                 <tr>
                   <td colSpan={5} className="px-4 py-6 text-center text-sm">
                     Loading shops…
@@ -142,15 +154,18 @@ const ShopsPage = () => {
                   </td>
                 </tr>
               )}
-              {!isLoading && !isError && filteredShops.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-sm">
-                    No shops match the current filter.
-                  </td>
-                </tr>
+              {!isLoading &&
+                queryArg !== skipToken &&
+                !isError &&
+                filteredShops.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-6 text-center text-sm">
+                      No shops match the current filter.
+                    </td>
+                  </tr>
               )}
               {filteredShops.map((shop) => (
-                <tr key={shop.id}>
+                <tr key={shop.shopId}>
                   <td className="px-4 py-4">
                     <div>
                       <p className="font-medium text-gray-900">{shop.name}</p>
@@ -174,7 +189,7 @@ const ShopsPage = () => {
                     </span>
                   </td>
                   <td className="px-4 py-4 capitalize text-sm text-gray-700">
-                    {shop.paymentPolicy.replace(/_/g, ' ')}
+                    {shop.role}
                   </td>
                   <td className="px-4 py-4 text-sm text-gray-500">
                     {new Date(shop.updatedAt).toLocaleDateString()}

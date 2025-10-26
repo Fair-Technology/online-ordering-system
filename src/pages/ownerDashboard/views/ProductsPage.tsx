@@ -1,9 +1,11 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useMsal } from '@azure/msal-react';
+import { skipToken } from '@reduxjs/toolkit/query';
 import type { ProductResponse } from '../../../types/apiTypes';
 import {
-  useCreateProductMutation,
-  useGetProductsQuery,
+  useProductsCreateMutation,
+  useShopsMenuQuery,
+  useUsersGetShopsQuery,
 } from '../../../store/api/ownerApi';
 
 const ProductsPage = () => {
@@ -14,9 +16,29 @@ const ProductsPage = () => {
     accounts[0]?.username ||
     '';
 
-  const { data: products, isLoading, isError } = useGetProductsQuery();
+  const shopsQueryArg = ownerUserId ? { userId: ownerUserId } : skipToken;
+  const {
+    data: userShops,
+    isLoading: isShopsLoading,
+  } = useUsersGetShopsQuery(shopsQueryArg);
+  const [selectedShopId, setSelectedShopId] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (!selectedShopId && userShops?.length) {
+      setSelectedShopId(userShops[0].shopId);
+    }
+  }, [selectedShopId, userShops]);
+
+  const menuQueryArg = selectedShopId ?? skipToken;
+  const {
+    data: menuData,
+    isLoading: isMenuLoading,
+    isError: isMenuError,
+  } = useShopsMenuQuery(menuQueryArg);
+
+  const products = menuData?.products ?? [];
   const [createProduct, { isLoading: isCreating }] =
-    useCreateProductMutation();
+    useProductsCreateMutation();
 
   const [newProduct, setNewProduct] = useState({
     name: '',
@@ -25,16 +47,15 @@ const ProductsPage = () => {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const totalProducts = products?.length ?? 0;
-  const activeProducts =
-    products?.filter((product) => product.isActive).length ?? 0;
-  const variantHeavy =
-    products?.filter((product) => product.variantSchemes.length > 0).length ??
-    0;
+  const totalProducts = products.length;
+  const activeProducts = products.filter((product) => product.isActive).length;
+  const variantHeavy = products.filter(
+    (product) => product.variantSchemes.length > 0,
+  ).length;
 
   const sortedProducts = useMemo(
     () =>
-      [...(products ?? [])].sort(
+      [...products].sort(
         (a, b) =>
           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
       ),
@@ -102,6 +123,14 @@ const ProductsPage = () => {
     </tr>
   );
 
+  const isLoadingProducts =
+    menuQueryArg === skipToken ? isShopsLoading : isMenuLoading;
+  const isProductsError =
+    menuQueryArg === skipToken ? false : isMenuError;
+
+  const noShopsAvailable =
+    !isShopsLoading && (userShops?.length ?? 0) === 0;
+
   return (
     <section className="space-y-6">
       <header className="space-y-2">
@@ -112,23 +141,55 @@ const ProductsPage = () => {
         </p>
       </header>
 
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-2">
+        <label className="text-sm font-medium text-gray-700">
+          Choose a shop
+        </label>
+        <select
+          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={selectedShopId ?? ''}
+          onChange={(event) =>
+            setSelectedShopId(event.target.value || undefined)
+          }
+          disabled={isShopsLoading || noShopsAvailable}
+        >
+          <option value="" disabled>
+            {isShopsLoading
+              ? 'Loading shops…'
+              : noShopsAvailable
+                ? 'No shops available'
+                : 'Select a shop'}
+          </option>
+          {userShops?.map((shop) => (
+            <option key={shop.shopId} value={shop.shopId}>
+              {shop.name}
+            </option>
+          ))}
+        </select>
+        {!selectedShopId && !isShopsLoading && !noShopsAvailable ? (
+          <p className="text-xs text-gray-500">
+            Select a shop to view its available products.
+          </p>
+        ) : null}
+      </div>
+
       <div className="grid gap-4 md:grid-cols-3">
         <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
           <p className="text-sm text-gray-500">Total products</p>
           <p className="text-3xl font-semibold text-gray-900 mt-1">
-            {isLoading ? '…' : totalProducts}
+            {isLoadingProducts ? '…' : totalProducts}
           </p>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
           <p className="text-sm text-gray-500">Active</p>
           <p className="text-3xl font-semibold text-gray-900 mt-1">
-            {isLoading ? '…' : activeProducts}
+            {isLoadingProducts ? '…' : activeProducts}
           </p>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
           <p className="text-sm text-gray-500">With variants</p>
           <p className="text-3xl font-semibold text-gray-900 mt-1">
-            {isLoading ? '…' : variantHeavy}
+            {isLoadingProducts ? '…' : variantHeavy}
           </p>
         </div>
       </div>
@@ -146,28 +207,39 @@ const ProductsPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {isLoading && (
+              {isLoadingProducts && (
                 <tr>
                   <td colSpan={5} className="px-4 py-6 text-center text-sm">
                     Loading products…
                   </td>
                 </tr>
               )}
-              {isError && (
+              {isProductsError && (
                 <tr>
                   <td colSpan={5} className="px-4 py-6 text-center text-sm">
                     Unable to load products.
                   </td>
                 </tr>
               )}
-              {!isLoading && !isError && sortedProducts.length === 0 && (
+              {!isLoadingProducts &&
+                !isProductsError &&
+                selectedShopId &&
+                sortedProducts.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-6 text-center text-sm">
+                      No products have been added yet.
+                    </td>
+                  </tr>
+              )}
+              {!selectedShopId && (
                 <tr>
                   <td colSpan={5} className="px-4 py-6 text-center text-sm">
-                    No products have been added yet.
+                    Select a shop to view its products.
                   </td>
                 </tr>
               )}
-              {sortedProducts.map(renderProductRow)}
+              {selectedShopId &&
+                sortedProducts.map((product) => renderProductRow(product))}
             </tbody>
           </table>
         </div>

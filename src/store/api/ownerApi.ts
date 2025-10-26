@@ -1,5 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import type {
+  CartResponse,
   CategoryResponse,
   CreateCategoryRequest,
   CreateOrderRequest,
@@ -29,19 +30,39 @@ import type {
   UpdateShopResponse,
   UpsertShopHoursRequest,
   UpsertShopHoursResponse,
+  UserRole,
   UserShopsResponse,
+  UpdateCartRequest,
 } from '../../types/apiTypes';
 
 type ShopScopedBody<T> = { shopId: string; body: T };
-type ShopAndMemberUpdate = {
-  shopId: string;
-  memberId: string;
-  body: UpdateShopMemberRequest;
-};
 type ShopScopedQuery = { shopId: string };
 type ShopScopedQueryWithParams<T> = { shopId: string; params?: T };
+type ShopResourceUpdate<Body, Key extends string> = ShopScopedBody<Body> &
+  Record<Key, string>;
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
+type CreateUserRequest = {
+  email: string;
+  role: UserRole;
+  displayName?: string;
+  phoneNumber?: string;
+  externalId?: string;
+};
+
+type UserResponse = {
+  id: string;
+  email: string;
+  role: UserRole;
+  displayName?: string;
+  phoneNumber?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type UserListResponse = UserResponse[];
+
+const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:7071';
 
 export const ownerApi = createApi({
   reducerPath: 'ownerApi',
@@ -55,173 +76,43 @@ export const ownerApi = createApi({
     },
   }),
   tagTypes: [
-    'Shop',
-    'UserShop',
-    'ShopMember',
-    'ShopHours',
+    'Cart',
     'Category',
+    'Order',
     'Product',
     'ProductInShop',
-    'Order',
+    'Shop',
+    'ShopHours',
+    'ShopMember',
+    'User',
+    'UserShop',
   ],
   endpoints: (builder) => ({
-    getUserShops: builder.query<UserShopsResponse, void>({
-      query: () => '/api/user/shops',
-      providesTags: (result) =>
-        result
-          ? [
-              ...result.map(({ shopId }) => ({
-                type: 'UserShop' as const,
-                id: shopId,
-              })),
-              { type: 'UserShop' as const, id: 'LIST' },
-            ]
-          : [{ type: 'UserShop' as const, id: 'LIST' }],
-    }),
-
-    getShops: builder.query<ShopSummary[], void>({
-      query: () => '/api/shops',
-      providesTags: (result) =>
-        result
-          ? [
-              ...result.map(({ id }) => ({
-                type: 'Shop' as const,
-                id,
-              })),
-              { type: 'Shop' as const, id: 'LIST' },
-            ]
-          : [{ type: 'Shop' as const, id: 'LIST' }],
-    }),
-
-    getShopById: builder.query<ShopSummary, string>({
-      query: (shopId) => `/api/shops/${shopId}`,
-      providesTags: (_result, _error, shopId) => [{ type: 'Shop', id: shopId }],
-    }),
-
-    createShop: builder.mutation<CreateShopResponse, CreateShopRequest>({
-      query: (body) => ({
-        url: '/api/shops',
-        method: 'POST',
-        body,
+    cartGet: builder.query<
+      CartResponse,
+      { shopId: string; userId: string; params?: Record<string, string> }
+    >({
+      query: ({ shopId, userId, params }) => ({
+        url: `/api/shops/${shopId}/cart`,
+        params: { userId, ...params },
       }),
-      invalidatesTags: [
-        { type: 'Shop', id: 'LIST' },
-        { type: 'UserShop', id: 'LIST' },
+      providesTags: (_result, _error, { shopId, userId }) => [
+        { type: 'Cart', id: `${shopId}-${userId}` },
       ],
     }),
 
-    updateShopSettings: builder.mutation<
-      UpdateShopResponse,
-      ShopScopedBody<ShopSettingsUpdateRequest>
-    >({
+    cartPut: builder.mutation<CartResponse, ShopScopedBody<UpdateCartRequest>>({
       query: ({ shopId, body }) => ({
-        url: `/api/shops/${shopId}/settings`,
-        method: 'PATCH',
-        body,
-      }),
-      invalidatesTags: (_result, _error, { shopId }) => [
-        { type: 'Shop', id: shopId },
-        { type: 'UserShop', id: shopId },
-      ],
-    }),
-
-    getShopMembers: builder.query<ListShopMembersResponse, ShopScopedQuery>({
-      query: ({ shopId }) => `/api/shops/${shopId}/members`,
-      providesTags: (result, _error, { shopId }) => {
-        const base = [{ type: 'ShopMember' as const, id: `${shopId}-LIST` }];
-        if (!result) return base;
-        return [
-          ...result.map((member) => ({
-            type: 'ShopMember' as const,
-            id: member.id,
-          })),
-          ...base,
-        ];
-      },
-    }),
-
-    createShopMember: builder.mutation<
-      ShopMemberResponse,
-      { shopId: string; body: CreateShopMemberRequest }
-    >({
-      query: ({ shopId, body }) => ({
-        url: `/api/shops/${shopId}/members`,
-        method: 'POST',
-        body,
-      }),
-      invalidatesTags: (_result, _error, { shopId }) => [
-        { type: 'ShopMember', id: `${shopId}-LIST` },
-      ],
-    }),
-
-    updateShopMember: builder.mutation<ShopMemberResponse, ShopAndMemberUpdate>(
-      {
-        query: ({ shopId, memberId, body }) => ({
-          url: `/api/shops/${shopId}/members/${memberId}`,
-          method: 'PATCH',
-          body,
-        }),
-        invalidatesTags: (_result, _error, { memberId, shopId }) => [
-          { type: 'ShopMember', id: memberId },
-          { type: 'ShopMember', id: `${shopId}-LIST` },
-        ],
-      }
-    ),
-
-    removeShopMember: builder.mutation<
-      { success: boolean },
-      { shopId: string; memberId: string }
-    >({
-      query: ({ shopId, memberId }) => ({
-        url: `/api/shops/${shopId}/members/${memberId}`,
-        method: 'DELETE',
-      }),
-      invalidatesTags: (_result, _error, { memberId, shopId }) => [
-        { type: 'ShopMember', id: memberId },
-        { type: 'ShopMember', id: `${shopId}-LIST` },
-      ],
-    }),
-
-    getShopHours: builder.query<GetShopHoursResponse, ShopScopedQuery>({
-      query: ({ shopId }) => `/api/shops/${shopId}/hours`,
-      providesTags: (_result, _error, { shopId }) => [
-        { type: 'ShopHours', id: shopId },
-      ],
-    }),
-
-    upsertShopHours: builder.mutation<
-      UpsertShopHoursResponse,
-      ShopScopedBody<UpsertShopHoursRequest>
-    >({
-      query: ({ shopId, body }) => ({
-        url: `/api/shops/${shopId}/hours`,
+        url: `/api/shops/${shopId}/cart`,
         method: 'PUT',
         body,
       }),
-      invalidatesTags: (_result, _error, { shopId }) => [
-        { type: 'ShopHours', id: shopId },
+      invalidatesTags: (_result, _error, { shopId, body }) => [
+        { type: 'Cart', id: `${shopId}-${body.userId}` },
       ],
     }),
 
-    getCategories: builder.query<
-      ListCategoriesResponse,
-      ShopScopedQueryWithParams<Record<string, string | number | boolean>>
-    >({
-      query: ({ shopId, params }) => ({
-        url: `/api/shops/${shopId}/categories`,
-        params,
-      }),
-      providesTags: (result, _error, { shopId }) => {
-        const base = [{ type: 'Category' as const, id: `${shopId}-LIST` }];
-        if (!result) return base;
-        return [
-          ...result.map(({ id }) => ({ type: 'Category' as const, id })),
-          ...base,
-        ];
-      },
-    }),
-
-    createCategory: builder.mutation<
+    categoriesCreate: builder.mutation<
       CategoryResponse,
       ShopScopedBody<CreateCategoryRequest>
     >({
@@ -235,50 +126,87 @@ export const ownerApi = createApi({
       ],
     }),
 
-    updateCategory: builder.mutation<
+    categoriesList: builder.query<
+      ListCategoriesResponse,
+      ShopScopedQueryWithParams<Record<string, string | number | boolean>>
+    >({
+      query: ({ shopId, params }) => ({
+        url: `/api/shops/${shopId}/categories`,
+        params,
+      }),
+      providesTags: (result, _error, { shopId }) => {
+        const listTag = { type: 'Category' as const, id: `${shopId}-LIST` };
+        if (!result) return [listTag];
+        return [
+          ...result.map(({ id }) => ({ type: 'Category' as const, id })),
+          listTag,
+        ];
+      },
+    }),
+
+    categoriesUpdate: builder.mutation<
       CategoryResponse,
-      { shopId: string; categoryId: string; body: UpdateCategoryRequest }
+      ShopResourceUpdate<UpdateCategoryRequest, 'categoryId'>
     >({
       query: ({ shopId, categoryId, body }) => ({
         url: `/api/shops/${shopId}/categories/${categoryId}`,
         method: 'PATCH',
         body,
       }),
-      invalidatesTags: (_result, _error, { categoryId, shopId }) => [
+      invalidatesTags: (_result, _error, { shopId, categoryId }) => [
         { type: 'Category', id: categoryId },
         { type: 'Category', id: `${shopId}-LIST` },
       ],
     }),
 
-    deleteCategory: builder.mutation<
-      { success: boolean },
-      { shopId: string; categoryId: string }
+    ordersCreate: builder.mutation<
+      CreateOrderResponse,
+      ShopScopedBody<CreateOrderRequest>
     >({
-      query: ({ shopId, categoryId }) => ({
-        url: `/api/shops/${shopId}/categories/${categoryId}`,
-        method: 'DELETE',
+      query: ({ shopId, body }) => ({
+        url: `/api/shops/${shopId}/orders`,
+        method: 'POST',
+        body,
       }),
-      invalidatesTags: (_result, _error, { categoryId, shopId }) => [
-        { type: 'Category', id: categoryId },
-        { type: 'Category', id: `${shopId}-LIST` },
+      invalidatesTags: (_result, _error, { shopId }) => [
+        { type: 'Order', id: `${shopId}-LIST` },
       ],
     }),
 
-    getProducts: builder.query<ProductResponse[], void>({
-      query: () => '/api/products',
-      providesTags: (result) =>
-        result
-          ? [
-              ...result.map(({ id }) => ({
-                type: 'Product' as const,
-                id,
-              })),
-              { type: 'Product' as const, id: 'LIST' },
-            ]
-          : [{ type: 'Product' as const, id: 'LIST' }],
+    ordersList: builder.query<
+      ListOrdersResponse,
+      ShopScopedQueryWithParams<ListOrdersQuery | undefined>
+    >({
+      query: ({ shopId, params }) => ({
+        url: `/api/shops/${shopId}/orders`,
+        params,
+      }),
+      providesTags: (result, _error, { shopId }) => {
+        const listTag = { type: 'Order' as const, id: `${shopId}-LIST` };
+        if (!result) return [listTag];
+        return [
+          ...result.map(({ id }) => ({ type: 'Order' as const, id })),
+          listTag,
+        ];
+      },
     }),
 
-    createProduct: builder.mutation<ProductResponse, CreateProductRequest>({
+    ordersUpdateStatus: builder.mutation<
+      UpdateOrderStatusResponse,
+      ShopResourceUpdate<UpdateOrderStatusRequest, 'orderId'>
+    >({
+      query: ({ shopId, orderId, body }) => ({
+        url: `/api/shops/${shopId}/orders/${orderId}/status`,
+        method: 'PATCH',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { shopId, orderId }) => [
+        { type: 'Order', id: orderId },
+        { type: 'Order', id: `${shopId}-LIST` },
+      ],
+    }),
+
+    productsCreate: builder.mutation<ProductResponse, CreateProductRequest>({
       query: (body) => ({
         url: '/api/products',
         method: 'POST',
@@ -287,7 +215,7 @@ export const ownerApi = createApi({
       invalidatesTags: [{ type: 'Product', id: 'LIST' }],
     }),
 
-    updateProduct: builder.mutation<
+    productsUpdate: builder.mutation<
       ProductResponse,
       { productId: string; body: UpdateProductRequest }
     >({
@@ -302,33 +230,7 @@ export const ownerApi = createApi({
       ],
     }),
 
-    deleteProduct: builder.mutation<{ success: boolean }, string>({
-      query: (productId) => ({
-        url: `/api/products/${productId}`,
-        method: 'DELETE',
-      }),
-      invalidatesTags: (_result, _error, productId) => [
-        { type: 'Product', id: productId },
-        { type: 'Product', id: 'LIST' },
-      ],
-    }),
-
-    getProductsInShop: builder.query<ProductInShopResponse[], string>({
-      query: (shopId) => `/api/shops/${shopId}/products`,
-      providesTags: (result, _error, shopId) => {
-        const base = [{ type: 'ProductInShop' as const, id: `${shopId}-LIST` }];
-        if (!result) return base;
-        return [
-          ...result.map(({ id }) => ({
-            type: 'ProductInShop' as const,
-            id,
-          })),
-          ...base,
-        ];
-      },
-    }),
-
-    createProductInShop: builder.mutation<
+    productsInShopCreate: builder.mutation<
       ProductInShopResponse,
       ShopScopedBody<CreateProductInShopRequest>
     >({
@@ -342,112 +244,176 @@ export const ownerApi = createApi({
       ],
     }),
 
-    updateProductInShop: builder.mutation<
+    productsInShopUpdate: builder.mutation<
       ProductInShopResponse,
-      {
-        shopId: string;
-        productInShopId: string;
-        body: UpdateProductInShopRequest;
-      }
+      ShopResourceUpdate<UpdateProductInShopRequest, 'productInShopId'>
     >({
       query: ({ shopId, productInShopId, body }) => ({
         url: `/api/shops/${shopId}/products/${productInShopId}`,
         method: 'PATCH',
         body,
       }),
-      invalidatesTags: (_result, _error, { productInShopId, shopId }) => [
+      invalidatesTags: (_result, _error, { shopId, productInShopId }) => [
         { type: 'ProductInShop', id: productInShopId },
         { type: 'ProductInShop', id: `${shopId}-LIST` },
       ],
     }),
 
-    deleteProductInShop: builder.mutation<
-      { success: boolean },
-      { shopId: string; productInShopId: string }
+    shopHoursGet: builder.query<GetShopHoursResponse, ShopScopedQuery>({
+      query: ({ shopId }) => `/api/shops/${shopId}/hours`,
+      providesTags: (_result, _error, { shopId }) => [
+        { type: 'ShopHours', id: shopId },
+      ],
+    }),
+
+    shopHoursUpsert: builder.mutation<
+      UpsertShopHoursResponse,
+      ShopScopedBody<UpsertShopHoursRequest>
     >({
-      query: ({ shopId, productInShopId }) => ({
-        url: `/api/shops/${shopId}/products/${productInShopId}`,
-        method: 'DELETE',
+      query: ({ shopId, body }) => ({
+        url: `/api/shops/${shopId}/hours`,
+        method: 'PUT',
+        body,
       }),
-      invalidatesTags: (_result, _error, { productInShopId, shopId }) => [
-        { type: 'ProductInShop', id: productInShopId },
-        { type: 'ProductInShop', id: `${shopId}-LIST` },
+      invalidatesTags: (_result, _error, { shopId }) => [
+        { type: 'ShopHours', id: shopId },
       ],
     }),
 
-    getMenu: builder.query<ShopMenuResponse, string>({
-      query: (shopId) => `/api/shops/${shopId}/menu`,
-    }),
-
-    listOrders: builder.query<ListOrdersResponse, ListOrdersQuery | void>({
-      query: (params) => ({
-        url: '/api/orders',
-        params: params ?? undefined,
-      }),
-      providesTags: (result) =>
-        result
-          ? [
-              ...result.map(({ id }) => ({
-                type: 'Order' as const,
-                id,
-              })),
-              { type: 'Order' as const, id: 'LIST' },
-            ]
-          : [{ type: 'Order' as const, id: 'LIST' }],
-    }),
-
-    createOrder: builder.mutation<CreateOrderResponse, CreateOrderRequest>({
-      query: (body) => ({
-        url: '/api/orders',
+    shopMembersCreate: builder.mutation<
+      ShopMemberResponse,
+      ShopScopedBody<CreateShopMemberRequest>
+    >({
+      query: ({ shopId, body }) => ({
+        url: `/api/shops/${shopId}/members`,
         method: 'POST',
         body,
       }),
-      invalidatesTags: [{ type: 'Order', id: 'LIST' }],
+      invalidatesTags: (_result, _error, { shopId }) => [
+        { type: 'ShopMember', id: `${shopId}-LIST` },
+      ],
     }),
 
-    updateOrderStatus: builder.mutation<
-      UpdateOrderStatusResponse,
-      { orderId: string; body: UpdateOrderStatusRequest }
+    shopMembersList: builder.query<ListShopMembersResponse, ShopScopedQuery>({
+      query: ({ shopId }) => `/api/shops/${shopId}/members`,
+      providesTags: (result, _error, { shopId }) => {
+        const listTag = { type: 'ShopMember' as const, id: `${shopId}-LIST` };
+        if (!result) return [listTag];
+        return [
+          ...result.map(({ id }) => ({ type: 'ShopMember' as const, id })),
+          listTag,
+        ];
+      },
+    }),
+
+    shopMembersUpdate: builder.mutation<
+      ShopMemberResponse,
+      ShopResourceUpdate<UpdateShopMemberRequest, 'memberId'>
     >({
-      query: ({ orderId, body }) => ({
-        url: `/api/orders/${orderId}/status`,
+      query: ({ shopId, memberId, body }) => ({
+        url: `/api/shops/${shopId}/members/${memberId}`,
         method: 'PATCH',
         body,
       }),
-      invalidatesTags: (_result, _error, { orderId }) => [
-        { type: 'Order', id: orderId },
-        { type: 'Order', id: 'LIST' },
+      invalidatesTags: (_result, _error, { shopId, memberId }) => [
+        { type: 'ShopMember', id: memberId },
+        { type: 'ShopMember', id: `${shopId}-LIST` },
       ],
+    }),
+
+    shopsCreate: builder.mutation<CreateShopResponse, CreateShopRequest>({
+      query: (body) => ({
+        url: '/api/shops',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: [{ type: 'Shop', id: 'LIST' }, { type: 'UserShop', id: 'LIST' }],
+    }),
+
+    shopsGetById: builder.query<ShopSummary, string>({
+      query: (shopId) => `/api/shops/${shopId}`,
+      providesTags: (_result, _error, shopId) => [
+        { type: 'Shop', id: shopId },
+      ],
+    }),
+
+    shopsMenu: builder.query<ShopMenuResponse, string>({
+      query: (shopId) => `/api/shops/${shopId}/menu`,
+    }),
+
+    shopsUpdate: builder.mutation<
+      UpdateShopResponse,
+      { shopId: string; body: ShopSettingsUpdateRequest }
+    >({
+      query: ({ shopId, body }) => ({
+        url: `/api/shops/${shopId}`,
+        method: 'PATCH',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { shopId }) => [
+        { type: 'Shop', id: shopId },
+        { type: 'Shop', id: 'LIST' },
+      ],
+    }),
+
+    usersCreate: builder.mutation<UserResponse, CreateUserRequest>({
+      query: (body) => ({
+        url: '/api/users',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: [{ type: 'User', id: 'LIST' }],
+    }),
+
+    usersList: builder.query<UserListResponse, void>({
+      query: () => '/api/users',
+      providesTags: (result) => {
+        const listTag = { type: 'User' as const, id: 'LIST' };
+        if (!result) return [listTag];
+        return [
+          ...result.map(({ id }) => ({ type: 'User' as const, id })),
+          listTag,
+        ];
+      },
+    }),
+
+    usersGetShops: builder.query<UserShopsResponse, { userId: string }>({
+      query: ({ userId }) => `/api/users/${userId}/shops`,
+      providesTags: (result) => {
+        const listTag = { type: 'UserShop' as const, id: 'LIST' };
+        if (!result) return [listTag];
+        return [
+          ...result.map(({ shopId }) => ({ type: 'UserShop' as const, id: shopId })),
+          listTag,
+        ];
+      },
     }),
   }),
 });
 
 export const {
-  useGetUserShopsQuery,
-  useGetShopsQuery,
-  useGetShopByIdQuery,
-  useCreateShopMutation,
-  useUpdateShopSettingsMutation,
-  useGetShopMembersQuery,
-  useCreateShopMemberMutation,
-  useUpdateShopMemberMutation,
-  useRemoveShopMemberMutation,
-  useGetShopHoursQuery,
-  useUpsertShopHoursMutation,
-  useGetCategoriesQuery,
-  useCreateCategoryMutation,
-  useUpdateCategoryMutation,
-  useDeleteCategoryMutation,
-  useGetProductsQuery,
-  useCreateProductMutation,
-  useUpdateProductMutation,
-  useDeleteProductMutation,
-  useGetProductsInShopQuery,
-  useCreateProductInShopMutation,
-  useUpdateProductInShopMutation,
-  useDeleteProductInShopMutation,
-  useGetMenuQuery,
-  useListOrdersQuery,
-  useCreateOrderMutation,
-  useUpdateOrderStatusMutation,
+  useCartGetQuery,
+  useCartPutMutation,
+  useCategoriesCreateMutation,
+  useCategoriesListQuery,
+  useCategoriesUpdateMutation,
+  useOrdersCreateMutation,
+  useOrdersListQuery,
+  useOrdersUpdateStatusMutation,
+  useProductsCreateMutation,
+  useProductsUpdateMutation,
+  useProductsInShopCreateMutation,
+  useProductsInShopUpdateMutation,
+  useShopHoursGetQuery,
+  useShopHoursUpsertMutation,
+  useShopMembersCreateMutation,
+  useShopMembersListQuery,
+  useShopMembersUpdateMutation,
+  useShopsCreateMutation,
+  useShopsGetByIdQuery,
+  useShopsMenuQuery,
+  useShopsUpdateMutation,
+  useUsersCreateMutation,
+  useUsersListQuery,
+  useUsersGetShopsQuery,
 } = ownerApi;
