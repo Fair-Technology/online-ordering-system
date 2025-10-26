@@ -1,7 +1,6 @@
 import { useMsal } from '@azure/msal-react';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getUserApiUrl } from '../config/apiConfig';
 
 const UserCreation = () => {
   const { accounts } = useMsal();
@@ -13,7 +12,7 @@ const UserCreation = () => {
       const currentUser = accounts[0];
       const email = currentUser.username;
       if (!email) {
-        console.error('❌ AuthHandler: Missing email - cannot proceed');
+        console.error('❌ Missing email - cannot proceed');
         return;
       }
       fetch(
@@ -31,7 +30,7 @@ const UserCreation = () => {
             navigate('/owner', { replace: true });
           }
         })
-        .catch((err) => {
+        .catch(() => {
           console.log('Create a DB entry');
         });
     } else {

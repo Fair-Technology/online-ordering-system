@@ -4,14 +4,10 @@ import { useEffect } from 'react';
 const Footer = () => {
   const { instance, accounts } = useMsal();
 
-  // User saving is now handled by AuthHandler component
-
-  // Note: User saving is now handled by AuthHandler component in the owner dashboard
-  // This useEffect is kept for debugging purposes only
   useEffect(() => {
     console.log('Footer useEffect triggered, accounts:', accounts.length);
     if (accounts.length > 0) {
-      console.log('User found in footer (handled by AuthHandler)');
+      console.log('User found in footer ');
     }
   }, [accounts]);
 
@@ -71,8 +67,6 @@ const Footer = () => {
               Admin Login
             </button>
           )}
-
-          {/* User save status is now shown in console logs via AuthHandler */}
         </div>
       </div>
     </footer>
