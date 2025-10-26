@@ -42,22 +42,20 @@ type ShopResourceUpdate<Body, Key extends string> = ShopScopedBody<Body> &
   Record<Key, string>;
 
 type CreateUserRequest = {
-  email: string;
+  name: string;
   role: UserRole;
-  displayName?: string;
-  phoneNumber?: string;
-  externalId?: string;
+  email?: string;
+  phone?: string;
 };
 
 type UserResponse = {
   id: string;
-  email: string;
+  name: string;
+  email?: string;
+  phone?: string;
   role: UserRole;
-  displayName?: string;
-  phoneNumber?: string;
-  isActive: boolean;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
 };
 
 type UserListResponse = UserResponse[];
