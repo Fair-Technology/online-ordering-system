@@ -74,7 +74,7 @@ const createDefaultHoursDraft = () => ({
   close: '17:00',
   days: weekdays.reduce<Record<Weekday, boolean>>(
     (acc, { key }) => ({ ...acc, [key]: true }),
-    {} as Record<Weekday, boolean>,
+    {} as Record<Weekday, boolean>
   ),
 });
 
@@ -119,7 +119,13 @@ const Modal = ({
   </div>
 );
 
-const StepIndicator = ({ current, total }: { current: number; total: number }) => (
+const StepIndicator = ({
+  current,
+  total,
+}: {
+  current: number;
+  total: number;
+}) => (
   <div className="flex items-center gap-2 text-sm text-gray-600">
     {Array.from({ length: total }).map((_, index) => {
       const stepNumber = index + 1;
@@ -132,8 +138,8 @@ const StepIndicator = ({ current, total }: { current: number; total: number }) =
               isActive
                 ? 'bg-blue-600 text-white'
                 : isCompleted
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-gray-100 text-gray-500'
+                ? 'bg-green-100 text-green-700'
+                : 'bg-gray-100 text-gray-500'
             }`}
           >
             {stepNumber}
@@ -147,7 +153,9 @@ const StepIndicator = ({ current, total }: { current: number; total: number }) =
   </div>
 );
 
-const normalizeFulfillment = (options: FulfillmentOptions): FulfillmentOptions => ({
+const normalizeFulfillment = (
+  options: FulfillmentOptions
+): FulfillmentOptions => ({
   pickupEnabled: options.pickupEnabled,
   deliveryEnabled: options.deliveryEnabled,
   deliveryRadiusKm:
@@ -195,8 +203,9 @@ const ShopsPage = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [creationError, setCreationError] = useState<string | null>(null);
-  const [creationSuccess, setCreationSuccess] = useState<string | null>(null);
-  const [newShop, setNewShop] = useState<ShopFormState>(createDefaultShopForm());
+  const [newShop, setNewShop] = useState<ShopFormState>(
+    createDefaultShopForm()
+  );
   const [hoursDraft, setHoursDraft] = useState(createDefaultHoursDraft);
   const [createStep, setCreateStep] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -225,7 +234,7 @@ const ShopsPage = () => {
     return resolvedShops.filter(
       (shop) =>
         shop?.name?.toLowerCase().includes(lower) ||
-        shop.address?.toLowerCase().includes(lower),
+        shop.address?.toLowerCase().includes(lower)
     );
   }, [resolvedShops, searchTerm]);
 
@@ -235,7 +244,6 @@ const ShopsPage = () => {
     setNewShop(createDefaultShopForm());
     setHoursDraft(createDefaultHoursDraft());
     setCreationError(null);
-    setCreationSuccess(null);
   };
 
   const openCreateModal = () => {
@@ -268,7 +276,6 @@ const ShopsPage = () => {
 
     try {
       setCreationError(null);
-      setCreationSuccess(null);
       const payload: CreateShopRequest = {
         ...newShop,
         name: newShop.name.trim(),
@@ -291,15 +298,13 @@ const ShopsPage = () => {
         }).unwrap();
       }
 
-      setCreationSuccess('Shop created successfully.');
       await refetchShops();
       closeCreateModal();
     } catch (error) {
-      setCreationSuccess(null);
       setCreationError(
         error instanceof Error
           ? error.message
-          : 'Unable to create shop. Please try again.',
+          : 'Unable to create shop. Please try again.'
       );
     }
   };
@@ -329,7 +334,7 @@ const ShopsPage = () => {
       setEditError(
         error instanceof Error
           ? error.message
-          : 'Unable to update shop. Please try again.',
+          : 'Unable to update shop. Please try again.'
       );
     }
   };
@@ -338,7 +343,7 @@ const ShopsPage = () => {
     setter: (next: ShopFormState) => void,
     form: ShopFormState,
     field: keyof FulfillmentOptions,
-    value: boolean | number,
+    value: boolean | number
   ) => {
     setter({
       ...form,
@@ -353,7 +358,7 @@ const ShopsPage = () => {
   const renderBasicInfoFields = (
     form: ShopFormState,
     setForm: (next: ShopFormState) => void,
-    disabled?: boolean,
+    disabled?: boolean
   ) => (
     <div className="grid gap-4">
       <div>
@@ -394,11 +399,13 @@ const ShopsPage = () => {
   const renderOperationalFields = (
     form: ShopFormState,
     setForm: (next: ShopFormState) => void,
-    disabled?: boolean,
+    disabled?: boolean
   ) => (
     <div className="grid gap-4 md:grid-cols-2">
       <div>
-        <label className="block text-sm font-medium text-gray-700">Status</label>
+        <label className="block text-sm font-medium text-gray-700">
+          Status
+        </label>
         <select
           className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={form.status}
@@ -465,7 +472,9 @@ const ShopsPage = () => {
         <button
           type="button"
           className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-            form.isActive ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'
+            form.isActive
+              ? 'bg-green-50 text-green-700'
+              : 'bg-gray-100 text-gray-600'
           }`}
           onClick={() => setForm({ ...form, isActive: !form.isActive })}
           disabled={disabled}
@@ -493,7 +502,7 @@ const ShopsPage = () => {
   const renderFulfillmentFields = (
     form: ShopFormState,
     setForm: (next: ShopFormState) => void,
-    disabled?: boolean,
+    disabled?: boolean
   ) => (
     <div className="space-y-4">
       <label className="flex items-center gap-2 text-sm text-gray-700">
@@ -518,7 +527,7 @@ const ShopsPage = () => {
               setForm,
               form,
               'pickupEnabled',
-              event.target.checked,
+              event.target.checked
             )
           }
           disabled={disabled}
@@ -536,7 +545,7 @@ const ShopsPage = () => {
                 setForm,
                 form,
                 'deliveryEnabled',
-                event.target.checked,
+                event.target.checked
               )
             }
             disabled={disabled}
@@ -559,7 +568,7 @@ const ShopsPage = () => {
                     setForm,
                     form,
                     'deliveryRadiusKm',
-                    Number(event.target.value),
+                    Number(event.target.value)
                   )
                 }
                 disabled={disabled}
@@ -581,7 +590,7 @@ const ShopsPage = () => {
                     setForm,
                     form,
                     'deliveryFee',
-                    Number(event.target.value),
+                    Number(event.target.value)
                   )
                 }
                 disabled={disabled}
@@ -759,7 +768,7 @@ const ShopsPage = () => {
       <div className="grid gap-6 md:grid-cols-3">
         {SHOP_STATUSES.map((status) => {
           const count = resolvedShops.filter(
-            (shop) => shop.status === status,
+            (shop) => shop.status === status
           ).length;
           return (
             <div
@@ -811,7 +820,7 @@ const ShopsPage = () => {
                     No shops match the current filter.
                   </td>
                 </tr>
-            )}
+              )}
             {filteredShops.map((shop) => (
               <tr key={shop.shopId}>
                 <td className="px-4 py-4">
