@@ -8,12 +8,7 @@ import CategoryFilterBar from '../components/CategoryFilterBar';
 import CustomerMenuList from '../features/customer/components/CustomerMenuList';
 import Footer from '../components/footer';
 
-type ShopParams = {
-  shopId: string;
-};
 const ShopView = () => {
-  const { shopId } = useParams<ShopParams>();
-
   ///// FIRE API CALL
   ///// If failed, redirect them to <NotFound/>
 
@@ -30,8 +25,7 @@ const ShopView = () => {
       </div>
       <HeroSection />
       <CategoryFilterBar />
-      <div className="w-full flex items-center justify-center flex-col">
-        <h2 className="text-xl font-semibold">{shopId}</h2>
+      <div className="w-full flex items-center justify-center flex-col mt-4">
         <CustomerMenuList
           groupedItems={groupedItems}
           onAddToCart={handleAddToCart}
