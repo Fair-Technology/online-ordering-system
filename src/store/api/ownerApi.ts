@@ -18,7 +18,6 @@ import type {
   ProductInShopResponse,
   ProductResponse,
   ShopMemberResponse,
-  ShopMenuResponse,
   ShopSettingsUpdateRequest,
   ShopSummary,
   UpdateCategoryRequest,
@@ -34,6 +33,7 @@ import type {
   UserShopsResponse,
   UpdateCartRequest,
 } from '../../types/apiTypes';
+import { Product } from '../../features/restaurantOwner-old/types';
 
 type ShopScopedBody<T> = { shopId: string; body: T };
 type ShopScopedQuery = { shopId: string };
@@ -325,17 +325,18 @@ export const ownerApi = createApi({
         method: 'POST',
         body,
       }),
-      invalidatesTags: [{ type: 'Shop', id: 'LIST' }, { type: 'UserShop', id: 'LIST' }],
+      invalidatesTags: [
+        { type: 'Shop', id: 'LIST' },
+        { type: 'UserShop', id: 'LIST' },
+      ],
     }),
 
     shopsGetById: builder.query<ShopSummary, string>({
       query: (shopId) => `/api/shops/${shopId}`,
-      providesTags: (_result, _error, shopId) => [
-        { type: 'Shop', id: shopId },
-      ],
+      providesTags: (_result, _error, shopId) => [{ type: 'Shop', id: shopId }],
     }),
 
-    shopsMenu: builder.query<ShopMenuResponse, string>({
+    shopsMenu: builder.query<{ products: Product[] }, string>({
       query: (shopId) => `/api/shops/${shopId}/menu`,
     }),
 
@@ -381,7 +382,10 @@ export const ownerApi = createApi({
         const listTag = { type: 'UserShop' as const, id: 'LIST' };
         if (!result) return [listTag];
         return [
-          ...result.map(({ shopId }) => ({ type: 'UserShop' as const, id: shopId })),
+          ...result.map(({ shopId }) => ({
+            type: 'UserShop' as const,
+            id: shopId,
+          })),
           listTag,
         ];
       },

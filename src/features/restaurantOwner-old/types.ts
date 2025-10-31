@@ -1,13 +1,44 @@
-export interface Item {
-  id?: string;
-  shopId: string;
-  name: string;
+export interface Product {
+  id: string;
+  label: string;
+  imageURL: string;
   description: string;
-  price: number;
-  size: string;
   isAvailable: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-  category: 'mains' | 'snacks' | 'sides' | 'drinks' | 'desserts'; // ✅ new field
-  imageUrl?: string;
+  price: number;
+  categories: Category[];
+  variantTypes: VariantType[];
+  addons: AddonGroup[];
+}
+
+export interface Category {
+  id: string;
+  name: string;
+}
+
+export interface VariantType {
+  id: string;
+  label: string;
+  variants: Variant[];
+}
+
+export interface Variant {
+  id: string;
+  label: string;
+  imageURL: string;
+  priceDelta: number;
+  isAvailable: boolean;
+}
+
+export interface AddonGroup {
+  id: string;
+  label: string;
+  options: AddonOption[];
+}
+
+export interface AddonOption {
+  id: string;
+  label: string;
+  imageURL: string;
+  priceDelta: number;
+  isAvailable: boolean;
 }

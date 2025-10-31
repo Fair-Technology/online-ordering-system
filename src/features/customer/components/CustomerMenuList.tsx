@@ -1,10 +1,10 @@
 import React from 'react';
 import ItemCard from '../../../components/ItemCard';
-import { Item } from '../../restaurantOwner-old/types';
+import { Product } from '../../restaurantOwner-old/types';
 
 interface CustomerMenuListProps {
-  groupedItems: Record<string, Item[]>;
-  onAddToCart: (item: Item) => void;
+  groupedItems: Record<string, Product[]>;
+  onAddToCart: (item: Product) => void;
 }
 
 const CustomerMenuList: React.FC<CustomerMenuListProps> = ({
@@ -33,9 +33,9 @@ const CustomerMenuList: React.FC<CustomerMenuListProps> = ({
                 onClick={() => onAddToCart(item)}
               >
                 <ItemCard
-                  name={item.name}
+                  name={item.label}
                   price={`$${item.price.toFixed(2)}`}
-                  imageUrl={item.imageUrl || ''}
+                  imageUrl={item.imageURL || ''}
                   eta="20-25 min"
                 />
               </div>
