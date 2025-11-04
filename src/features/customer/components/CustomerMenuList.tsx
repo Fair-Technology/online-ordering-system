@@ -28,15 +28,12 @@ const CustomerMenuList: React.FC<CustomerMenuListProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {items.map((item) => (
               <div
-                key={item.id}
+                key={`${category}-${item.id}`}
                 className="border border-accent-200 bg-white shadow-sm p-4 rounded-lg hover:shadow-md transition"
-                onClick={() => onAddToCart(item)}
               >
                 <ItemCard
-                  name={item.label}
-                  price={`$${item.price.toFixed(2)}`}
-                  imageUrl={item.imageURL || ''}
-                  eta="20-25 min"
+                  product={item as any}
+                  onAddToCart={() => onAddToCart && onAddToCart(item)}
                 />
               </div>
             ))}

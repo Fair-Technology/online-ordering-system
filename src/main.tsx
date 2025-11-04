@@ -10,12 +10,16 @@ import { msalConfig } from './config/authConfig.ts';
 
 const msalInstance = new PublicClientApplication(msalConfig);
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <Provider store={store}>
-      <MsalProvider instance={msalInstance}>
-        <App />
-      </MsalProvider>
-    </Provider>
-  </StrictMode>
-);
+const rootEl = document.getElementById('root');
+if (rootEl) {
+  const root = createRoot(rootEl);
+  root.render(
+    <StrictMode>
+      <Provider store={store}>
+        <MsalProvider instance={msalInstance}>
+          <App />
+        </MsalProvider>
+      </Provider>
+    </StrictMode>
+  );
+}
