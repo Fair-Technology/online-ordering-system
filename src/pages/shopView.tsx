@@ -1,11 +1,11 @@
 import { groupProductsByCategory } from '../utils/groupProductsByCategory';
-import { Product } from '../features/restaurantOwner-old/types';
 import HeroSection from '../components/HeroSection';
 import CategoryFilterBar from '../components/CategoryFilterBar';
 import CustomerMenuList from '../features/customer/components/CustomerMenuList';
 import Footer from '../components/footer';
 import { useShopsMenuQuery } from '../store/api/ownerApi';
 import NavBar from '../components/NavBar';
+import { Product } from '../types/Product';
 
 const ShopView = () => {
   const shopId = '5988777b-a0dc-4a52-b06e-8ed35e01830a'; // At the moment we are hardcoding the shopId
@@ -15,6 +15,7 @@ const ShopView = () => {
   });
 
   const groupedItems = groupProductsByCategory(shopData?.products || []);
+  console.log('Grouped items:', groupedItems);
 
   const handleAddToCart = (item: Product) => {
     console.log('Added to cart:', item);

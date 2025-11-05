@@ -33,7 +33,7 @@ import type {
   UserShopsResponse,
   UpdateCartRequest,
 } from '../../types/apiTypes';
-import { Product } from '../../features/restaurantOwner-old/types';
+import { Product } from '../../types/Product';
 
 type ShopScopedBody<T> = { shopId: string; body: T };
 type ShopScopedQuery = { shopId: string };

@@ -1,4 +1,4 @@
-import { Product } from '../features/restaurantOwner-old/types';
+import { Product } from '../types/Product';
 
 export function groupProductsByCategory(
   items?: Product[]

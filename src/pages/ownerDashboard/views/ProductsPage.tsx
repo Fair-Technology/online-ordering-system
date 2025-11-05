@@ -77,10 +77,8 @@ const ProductsPage = () => {
     '';
 
   const shopsQueryArg = ownerUserId ? { userId: ownerUserId } : skipToken;
-  const {
-    data: userShops,
-    isLoading: isShopsLoading,
-  } = useUsersGetShopsQuery(shopsQueryArg);
+  const { data: userShops, isLoading: isShopsLoading } =
+    useUsersGetShopsQuery(shopsQueryArg);
   const [selectedShopId, setSelectedShopId] = useState<string | undefined>();
 
   useEffect(() => {
@@ -115,7 +113,7 @@ const ProductsPage = () => {
   const updateVariantField = <K extends keyof VariantInput>(
     variantId: string,
     field: K,
-    value: VariantInput[K],
+    value: VariantInput[K]
   ) => {
     setNewProduct((prev) => ({
       ...prev,
@@ -125,7 +123,7 @@ const ProductsPage = () => {
               ...variant,
               [field]: value,
             }
-          : variant,
+          : variant
       ),
     }));
   };
@@ -161,15 +159,17 @@ const ProductsPage = () => {
     }));
   };
 
-  const updateAddonGroupField = <K extends keyof Omit<AddonGroupInput, 'options'>>(
+  const updateAddonGroupField = <
+    K extends keyof Omit<AddonGroupInput, 'options'>
+  >(
     groupId: string,
     field: K,
-    value: Omit<AddonGroupInput, 'options'>[K],
+    value: Omit<AddonGroupInput, 'options'>[K]
   ) => {
     setNewProduct((prev) => ({
       ...prev,
       addonGroups: prev.addonGroups.map((group) =>
-        group.id === groupId ? { ...group, [field]: value } : group,
+        group.id === groupId ? { ...group, [field]: value } : group
       ),
     }));
   };
@@ -180,7 +180,7 @@ const ProductsPage = () => {
       addonGroups: prev.addonGroups.map((group) =>
         group.id === groupId
           ? { ...group, options: [...group.options, createAddonOptionInput()] }
-          : group,
+          : group
       ),
     }));
   };
@@ -189,7 +189,7 @@ const ProductsPage = () => {
     groupId: string,
     optionId: string,
     field: K,
-    value: AddonOptionInput[K],
+    value: AddonOptionInput[K]
   ) => {
     setNewProduct((prev) => ({
       ...prev,
@@ -198,12 +198,10 @@ const ProductsPage = () => {
           ? {
               ...group,
               options: group.options.map((option) =>
-                option.id === optionId
-                  ? { ...option, [field]: value }
-                  : option,
+                option.id === optionId ? { ...option, [field]: value } : option
               ),
             }
-          : group,
+          : group
       ),
     }));
   };
@@ -220,24 +218,26 @@ const ProductsPage = () => {
                   ? group.options
                   : group.options.filter((option) => option.id !== optionId),
             }
-          : group,
+          : group
       ),
     }));
   };
 
   const totalProducts = products.length;
-  const activeProducts = products.filter((product) => product.isActive).length;
+  const activeProducts = products.filter(
+    (product) => product.isAvailable
+  ).length;
   const variantHeavy = products.filter(
-    (product) => product.variantSchemes.length > 0,
+    (product) => product.variantTypes.length > 0
   ).length;
 
   const sortedProducts = useMemo(
     () =>
       [...products].sort(
         (a, b) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       ),
-    [products],
+    [products]
   );
 
   const handleCreateProduct = async (event: FormEvent<HTMLFormElement>) => {
@@ -257,7 +257,7 @@ const ProductsPage = () => {
     if (
       newProduct.variants.length === 0 ||
       newProduct.variants.some(
-        (variant) => !variant.label.trim() || !variant.basePrice.trim(),
+        (variant) => !variant.label.trim() || !variant.basePrice.trim()
       )
     ) {
       setError('Each variant requires a label and price.');
@@ -332,7 +332,7 @@ const ProductsPage = () => {
     } catch (err) {
       setFeedback(null);
       setError(
-        err instanceof Error ? err.message : 'Product could not be saved.',
+        err instanceof Error ? err.message : 'Product could not be saved.'
       );
     }
   };
@@ -374,8 +374,7 @@ const ProductsPage = () => {
     menuQueryArg === skipToken ? isShopsLoading : isMenuLoading;
   const isProductsError = menuQueryArg === skipToken ? false : isMenuError;
 
-  const noShopsAvailable =
-    !isShopsLoading && (userShops?.length ?? 0) === 0;
+  const noShopsAvailable = !isShopsLoading && (userShops?.length ?? 0) === 0;
 
   return (
     <section className="space-y-6">
@@ -403,8 +402,8 @@ const ProductsPage = () => {
             {isShopsLoading
               ? 'Loading shops…'
               : noShopsAvailable
-                ? 'No shops available'
-                : 'Select a shop'}
+              ? 'No shops available'
+              : 'Select a shop'}
           </option>
           {userShops?.map((shop) => (
             <option key={shop.shopId} value={shop.shopId}>
@@ -476,7 +475,7 @@ const ProductsPage = () => {
                       No products have been added yet.
                     </td>
                   </tr>
-              )}
+                )}
               {!selectedShopId && (
                 <tr>
                   <td colSpan={5} className="px-4 py-6 text-center text-sm">
@@ -600,7 +599,7 @@ const ProductsPage = () => {
                             updateVariantField(
                               variant.id,
                               'label',
-                              event.target.value,
+                              event.target.value
                             )
                           }
                           required
@@ -620,7 +619,7 @@ const ProductsPage = () => {
                             updateVariantField(
                               variant.id,
                               'basePrice',
-                              event.target.value,
+                              event.target.value
                             )
                           }
                           required
@@ -639,7 +638,7 @@ const ProductsPage = () => {
                             updateVariantField(
                               variant.id,
                               'sku',
-                              event.target.value,
+                              event.target.value
                             )
                           }
                         />
@@ -653,7 +652,7 @@ const ProductsPage = () => {
                             updateVariantField(
                               variant.id,
                               'isActive',
-                              event.target.checked,
+                              event.target.checked
                             )
                           }
                         />
@@ -720,7 +719,7 @@ const ProductsPage = () => {
                               updateAddonGroupField(
                                 group.id,
                                 'name',
-                                event.target.value,
+                                event.target.value
                               )
                             }
                           />
@@ -738,7 +737,7 @@ const ProductsPage = () => {
                               updateAddonGroupField(
                                 group.id,
                                 'maxSelectable',
-                                event.target.value,
+                                event.target.value
                               )
                             }
                           />
@@ -753,7 +752,7 @@ const ProductsPage = () => {
                             updateAddonGroupField(
                               group.id,
                               'required',
-                              event.target.checked,
+                              event.target.checked
                             )
                           }
                         />
@@ -777,7 +776,7 @@ const ProductsPage = () => {
                                     group.id,
                                     option.id,
                                     'name',
-                                    event.target.value,
+                                    event.target.value
                                   )
                                 }
                               />
@@ -796,7 +795,7 @@ const ProductsPage = () => {
                                     group.id,
                                     option.id,
                                     'priceDelta',
-                                    event.target.value,
+                                    event.target.value
                                   )
                                 }
                               />
@@ -812,7 +811,7 @@ const ProductsPage = () => {
                                       group.id,
                                       option.id,
                                       'isActive',
-                                      event.target.checked,
+                                      event.target.checked
                                     )
                                   }
                                 />

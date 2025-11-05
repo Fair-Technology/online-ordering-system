@@ -20,10 +20,10 @@ const NavBar: React.FC = () => {
   const [open, setOpen] = useState(false);
 
   // derive shopId from first path segment
-  const parts =
-    typeof window !== 'undefined'
-      ? window.location.pathname.split('/').filter(Boolean)
-      : [];
+  // const parts =
+  //   typeof window !== 'undefined'
+  //     ? window.location.pathname.split('/').filter(Boolean)
+  //     : [];
 
   const shopId = '5988777b-a0dc-4a52-b06e-8ed35e01830a';
 
@@ -92,7 +92,6 @@ const NavBar: React.FC = () => {
         quantity: it.quantity,
       })),
     };
-    console.log('Checkout payload', payload);
     // TODO: call backend orders API, then dispatch(clearCart()) on success
   }
 
