@@ -79,19 +79,19 @@ const NavBar: React.FC = () => {
   }, [open]);
 
   function handleCheckout() {
-    const payload = {
-      shopId,
-      createdAt: new Date().toISOString(),
-      itemCount: cartItems.reduce((s, it) => s + it.quantity, 0),
-      totalAmount: cartTotal,
-      items: cartItems.map((it) => ({
-        productId: it.id,
-        variantId: it.variantId,
-        addonOptionIds: it.addonOptionIds,
-        unitPrice: it.price,
-        quantity: it.quantity,
-      })),
-    };
+    // const payload = {
+    //   shopId,
+    //   createdAt: new Date().toISOString(),
+    //   itemCount: cartItems.reduce((s, it) => s + it.quantity, 0),
+    //   totalAmount: cartTotal,
+    //   items: cartItems.map((it) => ({
+    //     productId: it.id,
+    //     variantId: it.variantId,
+    //     addonOptionIds: it.addonOptionIds,
+    //     unitPrice: it.price,
+    //     quantity: it.quantity,
+    //   })),
+    // };
     // TODO: call backend orders API, then dispatch(clearCart()) on success
   }
 
