@@ -12,37 +12,17 @@ import {
   type ShopSettingsUpdateRequest,
   type ShopStatus,
   type ShopSummary,
-  type UpsertShopHoursRequest,
   type UserShopView,
 } from '../../../types/apiTypes';
 import {
-  useShopHoursUpsertMutation,
   useShopsCreateMutation,
+  useShopsDeleteMutation,
   useShopsGetByIdQuery,
   useShopsUpdateMutation,
   useUsersGetShopsQuery,
 } from '../../../store/api/ownerApi';
 
 type ShopFormState = Omit<CreateShopRequest, 'ownerUserId'>;
-
-type Weekday =
-  | 'monday'
-  | 'tuesday'
-  | 'wednesday'
-  | 'thursday'
-  | 'friday'
-  | 'saturday'
-  | 'sunday';
-
-const weekdays: { key: Weekday; label: string }[] = [
-  { key: 'monday', label: 'Mon' },
-  { key: 'tuesday', label: 'Tue' },
-  { key: 'wednesday', label: 'Wed' },
-  { key: 'thursday', label: 'Thu' },
-  { key: 'friday', label: 'Fri' },
-  { key: 'saturday', label: 'Sat' },
-  { key: 'sunday', label: 'Sun' },
-];
 
 const statusStyles: Record<string, string> = {
   open: 'bg-green-100 text-green-800',
@@ -66,16 +46,6 @@ const createDefaultShopForm = (): ShopFormState => ({
   orderAcceptanceMode: 'auto',
   allowGuestCheckout: true,
   fulfillmentOptions: { ...defaultFulfillment },
-});
-
-const createDefaultHoursDraft = () => ({
-  timezone: 'UTC',
-  open: '09:00',
-  close: '17:00',
-  days: weekdays.reduce<Record<Weekday, boolean>>(
-    (acc, { key }) => ({ ...acc, [key]: true }),
-    {} as Record<Weekday, boolean>
-  ),
 });
 
 const ShopStatusBadge = ({ status }: { status: ShopStatus }) => (
@@ -116,40 +86,6 @@ const Modal = ({
       </div>
       <div className="max-h-[80vh] overflow-y-auto px-6 py-5">{children}</div>
     </div>
-  </div>
-);
-
-const StepIndicator = ({
-  current,
-  total,
-}: {
-  current: number;
-  total: number;
-}) => (
-  <div className="flex items-center gap-2 text-sm text-gray-600">
-    {Array.from({ length: total }).map((_, index) => {
-      const stepNumber = index + 1;
-      const isActive = stepNumber === current;
-      const isCompleted = stepNumber < current;
-      return (
-        <div key={stepNumber} className="flex items-center gap-2">
-          <span
-            className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
-              isActive
-                ? 'bg-blue-600 text-white'
-                : isCompleted
-                ? 'bg-green-100 text-green-700'
-                : 'bg-gray-100 text-gray-500'
-            }`}
-          >
-            {stepNumber}
-          </span>
-          {stepNumber < total ? (
-            <span className="h-px w-10 bg-gray-200" aria-hidden />
-          ) : null}
-        </div>
-      );
-    })}
   </div>
 );
 
@@ -198,16 +134,13 @@ const ShopsPage = () => {
   } = useUsersGetShopsQuery(queryArg);
   const [createShop, { isLoading: isCreating }] = useShopsCreateMutation();
   const [updateShop, { isLoading: isUpdating }] = useShopsUpdateMutation();
-  const [upsertHours, { isLoading: isSavingHours }] =
-    useShopHoursUpsertMutation();
+  const [deleteShop, { isLoading: isDeleting }] = useShopsDeleteMutation();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [creationError, setCreationError] = useState<string | null>(null);
   const [newShop, setNewShop] = useState<ShopFormState>(
     createDefaultShopForm()
   );
-  const [hoursDraft, setHoursDraft] = useState(createDefaultHoursDraft);
-  const [createStep, setCreateStep] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const [editingShopId, setEditingShopId] = useState<string | null>(null);
@@ -217,6 +150,9 @@ const ShopsPage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [editSuccess, setEditSuccess] = useState<string | null>(null);
+  const [pendingDeleteShop, setPendingDeleteShop] = useState<UserShopView | null>(null);
+  const [deleteStep, setDeleteStep] = useState(1);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (editingShopDetails) {
@@ -240,9 +176,7 @@ const ShopsPage = () => {
 
   const closeCreateModal = () => {
     setIsCreateModalOpen(false);
-    setCreateStep(1);
     setNewShop(createDefaultShopForm());
-    setHoursDraft(createDefaultHoursDraft());
     setCreationError(null);
   };
 
@@ -261,6 +195,18 @@ const ShopsPage = () => {
     setEditForm(null);
     setEditError(null);
     setEditSuccess(null);
+  };
+
+  const openDeleteModal = (shop: UserShopView) => {
+    setPendingDeleteShop(shop);
+    setDeleteStep(1);
+    setDeleteError(null);
+  };
+
+  const closeDeleteModal = () => {
+    setPendingDeleteShop(null);
+    setDeleteStep(1);
+    setDeleteError(null);
   };
 
   const handleCreateShop = async (event: FormEvent<HTMLFormElement>) => {
@@ -283,21 +229,7 @@ const ShopsPage = () => {
         ownerUserId,
         fulfillmentOptions: normalizeFulfillment(newShop.fulfillmentOptions),
       };
-      const createdShop = await createShop(payload).unwrap();
-
-      const weekly: UpsertShopHoursRequest['weekly'] = {};
-      (Object.keys(hoursDraft.days) as Weekday[]).forEach((day) => {
-        if (hoursDraft.days[day]) {
-          weekly[day] = [{ open: hoursDraft.open, close: hoursDraft.close }];
-        }
-      });
-      if (Object.keys(weekly).length > 0) {
-        await upsertHours({
-          shopId: createdShop.id,
-          body: { timezone: hoursDraft.timezone, weekly },
-        }).unwrap();
-      }
-
+      await createShop(payload).unwrap();
       await refetchShops();
       closeCreateModal();
     } catch (error) {
@@ -353,6 +285,26 @@ const ShopsPage = () => {
           typeof value === 'number' ? (Number.isNaN(value) ? 0 : value) : value,
       },
     });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!pendingDeleteShop) return;
+    if (deleteStep === 1) {
+      setDeleteStep(2);
+      return;
+    }
+    try {
+      setDeleteError(null);
+      await deleteShop(pendingDeleteShop.shopId).unwrap();
+      await refetchShops();
+      closeDeleteModal();
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to delete shop. Please try again.'
+      );
+    }
   };
 
   const renderBasicInfoFields = (
@@ -607,136 +559,19 @@ const ShopsPage = () => {
     </div>
   );
 
-  const renderHoursStep = () => (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          Timezone
-        </label>
-        <input
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={hoursDraft.timezone}
-          onChange={(event) =>
-            setHoursDraft((prev) => ({ ...prev, timezone: event.target.value }))
-          }
-          required
-        />
+  const renderCreateFormSections = () => (
+    <>
+      <p className="text-sm text-gray-500">
+        Provide the essentials to get this storefront live. You can fill in the
+        rest after creation.
+      </p>
+      <div className="space-y-6">
+        {renderBasicInfoFields(newShop, setNewShop, isCreating)}
+        {renderOperationalFields(newShop, setNewShop, isCreating)}
+        {renderFulfillmentFields(newShop, setNewShop, isCreating)}
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Opening time
-          </label>
-          <input
-            type="time"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={hoursDraft.open}
-            onChange={(event) =>
-              setHoursDraft((prev) => ({ ...prev, open: event.target.value }))
-            }
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Closing time
-          </label>
-          <input
-            type="time"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={hoursDraft.close}
-            onChange={(event) =>
-              setHoursDraft((prev) => ({ ...prev, close: event.target.value }))
-            }
-          />
-        </div>
-      </div>
-      <div>
-        <p className="text-sm font-medium text-gray-700 mb-2">Days open</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {weekdays.map(({ key, label }) => (
-            <label
-              key={key}
-              className="flex items-center gap-2 rounded-md border border-gray-200 px-3 py-2 text-sm"
-            >
-              <input
-                type="checkbox"
-                className="h-4 w-4"
-                checked={hoursDraft.days[key]}
-                onChange={(event) =>
-                  setHoursDraft((prev) => ({
-                    ...prev,
-                    days: { ...prev.days, [key]: event.target.checked },
-                  }))
-                }
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-      </div>
-    </div>
+    </>
   );
-
-  const renderCreateStep = () => {
-    if (createStep === 1) {
-      return (
-        <>
-          <p className="text-sm text-gray-500 mb-4">
-            Provide the basics for this storefront.
-          </p>
-          {renderBasicInfoFields(newShop, setNewShop, isCreating)}
-        </>
-      );
-    }
-    if (createStep === 2) {
-      return (
-        <>
-          <p className="text-sm text-gray-500 mb-4">
-            Configure default opening hours. You can refine these later from the
-            settings page.
-          </p>
-          {renderHoursStep()}
-        </>
-      );
-    }
-    return (
-      <>
-        <p className="text-sm text-gray-500 mb-4">
-          Set operational preferences, then confirm everything looks correct.
-        </p>
-        <div className="space-y-6">
-          {renderOperationalFields(newShop, setNewShop, isCreating)}
-          {renderFulfillmentFields(newShop, setNewShop, isCreating)}
-          <div className="rounded-lg border border-gray-200 p-4 space-y-2">
-            <p className="text-sm font-semibold text-gray-900">
-              Review selections
-            </p>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>
-                <strong>Name:</strong> {newShop.name || '—'}
-              </li>
-              <li>
-                <strong>Address:</strong> {newShop.address || '—'}
-              </li>
-              <li>
-                <strong>Status:</strong> {newShop.status}
-              </li>
-              <li>
-                <strong>Order acceptance:</strong> {newShop.orderAcceptanceMode}
-              </li>
-              <li>
-                <strong>Payment policy:</strong> {newShop.paymentPolicy}
-              </li>
-              <li>
-                <strong>Hours:</strong>{' '}
-                {`${hoursDraft.open}–${hoursDraft.close} (${hoursDraft.timezone})`}
-              </li>
-            </ul>
-          </div>
-        </div>
-      </>
-    );
-  };
 
   return (
     <section className="space-y-6">
@@ -851,14 +686,23 @@ const ShopsPage = () => {
                 <td className="px-4 py-4 text-sm text-gray-500">
                   {new Date(shop.updatedAt).toLocaleDateString()}
                 </td>
-                <td className="px-4 py-4 text-center">
-                  <button
-                    type="button"
-                    className="text-sm font-medium text-blue-600 hover:underline"
-                    onClick={() => openEditModal(shop.shopId)}
-                  >
-                    Edit
-                  </button>
+                <td className="px-4 py-4">
+                  <div className="flex items-center justify-center gap-4">
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-blue-600 hover:underline"
+                      onClick={() => openEditModal(shop.shopId)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-red-600 hover:underline"
+                      onClick={() => openDeleteModal(shop)}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -869,42 +713,25 @@ const ShopsPage = () => {
       {isCreateModalOpen ? (
         <Modal title="Create a shop" onClose={closeCreateModal}>
           <form className="space-y-6" onSubmit={handleCreateShop}>
-            <div className="flex items-center justify-between border border-gray-100 rounded-lg p-3">
-              <StepIndicator current={createStep} total={3} />
-              <div className="text-xs text-gray-500">
-                Step {createStep} of 3
-              </div>
-            </div>
-            {renderCreateStep()}
+            {renderCreateFormSections()}
             {creationError && (
               <p className="text-sm text-red-600">{creationError}</p>
             )}
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
-                className="text-sm text-gray-600 hover:text-gray-800 disabled:opacity-50"
-                onClick={() => setCreateStep((prev) => Math.max(1, prev - 1))}
-                disabled={createStep === 1}
+                className="text-sm text-gray-600 hover:text-gray-800"
+                onClick={closeCreateModal}
               >
-                Previous
+                Cancel
               </button>
-              {createStep < 3 ? (
-                <button
-                  type="button"
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                  onClick={() => setCreateStep((prev) => Math.min(3, prev + 1))}
-                >
-                  Next
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={isCreating || isSavingHours}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-                >
-                  {isCreating || isSavingHours ? 'Saving…' : 'Save shop'}
-                </button>
-              )}
+              <button
+                type="submit"
+                disabled={isCreating}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {isCreating ? 'Creating…' : 'Create shop'}
+              </button>
             </div>
           </form>
         </Modal>
@@ -941,6 +768,56 @@ const ShopsPage = () => {
               </button>
             </div>
           </form>
+        </Modal>
+      ) : null}
+      {pendingDeleteShop ? (
+        <Modal title="Delete shop" onClose={closeDeleteModal} widthClass="max-w-lg">
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <p className="text-sm text-gray-700 font-medium">
+                {deleteStep === 1 ? 'First confirmation required' : 'Final confirmation'}
+              </p>
+              <p className="text-sm text-gray-600">
+                {deleteStep === 1
+                  ? `You're about to remove "${pendingDeleteShop.name}". Confirm once more on the next step to proceed.`
+                  : `Deleting "${pendingDeleteShop.name}" is permanent and cannot be undone. This will immediately remove the shop from listings.`}
+              </p>
+            </div>
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <p>
+                <strong>Status:</strong> {pendingDeleteShop.status}{' '}
+                <strong className="ml-2">Address:</strong>{' '}
+                {pendingDeleteShop.address || 'Not provided'}
+              </p>
+            </div>
+            {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                className="text-sm text-gray-600 hover:text-gray-800 disabled:opacity-60"
+                onClick={closeDeleteModal}
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                className={`rounded-md px-4 py-2 text-sm font-semibold text-white ${
+                  deleteStep === 1
+                    ? 'bg-orange-500 hover:bg-orange-600'
+                    : 'bg-red-600 hover:bg-red-700'
+                } disabled:opacity-60`}
+                disabled={isDeleting}
+              >
+                {deleteStep === 1
+                  ? 'Yes, continue'
+                  : isDeleting
+                  ? 'Deleting…'
+                  : 'Yes, delete shop'}
+              </button>
+            </div>
+          </div>
         </Modal>
       ) : null}
     </section>

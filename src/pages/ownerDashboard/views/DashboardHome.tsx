@@ -1,9 +1,10 @@
+import { useEffect, useState } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { skipToken } from '@reduxjs/toolkit/query';
-import {
-  useOrdersListQuery,
-  useUsersGetShopsQuery,
-} from '../../../store/api/ownerApi';
+import { api, type ApiShape } from '../../../config/api';
+
+type Shop = Awaited<ReturnType<ApiShape['listShops']>>[number];
+type Order = Awaited<ReturnType<ApiShape['listShopOrders']>>[number];
+type ManagedShop = Awaited<ReturnType<ApiShape['listManagedShops']>>[number];
 
 const formatRelativeTime = (value: string) => {
   const timestamp = new Date(value).getTime();
@@ -59,29 +60,99 @@ const DashboardHome = () => {
     accounts[0]?.homeAccountId ||
     accounts[0]?.username ||
     '';
-  const shopsQueryArg = ownerUserId ? { userId: ownerUserId } : skipToken;
-  const {
-    data: userShops,
-    isLoading: isShopsLoading,
-    isError: isShopsError,
-  } = useUsersGetShopsQuery(shopsQueryArg);
-  const primaryShopId = userShops?.[0]?.shopId;
-  const ordersQueryArg = primaryShopId ? { shopId: primaryShopId } : skipToken;
-  const {
-    data: orders,
-    isLoading: isOrdersLoading,
-    isError: isOrdersError,
-  } = useOrdersListQuery(ordersQueryArg);
+  const [shops, setShops] = useState<Shop[]>([]);
+  const [shopsLoading, setShopsLoading] = useState(true);
+  const [shopsError, setShopsError] = useState<string | null>(null);
+  const [managedShops, setManagedShops] = useState<ManagedShop[]>([]);
+  const [managedLoading, setManagedLoading] = useState(true);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadShops = async () => {
+      setShopsLoading(true);
+      setShopsError(null);
+      try {
+        const response = await api.listShops();
+        setShops(response);
+      } catch (error) {
+        setShopsError(
+          error instanceof Error ? error.message : 'Unable to load shops.'
+        );
+      } finally {
+        setShopsLoading(false);
+      }
+    };
+    loadShops();
+  }, []);
+
+  useEffect(() => {
+    const loadManaged = async () => {
+      if (!ownerUserId) {
+        setManagedShops([]);
+        setManagedLoading(false);
+        return;
+      }
+      setManagedLoading(true);
+      try {
+        const response = await api.listManagedShops(ownerUserId);
+        setManagedShops(response);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setManagedLoading(false);
+      }
+    };
+    loadManaged();
+  }, [ownerUserId]);
+
+  useEffect(() => {
+    const primaryShopId = managedShops[0]?.shopId || shops[0]?.id;
+    if (!primaryShopId) return;
+    const loadOrders = async () => {
+      setOrdersLoading(true);
+      setOrdersError(null);
+      try {
+        const response = await api.listShopOrders(primaryShopId);
+        setOrders(response);
+      } catch (error) {
+        setOrdersError(
+          error instanceof Error ? error.message : 'Unable to load orders.'
+        );
+      } finally {
+        setOrdersLoading(false);
+      }
+    };
+    loadOrders();
+  }, [managedShops, shops]);
+
+  const linkedShops =
+    managedShops.length > 0
+      ? managedShops.map((shop) => ({
+          shopId: shop.shopId,
+          name: shop.name,
+          address: '',
+          acceptingOrders: shop.acceptingOrders,
+          updatedAt: new Date().toISOString(),
+        }))
+      : shops.map((shop) => ({
+          shopId: shop.id,
+          name: shop.name,
+          address: shop.address ?? '',
+          acceptingOrders: shop.acceptingOrders,
+          updatedAt: shop.updatedAt,
+        }));
 
   const activeShopCount =
-    userShops?.filter((shop) => shop.acceptingOrders).length ?? 0;
-  const totalShops = userShops?.length ?? 0;
+    linkedShops.filter((shop) => shop.acceptingOrders).length ?? 0;
+  const totalShops = linkedShops.length ?? 0;
   const pausedShops = totalShops - activeShopCount;
 
-  const totalOrders = orders?.length ?? 0;
+  const totalOrders = orders.length;
   const openOrders =
-    orders?.filter(
-      (order) => order.status !== 'completed' && order.status !== 'cancelled',
+    orders.filter(
+      (order) => order.status !== 'completed' && order.status !== 'cancelled'
     ).length ?? 0;
 
   const statCards = [
@@ -89,19 +160,19 @@ const DashboardHome = () => {
       label: 'Total Shops',
       value: totalShops,
       helper: 'Stores linked to your account',
-      loading: isShopsLoading,
+      loading: shopsLoading || managedLoading,
     },
     {
       label: 'Accepting Orders',
       value: activeShopCount,
       helper: `${pausedShops} paused`,
-      loading: isShopsLoading,
+      loading: shopsLoading || managedLoading,
     },
     {
       label: 'Open Orders',
       value: openOrders,
       helper: `${totalOrders} total in the last window`,
-      loading: isOrdersLoading,
+      loading: ordersLoading,
     },
     {
       label: 'On-time Rate',
@@ -110,12 +181,12 @@ const DashboardHome = () => {
           ? `${Math.max(92, 100 - pausedShops * 2)}%`
           : '—',
       helper: 'Based on recent fulfilments',
-      loading: isOrdersLoading,
+      loading: ordersLoading,
     },
   ];
 
-  const latestShops = (userShops ?? []).slice(0, 5);
-  const latestOrders = (orders ?? []).slice(0, 5);
+  const latestShops = linkedShops.slice(0, 5);
+  const latestOrders = orders.slice(0, 5);
 
   return (
     <section className="space-y-6">
@@ -143,11 +214,13 @@ const DashboardHome = () => {
               <p className="text-sm text-gray-500">Last five changes</p>
             </div>
           </div>
-          {isShopsLoading && <EmptyState message="Loading shops…" />}
-          {isShopsError && (
+          {(shopsLoading || managedLoading) && (
+            <EmptyState message="Loading shops…" />
+          )}
+          {shopsError && (
             <EmptyState message="We couldn’t load shops right now." />
           )}
-          {!isShopsLoading && !isShopsError && latestShops.length === 0 && (
+          {!shopsLoading && !managedLoading && latestShops.length === 0 && (
             <EmptyState message="No shops yet. Create your first storefront to begin." />
           )}
           <ul className="divide-y divide-gray-100">
@@ -189,22 +262,16 @@ const DashboardHome = () => {
               <p className="text-sm text-gray-500">Newest five orders</p>
             </div>
           </div>
-          {primaryShopId && isOrdersLoading && (
-            <EmptyState message="Loading orders…" />
-          )}
-          {primaryShopId && isOrdersError && (
+          {ordersLoading && <EmptyState message="Loading orders…" />}
+          {ordersError && (
             <EmptyState message="Orders could not be loaded." />
           )}
-          {!primaryShopId && (
-            <EmptyState message="Select or create a shop to see orders." />
-          )}
-          {primaryShopId &&
-            !isOrdersLoading &&
-            !isOrdersError &&
+          {!ordersLoading &&
+            !ordersError &&
             latestOrders.length === 0 && (
               <EmptyState message="No orders found for the selected period." />
             )}
-          {primaryShopId && (
+          {!ordersLoading && !ordersError && latestOrders.length > 0 && (
             <ul className="divide-y divide-gray-100">
               {latestOrders.map((order) => (
                 <li key={order.id} className="py-3">
@@ -214,7 +281,9 @@ const DashboardHome = () => {
                         #{order.id.slice(0, 8)}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {order.customerName} • {order.totalAmount.toFixed(2)}
+                        {order.customerName} •{' '}
+                        {order.totalAmount.amount.toFixed(2)}{' '}
+                        {order.totalAmount.currency}
                       </p>
                     </div>
                     <div className="text-right">

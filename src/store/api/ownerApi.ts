@@ -42,6 +42,7 @@ type ShopResourceUpdate<Body, Key extends string> = ShopScopedBody<Body> &
   Record<Key, string>;
 
 type CreateUserRequest = {
+  entraId: string;
   name: string;
   role: UserRole;
   email?: string;
@@ -325,14 +326,15 @@ export const ownerApi = createApi({
         method: 'POST',
         body,
       }),
-      invalidatesTags: [{ type: 'Shop', id: 'LIST' }, { type: 'UserShop', id: 'LIST' }],
+      invalidatesTags: [
+        { type: 'Shop', id: 'LIST' },
+        { type: 'UserShop', id: 'LIST' },
+      ],
     }),
 
     shopsGetById: builder.query<ShopSummary, string>({
       query: (shopId) => `/api/shops/${shopId}`,
-      providesTags: (_result, _error, shopId) => [
-        { type: 'Shop', id: shopId },
-      ],
+      providesTags: (_result, _error, shopId) => [{ type: 'Shop', id: shopId }],
     }),
 
     shopsMenu: builder.query<ShopMenuResponse, string>({
@@ -351,6 +353,17 @@ export const ownerApi = createApi({
       invalidatesTags: (_result, _error, { shopId }) => [
         { type: 'Shop', id: shopId },
         { type: 'Shop', id: 'LIST' },
+      ],
+    }),
+    shopsDelete: builder.mutation<void, string>({
+      query: (shopId) => ({
+        url: `/api/shops/${shopId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _error, shopId) => [
+        { type: 'Shop', id: shopId },
+        { type: 'Shop', id: 'LIST' },
+        { type: 'UserShop', id: 'LIST' },
       ],
     }),
 
@@ -381,7 +394,10 @@ export const ownerApi = createApi({
         const listTag = { type: 'UserShop' as const, id: 'LIST' };
         if (!result) return [listTag];
         return [
-          ...result.map(({ shopId }) => ({ type: 'UserShop' as const, id: shopId })),
+          ...result.map(({ shopId }) => ({
+            type: 'UserShop' as const,
+            id: shopId,
+          })),
           listTag,
         ];
       },
@@ -408,6 +424,7 @@ export const {
   useShopMembersListQuery,
   useShopMembersUpdateMutation,
   useShopsCreateMutation,
+  useShopsDeleteMutation,
   useShopsGetByIdQuery,
   useShopsMenuQuery,
   useShopsUpdateMutation,

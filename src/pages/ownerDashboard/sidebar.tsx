@@ -2,8 +2,12 @@ import React from 'react';
 import {
   HomeIcon,
   BuildingStorefrontIcon,
-  CubeIcon,
-  CogIcon,
+  Squares2X2Icon,
+  ShoppingCartIcon,
+  UserGroupIcon,
+  RectangleStackIcon,
+  FolderIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -11,10 +15,14 @@ const Sidebar: React.FC = () => {
   const location = useLocation();
 
   const menuItems = [
-    { icon: HomeIcon, label: 'Dashboard', to: '/owner' },
+    { icon: HomeIcon, label: 'Overview', to: '/owner' },
     { icon: BuildingStorefrontIcon, label: 'Shops', to: '/owner/shops' },
-    { icon: CubeIcon, label: 'Products', to: '/owner/products' },
-    { icon: CogIcon, label: 'Settings', to: '/owner/settings' },
+    { icon: Squares2X2Icon, label: 'Products', to: '/owner/catalog/products' },
+    { icon: RectangleStackIcon, label: 'Catalog entries', to: '/owner/catalog/entries' },
+    { icon: FolderIcon, label: 'Categories', to: '/owner/catalog/categories' },
+    { icon: ShieldCheckIcon, label: 'Associations', to: '/owner/associations' },
+    { icon: ShoppingCartIcon, label: 'Orders', to: '/owner/orders' },
+    { icon: UserGroupIcon, label: 'Users', to: '/owner/users' },
   ];
 
   return (

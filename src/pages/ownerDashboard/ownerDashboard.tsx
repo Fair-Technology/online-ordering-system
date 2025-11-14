@@ -2,9 +2,13 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import Sidebar from './sidebar';
 import TopBar from './topBar';
 import DashboardHome from './views/DashboardHome';
+import CatalogProductsPage from './views/CatalogProductsPage';
+import CatalogEntriesPage from './views/CatalogEntriesPage';
+import CatalogCategoriesPage from './views/CatalogCategoriesPage';
+import AssociationsModule from './views/AssociationsModule';
+import OrdersModule from './views/OrdersModule';
+import UsersModule from './views/UsersModule';
 import ShopsPage from './views/ShopsPage';
-import ProductsPage from './views/ProductsPage';
-import SettingsPage from './views/SettingsPage';
 
 const OwnerDashboard = () => {
   return (
@@ -18,13 +22,24 @@ const OwnerDashboard = () => {
         <TopBar />
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
-          <div className="max-w-5xl mx-auto">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-6">
+          <div className="max-w-6xl mx-auto space-y-6">
             <Routes>
               <Route index element={<DashboardHome />} />
+              <Route
+                path="catalog"
+                element={<Navigate to="/owner/catalog/products" replace />}
+              />
+              <Route path="catalog/products" element={<CatalogProductsPage />} />
+              <Route path="catalog/entries" element={<CatalogEntriesPage />} />
+              <Route
+                path="catalog/categories"
+                element={<CatalogCategoriesPage />}
+              />
               <Route path="shops" element={<ShopsPage />} />
-              <Route path="products" element={<ProductsPage />} />
-              <Route path="settings" element={<SettingsPage />} />
+              <Route path="associations" element={<AssociationsModule />} />
+              <Route path="orders" element={<OrdersModule />} />
+              <Route path="users" element={<UsersModule />} />
               <Route path="*" element={<Navigate to="/owner" replace />} />
             </Routes>
           </div>
