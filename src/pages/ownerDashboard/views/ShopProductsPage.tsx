@@ -1,4 +1,11 @@
-import { FormEvent, MouseEvent, useEffect, useMemo, useState } from 'react';
+import {
+  FormEvent,
+  MouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import { api, type ApiShape } from '../../../config/api';
@@ -12,7 +19,7 @@ import {
 } from '../../../components/products/productForm';
 
 type ShopResponse = Awaited<ReturnType<ApiShape['getShop']>>;
-type ShopMenuResponse = Awaited<ReturnType<ApiShape['getShopMenu']>>;
+type ShopProductResponse = Awaited<ReturnType<ApiShape['listProducts']>>[number];
 
 const productSteps = ['Product basics', 'Variants', 'Add-ons & review'];
 
@@ -27,7 +34,6 @@ const ShopProductsPage = () => {
     '';
 
   const [shop, setShop] = useState<ShopResponse | null>(null);
-  const [menu, setMenu] = useState<ShopMenuResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingProductId, setUpdatingProductId] = useState<string | null>(null);
@@ -42,15 +48,23 @@ const ShopProductsPage = () => {
   const [productFormMode, setProductFormMode] = useState<'create' | 'edit'>(
     'create'
   );
-  const [editingProduct, setEditingProduct] =
-    useState<ShopMenuResponse['products'][number] | null>(null);
+  const [editingProduct, setEditingProduct] = useState<ShopProductResponse | null>(
+    null
+  );
+  const [shopProducts, setShopProducts] = useState<
+    Awaited<ReturnType<ApiShape['listProducts']>>
+  >([]);
+  const [shopProductsLoading, setShopProductsLoading] = useState(true);
+  const [shopProductsError, setShopProductsError] = useState<string | null>(
+    null
+  );
 
   const [categories, setCategories] = useState<
     Awaited<ReturnType<ApiShape['listCategories']>>
   >([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
-  const products = menu?.products ?? [];
+  const products = shopProducts;
 
   const categoryNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -86,12 +100,8 @@ const ShopProductsPage = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const [shopResponse, menuResponse] = await Promise.all([
-          api.getShop(shopId),
-          api.getShopMenu(shopId),
-        ]);
+        const shopResponse = await api.getShop(shopId);
         setShop(shopResponse);
-        setMenu(menuResponse);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : 'Unable to load shop products.'
@@ -103,11 +113,31 @@ const ShopProductsPage = () => {
     load();
   }, [shopId]);
 
-  const refreshMenu = async () => {
+  const refreshShop = useCallback(async () => {
     if (!shopId) return;
-    const updatedMenu = await api.getShopMenu(shopId);
-    setMenu(updatedMenu);
-  };
+    try {
+      const updatedShop = await api.getShop(shopId);
+      setShop(updatedShop);
+    } catch (err) {
+      console.error(err);
+    }
+  }, [shopId]);
+
+  const loadShopProducts = useCallback(async () => {
+    if (!shopId) return;
+    setShopProductsLoading(true);
+    setShopProductsError(null);
+    try {
+      const list = await api.listProducts({ shopId });
+      setShopProducts(list);
+    } catch (err) {
+      setShopProductsError(
+        err instanceof Error ? err.message : 'Unable to load products.'
+      );
+    } finally {
+      setShopProductsLoading(false);
+    }
+  }, [shopId]);
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -127,11 +157,15 @@ const ShopProductsPage = () => {
     loadCategories();
   }, []);
 
+  useEffect(() => {
+    loadShopProducts();
+  }, [loadShopProducts]);
+
   const toggleProductAvailability = async (productId: string, next: boolean) => {
     setUpdatingProductId(productId);
     try {
       await api.updateProduct(productId, { isActive: next });
-      await refreshMenu();
+      await Promise.all([refreshShop(), loadShopProducts()]);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Unable to update product.');
     } finally {
@@ -139,7 +173,10 @@ const ShopProductsPage = () => {
     }
   };
 
-  const openProductModal = (mode: 'create' | 'edit', product?: ShopMenuResponse['products'][number]) => {
+  const openProductModal = (
+    mode: 'create' | 'edit',
+    product?: ShopProductResponse
+  ) => {
     if (mode === 'edit' && product) {
       setProductFormMode('edit');
       setEditingProduct(product);
@@ -273,7 +310,7 @@ const ShopProductsPage = () => {
     } else {
       await api.createProduct(payload);
     }
-      await refreshMenu();
+      await Promise.all([refreshShop(), loadShopProducts()]);
       closeProductModal();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Unable to create product.');
@@ -350,10 +387,10 @@ const ShopProductsPage = () => {
         </div>
       </div>
 
-      {isLoading ? (
+      {isLoading || shopProductsLoading ? (
         <p className="text-sm text-gray-600">Loading products…</p>
-      ) : error ? (
-        <p className="text-sm text-red-600">{error}</p>
+      ) : error || shopProductsError ? (
+        <p className="text-sm text-red-600">{error ?? shopProductsError}</p>
       ) : products.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600">
           This shop does not have any products yet. Use “Add product to shop” to publish
@@ -481,7 +518,7 @@ const ShopProductsPage = () => {
                         }
                         try {
                           await api.deleteProduct(editingProduct.id);
-                          await refreshMenu();
+                          await Promise.all([refreshShop(), loadShopProducts()]);
                           closeProductModal();
                         } catch (err) {
                           alert(
