@@ -46,6 +46,8 @@ export type ProductFormState = {
   addonGroups: AddonGroupDraft[];
   defaultCurrency: string;
   selectedCategoryIds: string[];
+  simplePriceAmount: string;
+  simplePriceCurrency: string;
 };
 
 export const defaultMoney = (currency = 'USD'): MoneyInput => ({
@@ -88,10 +90,12 @@ export const createDefaultProductFormState = (): ProductFormState => ({
   title: '',
   description: '',
   isActive: true,
-  variantGroups: [emptyVariantGroup()],
-  addonGroups: [emptyAddonGroup()],
+  variantGroups: [],
+  addonGroups: [],
   defaultCurrency: 'USD',
   selectedCategoryIds: [],
+  simplePriceAmount: '',
+  simplePriceCurrency: 'USD',
 });
 
 export const useHasAtLeastOneVariant = (variantGroups: VariantGroupDraft[]) =>
@@ -185,16 +189,27 @@ export const VariantGroupsEditor = ({
       </div>
       {groups.map((group) => (
         <div key={group.id} className="border border-gray-200 rounded-lg p-4 space-y-3">
-          <div>
-            <label className="text-xs font-medium text-gray-700">Group name</label>
-            <input
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-              value={group.name}
-              onChange={(event) =>
-                updateGroup(group.id, { name: event.target.value })
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-medium text-gray-700">
+              Group name
+            </label>
+            <button
+              type="button"
+              className="text-xs text-red-600 hover:underline"
+              onClick={() =>
+                onChange(groups.filter((candidate) => candidate.id !== group.id))
               }
-            />
+            >
+              Delete group
+            </button>
           </div>
+          <input
+            className="w-full rounded-md border border-gray-300 px-3 py-2"
+            value={group.name}
+            onChange={(event) =>
+              updateGroup(group.id, { name: event.target.value })
+            }
+          />
           <div className="space-y-2">
             {group.variants.map((variant) => (
               <div
@@ -337,19 +352,28 @@ export const AddonGroupsEditor = ({
       </div>
       {groups.map((group) => (
         <div key={group.id} className="border border-gray-200 rounded-lg p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-medium text-gray-700">
+              Group name
+            </label>
+            <button
+              type="button"
+              className="text-xs text-red-600 hover:underline"
+              onClick={() =>
+                onChange(groups.filter((candidate) => candidate.id !== group.id))
+              }
+            >
+              Delete group
+            </button>
+          </div>
+          <input
+            className="w-full rounded-md border border-gray-300 px-3 py-2"
+            value={group.name}
+            onChange={(event) =>
+              updateGroup(group.id, { name: event.target.value })
+            }
+          />
           <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <label className="text-xs font-medium text-gray-700">
-                Group name
-              </label>
-              <input
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-                value={group.name}
-                onChange={(event) =>
-                  updateGroup(group.id, { name: event.target.value })
-                }
-              />
-            </div>
             <div>
               <label className="text-xs font-medium text-gray-700">
                 Required

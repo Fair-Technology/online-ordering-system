@@ -16,6 +16,7 @@ import {
   AddonGroupsEditor,
   StepIndicator,
   useHasAtLeastOneVariant,
+  createId,
 } from '../../../components/products/productForm';
 
 type ShopResponse = Awaited<ReturnType<ApiShape['getShop']>>;
@@ -83,13 +84,22 @@ const ShopProductsPage = () => {
   const hasAtLeastOneVariant = useHasAtLeastOneVariant(
     productFormState.variantGroups
   );
+  const hasSimplePrice =
+    Number(productFormState.simplePriceAmount || '') > 0;
+  const hasPricingConfigured =
+    productFormState.variantGroups.length > 0
+      ? hasAtLeastOneVariant
+      : hasSimplePrice;
 
   const isStepReady = (step: number) => {
     if (step === 1) {
-      return productFormState.title.trim().length > 0;
+      return (
+        productFormState.title.trim().length > 0 &&
+        productFormState.selectedCategoryIds.length > 0
+      );
     }
     if (step === 2) {
-      return hasAtLeastOneVariant;
+      return hasPricingConfigured;
     }
     return true;
   };
@@ -216,6 +226,9 @@ const ShopProductsPage = () => {
         })),
         selectedCategoryIds:
           product.categoryDetails?.map((category) => category.id) ?? [],
+        simplePriceAmount: '',
+        simplePriceCurrency:
+          product.variantGroups[0]?.variants[0]?.basePrice.currency ?? 'USD',
       });
     } else {
       setProductFormMode('create');
@@ -262,54 +275,76 @@ const ShopProductsPage = () => {
       goToNextStep();
       return;
     }
-  if (!shopId) return;
-  setProductSubmitting(true);
-  try {
-    const selectedNames = Array.from(new Set(selectedCategoryNames));
-    const payload = {
-      shopId,
-      ownerUserId: ownerUserId || undefined,
-      title: productFormState.title,
-      description: productFormState.description,
-      tags: selectedNames,
-      categories: selectedNames,
-      variantGroups: productFormState.variantGroups.map((group) => ({
-        id: group.id,
-        name: group.name,
-        variants: group.variants.map((variant) => ({
-          id: variant.id,
-          name: variant.name,
-          basePrice: {
-            amount: Number(variant.basePrice.amount),
-            currency:
-              variant.basePrice.currency || productFormState.defaultCurrency,
-          },
-          isActive: variant.isActive,
+    if (!shopId) return;
+    setProductSubmitting(true);
+    try {
+      const selectedNames = Array.from(new Set(selectedCategoryNames));
+      const variantGroupsPayload =
+        productFormState.variantGroups.length > 0
+          ? productFormState.variantGroups.map((group) => ({
+              id: group.id,
+              name: group.name,
+              variants: group.variants.map((variant) => ({
+                id: variant.id,
+                name: variant.name,
+                basePrice: {
+                  amount: Number(variant.basePrice.amount),
+                  currency:
+                    variant.basePrice.currency || productFormState.defaultCurrency,
+                },
+                isActive: variant.isActive,
+              })),
+            }))
+          : [
+              {
+                id: editingProduct?.variantGroups[0]?.id,
+                name: 'Standard group',
+                variants: [
+                  {
+                    id: editingProduct?.variantGroups[0]?.variants[0]?.id,
+                    name: 'Standard',
+                    basePrice: {
+                      amount: Number(productFormState.simplePriceAmount),
+                      currency:
+                        productFormState.simplePriceCurrency ||
+                        productFormState.defaultCurrency,
+                    },
+                    isActive: true,
+                  },
+                ],
+              },
+            ];
+      const payload = {
+        shopId,
+        ownerUserId: ownerUserId || undefined,
+        title: productFormState.title,
+        description: productFormState.description,
+        tags: selectedNames,
+        categories: selectedNames,
+        variantGroups: variantGroupsPayload,
+        addonGroups: productFormState.addonGroups.map((group) => ({
+          id: group.id,
+          name: group.name,
+          required: group.required,
+          maxSelectable: group.maxSelectable,
+          options: group.options.map((option) => ({
+            id: option.id,
+            name: option.name,
+            priceDelta: {
+              amount: Number(option.priceDelta.amount),
+              currency:
+                option.priceDelta.currency || productFormState.defaultCurrency,
+            },
+            isActive: option.isActive,
+          })),
         })),
-      })),
-      addonGroups: productFormState.addonGroups.map((group) => ({
-        id: group.id,
-        name: group.name,
-        required: group.required,
-        maxSelectable: group.maxSelectable,
-        options: group.options.map((option) => ({
-          id: option.id,
-          name: option.name,
-          priceDelta: {
-            amount: Number(option.priceDelta.amount),
-            currency:
-              option.priceDelta.currency || productFormState.defaultCurrency,
-          },
-          isActive: option.isActive,
-        })),
-      })),
-      isActive: productFormState.isActive,
-    };
-    if (productFormMode === 'edit' && editingProduct) {
-      await api.updateProduct(editingProduct.id, payload);
-    } else {
-      await api.createProduct(payload);
-    }
+        isActive: productFormState.isActive,
+      };
+      if (productFormMode === 'edit' && editingProduct) {
+        await api.updateProduct(editingProduct.id, payload);
+      } else {
+        await api.createProduct(payload);
+      }
       await Promise.all([refreshShop(), loadShopProducts()]);
       closeProductModal();
     } catch (err) {
@@ -643,16 +678,111 @@ const ShopProductsPage = () => {
                 )}
                 {productStep === 2 && (
                   <div className="space-y-4">
-                    <p className="text-sm text-gray-600">
-                      Define variant groups (sizes, formats, etc.) with their Money inputs.
-                    </p>
-                    <VariantGroupsEditor
-                      groups={productFormState.variantGroups}
-                      defaultCurrency={productFormState.defaultCurrency}
-                      onChange={(variantGroups) =>
-                        setProductFormState((prev) => ({ ...prev, variantGroups }))
-                      }
-                    />
+                    {productFormState.variantGroups.length === 0 ? (
+                      <>
+                        <p className="text-sm text-gray-600">
+                          Set a single base price. Switch to advanced variants if you need more
+                          control.
+                        </p>
+                        <div className="grid gap-4 md:grid-cols-3">
+                          <div className="md:col-span-2">
+                            <label className="text-sm font-medium text-gray-700">
+                              Base price amount
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              value={productFormState.simplePriceAmount}
+                              onChange={(event) =>
+                                setProductFormState((prev) => ({
+                                  ...prev,
+                                  simplePriceAmount: event.target.value,
+                                }))
+                              }
+                              placeholder="12.00"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-700">
+                              Currency
+                            </label>
+                            <input
+                              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              value={productFormState.simplePriceCurrency}
+                              onChange={(event) =>
+                                setProductFormState((prev) => ({
+                                  ...prev,
+                                  simplePriceCurrency: event.target.value.toUpperCase(),
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-gray-500">
+                            Need multiple variants? Convert to advanced mode.
+                          </p>
+                          <button
+                            type="button"
+                            className="text-sm font-semibold text-blue-600 hover:underline"
+                            onClick={() =>
+                              setProductFormState((prev) => ({
+                                ...prev,
+                                variantGroups: [
+                                  {
+                                    id: createId(),
+                                    name: 'Standard group',
+                                    variants: [
+                                      {
+                                        id: createId(),
+                                        name: 'Standard',
+                                        basePrice: {
+                                          amount: Number(prev.simplePriceAmount || 0),
+                                          currency:
+                                            prev.simplePriceCurrency || prev.defaultCurrency,
+                                        },
+                                        isActive: true,
+                                      },
+                                    ],
+                                  },
+                                ],
+                              }))
+                            }
+                          >
+                            Configure advanced variants
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-gray-600">
+                          Define variant groups (sizes, formats, etc.) with their Money inputs.
+                        </p>
+                        <VariantGroupsEditor
+                          groups={productFormState.variantGroups}
+                          defaultCurrency={productFormState.defaultCurrency}
+                          onChange={(variantGroups) =>
+                            setProductFormState((prev) => ({ ...prev, variantGroups }))
+                          }
+                        />
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            className="text-sm font-semibold text-blue-600 hover:underline"
+                            onClick={() =>
+                              setProductFormState((prev) => ({
+                                ...prev,
+                                variantGroups: [],
+                              }))
+                            }
+                          >
+                            Revert to simple pricing
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
                 {productStep === 3 && (
@@ -687,11 +817,27 @@ const ShopProductsPage = () => {
                         <div>
                           <dt className="font-medium text-gray-700">Variants</dt>
                           <dd>
-                            {productFormState.variantGroups.reduce(
-                              (count, group) => count + group.variants.length,
-                              0
-                            )}{' '}
-                            configured
+                            {productFormState.variantGroups.length > 0 ? (
+                              <>
+                                {productFormState.variantGroups.reduce(
+                                  (count, group) => count + group.variants.length,
+                                  0
+                                )}{' '}
+                                configured
+                              </>
+                            ) : hasSimplePrice ? (
+                              <>
+                                Base price:{' '}
+                                {productFormState.simplePriceAmount
+                                  ? `${productFormState.simplePriceAmount} ${
+                                      productFormState.simplePriceCurrency ||
+                                      productFormState.defaultCurrency
+                                    }`
+                                  : '—'}
+                              </>
+                            ) : (
+                              '—'
+                            )}
                           </dd>
                         </div>
                         <div>
@@ -741,7 +887,7 @@ const ShopProductsPage = () => {
                         disabled={
                           productSubmitting ||
                           !productFormState.title.trim() ||
-                          !hasAtLeastOneVariant
+                          !hasPricingConfigured
                         }
                         className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
                       >
