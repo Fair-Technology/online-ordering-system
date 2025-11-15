@@ -1,4 +1,11 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import {
+  Dispatch,
+  FormEvent,
+  SetStateAction,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { useMsal } from '@azure/msal-react';
 import { skipToken } from '@reduxjs/toolkit/query';
 import { Link, useNavigate } from 'react-router-dom';
@@ -37,8 +44,17 @@ const defaultFulfillment: FulfillmentOptions = {
   deliveryFee: 0,
 };
 
+const toSlug = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+
 const createDefaultShopForm = (): ShopFormState => ({
   name: '',
+  slug: '',
   address: '',
   status: 'open',
   isActive: true,
@@ -107,6 +123,7 @@ const normalizeFulfillment = (
 
 const mapSummaryToForm = (summary: ShopSummary): ShopFormState => ({
   name: summary.name,
+  slug: summary.slug,
   address: summary.address,
   status: summary.status,
   isActive: summary.isActive,
@@ -164,6 +181,17 @@ const ShopsPage = () => {
     }
   }, [editingShopDetails]);
 
+  const applyEditFormUpdate: Dispatch<SetStateAction<ShopFormState>> = (
+    update
+  ) => {
+    setEditForm((prev) => {
+      if (!prev) return prev;
+      return typeof update === 'function'
+        ? (update as (prev: ShopFormState) => ShopFormState)(prev)
+        : update;
+    });
+  };
+
   const resolvedShops: UserShopView[] = shops ?? [];
   const filteredShops = useMemo(() => {
     if (!resolvedShops.length) return [];
@@ -186,7 +214,7 @@ const ShopsPage = () => {
     setIsCreateModalOpen(true);
   };
 
-  const goToShopCatalog = (shopId: string) => {
+  const goToShopProducts = (shopId: string) => {
     navigate(`/owner/shops/${shopId}`);
   };
 
@@ -217,24 +245,30 @@ const ShopsPage = () => {
 
   const handleCreateShop = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!ownerUserId) {
-      setCreationError('A valid owner identity is required.');
-      return;
-    }
-    if (!newShop.name.trim() || !newShop.address.trim()) {
-      setCreationError('Name and address are required.');
-      return;
-    }
+  if (!ownerUserId) {
+    setCreationError('A valid owner identity is required.');
+    return;
+  }
+  if (!newShop.name.trim() || !newShop.address.trim()) {
+    setCreationError('Name and address are required.');
+    return;
+  }
+  const slug = resolveSlug(newShop.name, newShop.slug);
+  if (!slug) {
+    setCreationError('Slug is required.');
+    return;
+  }
 
-    try {
-      setCreationError(null);
-      const payload: CreateShopRequest = {
-        ...newShop,
-        name: newShop.name.trim(),
-        address: newShop.address.trim(),
-        ownerUserId,
-        fulfillmentOptions: normalizeFulfillment(newShop.fulfillmentOptions),
-      };
+  try {
+    setCreationError(null);
+    const payload: CreateShopRequest = {
+      ...newShop,
+      name: newShop.name.trim(),
+      slug,
+      address: newShop.address.trim(),
+      ownerUserId,
+      fulfillmentOptions: normalizeFulfillment(newShop.fulfillmentOptions),
+    };
       await createShop(payload).unwrap();
       await refetchShops();
       closeCreateModal();
@@ -250,14 +284,18 @@ const ShopsPage = () => {
   const handleEditSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!editingShopId || !editForm) return;
-    try {
-      setEditError(null);
-      setEditSuccess(null);
-      const payload: ShopSettingsUpdateRequest = {
-        name: editForm.name?.trim(),
-        address: editForm.address?.trim(),
-        status: editForm.status,
-        isActive: editForm.isActive,
+  try {
+    setEditError(null);
+    setEditSuccess(null);
+    const slug = editForm.slug?.trim()
+      ? resolveSlug(editForm.name ?? '', editForm.slug)
+      : undefined;
+    const payload: ShopSettingsUpdateRequest = {
+      name: editForm.name?.trim(),
+      slug,
+      address: editForm.address?.trim(),
+      status: editForm.status,
+      isActive: editForm.isActive,
         acceptingOrders: editForm.acceptingOrders,
         paymentPolicy: editForm.paymentPolicy,
         orderAcceptanceMode: editForm.orderAcceptanceMode,
@@ -278,19 +316,22 @@ const ShopsPage = () => {
   };
 
   const handleFulfillmentChange = (
-    setter: (next: ShopFormState) => void,
-    form: ShopFormState,
+    setter: Dispatch<SetStateAction<ShopFormState>>,
     field: keyof FulfillmentOptions,
     value: boolean | number
   ) => {
-    setter({
-      ...form,
+    setter((prev) => ({
+      ...prev,
       fulfillmentOptions: {
-        ...form.fulfillmentOptions,
+        ...prev.fulfillmentOptions,
         [field]:
-          typeof value === 'number' ? (Number.isNaN(value) ? 0 : value) : value,
+          typeof value === 'number'
+            ? Number.isNaN(value)
+              ? 0
+              : value
+            : value,
       },
-    });
+    }));
   };
 
   const handleDeleteConfirm = async () => {
@@ -313,52 +354,80 @@ const ShopsPage = () => {
     }
   };
 
-  const renderBasicInfoFields = (
-    form: ShopFormState,
-    setForm: (next: ShopFormState) => void,
-    disabled?: boolean
-  ) => (
-    <div className="grid gap-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Name</label>
-        <input
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={form.name}
-          onChange={(event) =>
-            setForm({
-              ...form,
-              name: event.target.value,
-            })
-          }
-          required
-          disabled={disabled}
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          Address
-        </label>
-        <input
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={form.address}
-          onChange={(event) =>
-            setForm({
-              ...form,
-              address: event.target.value,
-            })
-          }
-          required
-          disabled={disabled}
-        />
-      </div>
+const renderBasicInfoFields = (
+  form: ShopFormState,
+  setForm: Dispatch<SetStateAction<ShopFormState>>,
+  disabled?: boolean
+) => (
+  <div className="grid gap-4">
+    <div>
+      <label className="block text-sm font-medium text-gray-700">Name</label>
+      <input
+        className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        value={form.name}
+        onChange={(event) =>
+          setForm((prev) => {
+            const nextName = event.target.value;
+            const prevSlugWasAuto =
+              !prev.slug || prev.slug === toSlug(prev.name ?? '');
+            return {
+              ...prev,
+              name: nextName,
+              slug: prevSlugWasAuto ? toSlug(nextName) : prev.slug,
+            };
+          })
+        }
+        required
+        disabled={disabled}
+      />
     </div>
-  );
+    <div>
+      <label className="block text-sm font-medium text-gray-700">
+        Slug
+      </label>
+      <input
+        className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 lowercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+        value={form.slug}
+        onChange={(event) =>
+          setForm((prev) => ({
+            ...prev,
+            slug: toSlug(event.target.value),
+          }))
+        }
+        placeholder="my-shop-slug"
+        required
+        disabled={disabled}
+      />
+      <p className="text-xs text-gray-500 mt-1">
+        Used in URLs, letters, and links. Only lowercase letters, numbers, and
+        dashes are allowed.
+      </p>
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700">
+        Address
+      </label>
+      <input
+        className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        value={form.address}
+        onChange={(event) =>
+          setForm((prev) => ({
+            ...prev,
+            address: event.target.value,
+          }))
+        }
+        required
+        disabled={disabled}
+      />
+    </div>
+  </div>
+);
 
-  const renderOperationalFields = (
-    form: ShopFormState,
-    setForm: (next: ShopFormState) => void,
-    disabled?: boolean
-  ) => (
+const renderOperationalFields = (
+  form: ShopFormState,
+  setForm: Dispatch<SetStateAction<ShopFormState>>,
+  disabled?: boolean
+) => (
     <div className="grid gap-4 md:grid-cols-2">
       <div>
         <label className="block text-sm font-medium text-gray-700">
@@ -368,10 +437,10 @@ const ShopsPage = () => {
           className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={form.status}
           onChange={(event) =>
-            setForm({
-              ...form,
+            setForm((prev) => ({
+              ...prev,
               status: event.target.value as ShopStatus,
-            })
+            }))
           }
           disabled={disabled}
         >
@@ -390,10 +459,10 @@ const ShopsPage = () => {
           className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={form.orderAcceptanceMode}
           onChange={(event) =>
-            setForm({
-              ...form,
+            setForm((prev) => ({
+              ...prev,
               orderAcceptanceMode: event.target.value as OrderAcceptanceMode,
-            })
+            }))
           }
           disabled={disabled}
         >
@@ -412,10 +481,10 @@ const ShopsPage = () => {
           className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={form.paymentPolicy}
           onChange={(event) =>
-            setForm({
-              ...form,
+            setForm((prev) => ({
+              ...prev,
               paymentPolicy: event.target.value as PaymentPolicy,
-            })
+            }))
           }
           disabled={disabled}
         >
@@ -434,7 +503,12 @@ const ShopsPage = () => {
               ? 'bg-green-50 text-green-700'
               : 'bg-gray-100 text-gray-600'
           }`}
-          onClick={() => setForm({ ...form, isActive: !form.isActive })}
+          onClick={() =>
+            setForm((prev) => ({
+              ...prev,
+              isActive: !prev.isActive,
+            }))
+          }
           disabled={disabled}
         >
           {form.isActive ? 'Active' : 'Inactive'}
@@ -447,7 +521,10 @@ const ShopsPage = () => {
               : 'bg-gray-100 text-gray-600'
           }`}
           onClick={() =>
-            setForm({ ...form, acceptingOrders: !form.acceptingOrders })
+            setForm((prev) => ({
+              ...prev,
+              acceptingOrders: !prev.acceptingOrders,
+            }))
           }
           disabled={disabled}
         >
@@ -457,11 +534,11 @@ const ShopsPage = () => {
     </div>
   );
 
-  const renderFulfillmentFields = (
-    form: ShopFormState,
-    setForm: (next: ShopFormState) => void,
-    disabled?: boolean
-  ) => (
+const renderFulfillmentFields = (
+  form: ShopFormState,
+  setForm: Dispatch<SetStateAction<ShopFormState>>,
+  disabled?: boolean
+) => (
     <div className="space-y-4">
       <label className="flex items-center gap-2 text-sm text-gray-700">
         <input
@@ -469,7 +546,10 @@ const ShopsPage = () => {
           className="h-4 w-4"
           checked={form.allowGuestCheckout}
           onChange={(event) =>
-            setForm({ ...form, allowGuestCheckout: event.target.checked })
+            setForm((prev) => ({
+              ...prev,
+              allowGuestCheckout: event.target.checked,
+            }))
           }
           disabled={disabled}
         />
@@ -481,12 +561,7 @@ const ShopsPage = () => {
           className="h-4 w-4"
           checked={form.fulfillmentOptions.pickupEnabled}
           onChange={(event) =>
-            handleFulfillmentChange(
-              setForm,
-              form,
-              'pickupEnabled',
-              event.target.checked
-            )
+            handleFulfillmentChange(setForm, 'pickupEnabled', event.target.checked)
           }
           disabled={disabled}
         />
@@ -499,12 +574,7 @@ const ShopsPage = () => {
             className="h-4 w-4"
             checked={form.fulfillmentOptions.deliveryEnabled}
             onChange={(event) =>
-              handleFulfillmentChange(
-                setForm,
-                form,
-                'deliveryEnabled',
-                event.target.checked
-              )
+              handleFulfillmentChange(setForm, 'deliveryEnabled', event.target.checked)
             }
             disabled={disabled}
           />
@@ -524,7 +594,6 @@ const ShopsPage = () => {
                 onChange={(event) =>
                   handleFulfillmentChange(
                     setForm,
-                    form,
                     'deliveryRadiusKm',
                     Number(event.target.value)
                   )
@@ -546,7 +615,6 @@ const ShopsPage = () => {
                 onChange={(event) =>
                   handleFulfillmentChange(
                     setForm,
-                    form,
                     'deliveryFee',
                     Number(event.target.value)
                   )
@@ -678,11 +746,11 @@ const ShopsPage = () => {
                 key={shop.shopId}
                 role="button"
                 tabIndex={0}
-                onClick={() => goToShopCatalog(shop.shopId)}
+                onClick={() => goToShopProducts(shop.shopId)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
-                    goToShopCatalog(shop.shopId);
+                    goToShopProducts(shop.shopId);
                   }
                 }}
                 className="cursor-pointer transition-colors hover:bg-slate-50 focus-visible:bg-slate-100"
@@ -775,9 +843,9 @@ const ShopsPage = () => {
       {isEditModalOpen && editForm ? (
         <Modal title="Edit shop settings" onClose={closeEditModal}>
           <form className="space-y-5" onSubmit={handleEditSubmit}>
-            {renderBasicInfoFields(editForm, setEditForm, isUpdating)}
-            {renderOperationalFields(editForm, setEditForm, isUpdating)}
-            {renderFulfillmentFields(editForm, setEditForm, isUpdating)}
+            {renderBasicInfoFields(editForm, applyEditFormUpdate, isUpdating)}
+            {renderOperationalFields(editForm, applyEditFormUpdate, isUpdating)}
+            {renderFulfillmentFields(editForm, applyEditFormUpdate, isUpdating)}
             {editError && <p className="text-sm text-red-600">{editError}</p>}
             {editSuccess && (
               <p className="text-sm text-green-600">{editSuccess}</p>
@@ -860,3 +928,7 @@ const ShopsPage = () => {
 };
 
 export default ShopsPage;
+const resolveSlug = (name: string, slug?: string) => {
+  const candidate = slug?.trim() ? toSlug(slug) : toSlug(name);
+  return candidate;
+};

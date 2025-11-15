@@ -2,7 +2,6 @@ import React from 'react';
 import {
   HomeIcon,
   BuildingStorefrontIcon,
-  Squares2X2Icon,
   ShoppingCartIcon,
   UserGroupIcon,
   FolderIcon,
@@ -16,8 +15,7 @@ const Sidebar: React.FC = () => {
   const menuItems = [
     { icon: HomeIcon, label: 'Overview', to: '/owner' },
     { icon: BuildingStorefrontIcon, label: 'Shops', to: '/owner/shops' },
-    { icon: Squares2X2Icon, label: 'Products', to: '/owner/catalog/products' },
-    { icon: FolderIcon, label: 'Categories', to: '/owner/catalog/categories' },
+    { icon: FolderIcon, label: 'Categories', to: '/owner/products/categories' },
     { icon: ShieldCheckIcon, label: 'Associations', to: '/owner/associations' },
     { icon: ShoppingCartIcon, label: 'Orders', to: '/owner/orders' },
     { icon: UserGroupIcon, label: 'Users', to: '/owner/users' },

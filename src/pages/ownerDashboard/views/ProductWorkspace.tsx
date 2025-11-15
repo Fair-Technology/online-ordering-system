@@ -1,96 +1,38 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useMsal } from '@azure/msal-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, type ApiShape } from '../../../config/api';
+import {
+  ProductFormState,
+  createDefaultProductFormState,
+  useHasAtLeastOneVariant,
+  VariantGroupsEditor,
+  AddonGroupsEditor,
+  StepIndicator,
+} from '../../../components/products/productForm';
 
-type CatalogProduct = Awaited<ReturnType<ApiShape['getCatalogProduct']>>;
-type CatalogProductList = Awaited<
-  ReturnType<ApiShape['listCatalogProducts']>
->;
-type CatalogProductSummary = CatalogProductList[number];
-type CatalogVariantGroupPayload =
-  Parameters<ApiShape['createCatalogProduct']>[0]['variantGroups'][number];
-type CatalogAddonGroupPayload =
-  Parameters<ApiShape['createCatalogProduct']>[0]['addonGroups'][number];
-type MoneyInput = CatalogVariantGroupPayload['variants'][number]['basePrice'];
-type VariantDraft = Omit<CatalogVariantGroupPayload['variants'][number], 'basePrice'> & {
-  basePrice: MoneyInput;
-};
+type ProductWorkspaceItem = Awaited<ReturnType<ApiShape['getProduct']>>;
+type ProductWorkspaceList = Awaited<ReturnType<ApiShape['listProducts']>>;
+type ProductWorkspaceSummary = ProductWorkspaceList[number];
+type ProductCreatePayload = Parameters<ApiShape['createProduct']>[0];
 
-type VariantGroupDraft = Omit<CatalogVariantGroupPayload, 'variants'> & {
-  variants: VariantDraft[];
-};
+type ProductWorkspaceView = 'products' | 'categories';
 
-type AddonGroupDraft = Omit<CatalogAddonGroupPayload, 'options'> & {
-  options: CatalogAddonGroupPayload['options'];
-};
-
-const createId = () =>
-  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `tmp-${Math.random().toString(36).slice(2, 10)}`;
-
-const defaultMoney = (currency = 'USD'): MoneyInput => ({
-  amount: 0,
-  currency,
-});
-
-const emptyVariant = (currency = 'USD'): VariantDraft => ({
-  id: createId(),
-  label: '',
-  basePrice: defaultMoney(currency),
-  sku: '',
-  isActive: true,
-  attributes: {},
-});
-
-const emptyVariantGroup = (currency = 'USD'): VariantGroupDraft => ({
-  id: createId(),
-  name: 'Primary sizes',
-  selectionMode: 'single',
-  variants: [emptyVariant(currency)],
-});
-
-const emptyAddonGroup = (currency = 'USD'): AddonGroupDraft => ({
-  id: createId(),
-  name: 'Add-ons',
-  required: false,
-  maxSelectable: 0,
-  options: [
-    {
-      id: createId(),
-      label: 'Extra shot',
-      priceDelta: defaultMoney(currency),
-      isActive: true,
-    },
-  ],
-});
-
-type CatalogView = 'products' | 'categories';
-
-type ProductFormState = {
-  title: string;
-  description: string;
-  isActive: boolean;
-  variantGroups: VariantGroupDraft[];
-  addonGroups: AddonGroupDraft[];
-  defaultCurrency: string;
-  selectedCategoryIds: string[];
-};
-
-const createDefaultProductFormState = (): ProductFormState => ({
-  title: '',
-  description: '',
-  isActive: true,
-  variantGroups: [emptyVariantGroup()],
-  addonGroups: [emptyAddonGroup()],
-  defaultCurrency: 'USD',
-  selectedCategoryIds: [],
-});
-
-const CatalogModule = ({ view }: { view: CatalogView }) => {
-  const [products, setProducts] = useState<CatalogProductSummary[]>([]);
+const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const shopContextId = searchParams.get('shopId') ?? '';
+  const shouldAutoCreate = searchParams.get('create') === '1';
+  const { accounts } = useMsal();
+  const ownerUserId =
+    accounts[0]?.localAccountId ||
+    accounts[0]?.homeAccountId ||
+    accounts[0]?.username ||
+    '';
+  const [products, setProducts] = useState<ProductWorkspaceSummary[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
-  const [editingProduct, setEditingProduct] = useState<CatalogProduct | null>(
+  const [editingProduct, setEditingProduct] = useState<ProductWorkspaceItem | null>(
     null
   );
   const [productFormMode, setProductFormMode] = useState<'create' | 'edit'>(
@@ -111,12 +53,16 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
     null
   );
   const [isCategorySubmitting, setIsCategorySubmitting] = useState(false);
+  const [categoryShopId, setCategoryShopId] = useState(shopContextId);
 
   const loadProducts = useCallback(async () => {
     setProductsLoading(true);
     setProductsError(null);
     try {
-      const data = await api.listCatalogProducts();
+      const data = await api.listProducts({
+        shopId: categoryShopId || undefined,
+        ownerUserId: ownerUserId || undefined,
+      });
       setProducts(data);
     } catch (error) {
       setProductsError(
@@ -125,11 +71,33 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
     } finally {
       setProductsLoading(false);
     }
-  }, []);
+  }, [categoryShopId, ownerUserId]);
 
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
+
+  useEffect(() => {
+    const loadManaged = async () => {
+      if (!ownerUserId) return;
+      try {
+        const list = await api.listManagedShops(ownerUserId);
+        setCategoryShopId((prev) =>
+          prev || shopContextId || list[0]?.shopId || ''
+        );
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    loadManaged();
+  }, [ownerUserId, shopContextId]);
+
+  useEffect(() => {
+    if (!shopContextId) return;
+    setCategoryShopId((prev) =>
+      prev && prev !== shopContextId ? prev : shopContextId
+    );
+  }, [shopContextId]);
 
   const resetProductForm = () => {
     setProductFormMode('create');
@@ -171,17 +139,12 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
     setProductStep(1);
     setEditingProduct(null);
     resetProductForm();
-    setPendingCategoryTags(null);
   };
 
   const totalProductSteps = productSteps.length;
 
-  const hasAtLeastOneVariant = useMemo(
-    () =>
-      productFormState.variantGroups.some((group) =>
-        group.variants.some((variant) => variant.label.trim())
-      ),
-    [productFormState.variantGroups]
+  const hasAtLeastOneVariant = useHasAtLeastOneVariant(
+    productFormState.variantGroups
   );
 
   const isStepReady = (step: number) => {
@@ -205,8 +168,8 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
     setProductStep((prev) => Math.max(1, prev - 1));
   };
 
-  const handleProductSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleProductSubmit = async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
     if (!isStepReady(productStep)) {
       return;
     }
@@ -225,25 +188,32 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
             .map((category) => category.name)
         )
       );
-      const payload = {
+      const resolvedShopId =
+        productFormMode === 'create'
+          ? categoryShopId
+          : editingProduct?.shopId ?? '';
+      if (!resolvedShopId) {
+        throw new Error('Select a shop before saving this product.');
+      }
+      const payload: ProductCreatePayload = {
         title: productFormState.title,
         description: productFormState.description,
+        ownerUserId: ownerUserId || undefined,
         tags: selectedCategoryNames,
+        shopId: resolvedShopId,
+        categories: selectedCategoryNames,
         variantGroups: productFormState.variantGroups.map((group) => ({
           id: group.id,
           name: group.name,
-          selectionMode: group.selectionMode,
           variants: group.variants.map((variant) => ({
             id: variant.id,
-            label: variant.label,
+            name: variant.name,
             basePrice: {
               amount: Number(variant.basePrice.amount),
               currency:
                 variant.basePrice.currency || productFormState.defaultCurrency,
             },
-            sku: variant.sku,
             isActive: variant.isActive,
-            attributes: variant.attributes,
           })),
         })),
         addonGroups: productFormState.addonGroups.map((group) => ({
@@ -253,7 +223,7 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
           maxSelectable: group.maxSelectable,
           options: group.options.map((option) => ({
             id: option.id,
-            label: option.label,
+            name: option.name,
             priceDelta: {
               amount: Number(option.priceDelta.amount),
               currency:
@@ -263,20 +233,26 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
           })),
         })),
         isActive: productFormState.isActive,
-      } as Parameters<ApiShape['createCatalogProduct']>[0];
+      };
 
+      let productId = editingProduct?.id ?? '';
       if (productFormMode === 'create') {
-        await api.createCatalogProduct(payload);
+        const created = await api.createProduct(payload);
+        productId = created.id;
       } else if (editingProduct) {
-        await api.updateCatalogProduct(editingProduct.id, payload);
+        await api.updateProduct(editingProduct.id, payload);
+        productId = editingProduct.id;
       }
       await loadProducts();
       closeProductModal();
+      if (shopContextId && productFormMode === 'create' && productId) {
+        navigate(`/owner/shops/${shopContextId}`);
+      }
     } catch (error) {
       alert(
         error instanceof Error
           ? error.message
-          : 'Unable to save catalog product.'
+          : 'Unable to save product.'
       );
     } finally {
       setProductSubmitting(false);
@@ -285,13 +261,11 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
 
   const onEditProduct = async (productId: string) => {
     try {
-      const product = await api.getCatalogProduct(productId);
+      const product = await api.getProduct(productId);
       setEditingProduct(product);
       setProductFormMode('edit');
-      const mappedCategoryIds = mapTagsToCategoryIds(product.tags);
-      if (!mappedCategoryIds.length && (product.tags?.length ?? 0) > 0) {
-        setPendingCategoryTags(product.tags ?? []);
-      }
+      const mappedCategoryIds =
+        product.categoryDetails?.map((category) => category.id) ?? [];
       setProductFormState({
         title: product.title,
         description: product.description ?? '',
@@ -301,17 +275,14 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
         variantGroups: product.variantGroups.map((group) => ({
           id: group.id,
           name: group.name,
-          selectionMode: group.selectionMode,
           variants: group.variants.map((variant) => ({
             id: variant.id,
-            label: variant.label,
+            name: variant.name,
             basePrice: {
               amount: variant.basePrice.amount,
               currency: variant.basePrice.currency,
             },
-            sku: variant.sku,
             isActive: variant.isActive,
-            attributes: variant.attributes,
           })),
         })),
         addonGroups: product.addonGroups.map((group) => ({
@@ -321,7 +292,7 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
           maxSelectable: group.maxSelectable,
           options: group.options.map((option) => ({
             id: option.id,
-            label: option.label,
+            name: option.name,
             priceDelta: {
               amount: option.priceDelta.amount,
               currency: option.priceDelta.currency,
@@ -343,13 +314,13 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
   const onDeleteProduct = async (productId: string) => {
     if (
       !window.confirm(
-        'Deleting a catalog product removes it from future menus. Continue?'
+        'Deleting a product removes it from future menus. Continue?'
       )
     ) {
       return;
     }
     try {
-      await api.deleteCatalogProduct(productId);
+      await api.deleteProduct(productId);
       await loadProducts();
     } catch (error) {
       alert(
@@ -373,11 +344,8 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
   const [categories, setCategories] = useState<
     Awaited<ReturnType<ApiShape['listCategories']>>
   >([]);
-  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
-  const [pendingCategoryTags, setPendingCategoryTags] = useState<string[] | null>(
-    null
-  );
 
   const loadCategories = useCallback(async () => {
     setCategoriesLoading(true);
@@ -398,39 +366,51 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
     loadCategories();
   }, [loadCategories]);
 
-  const mapTagsToCategoryIds = useCallback(
-    (tagNames?: string[] | null) => {
-      if (!tagNames?.length) return [];
-      const normalized = tagNames.map((tag) => tag.trim().toLowerCase());
-      return categories
-        .filter((category) =>
-          normalized.includes(category.name.trim().toLowerCase())
-        )
-        .map((category) => category.id);
-    },
-    [categories]
-  );
-
   useEffect(() => {
-    if (!pendingCategoryTags || categoriesLoading) return;
     setProductFormState((prev) => ({
       ...prev,
-      selectedCategoryIds: mapTagsToCategoryIds(pendingCategoryTags),
+      selectedCategoryIds: prev.selectedCategoryIds.filter((id) =>
+        categories.some((category) => category.id === id)
+      ),
     }));
-    setPendingCategoryTags(null);
-  }, [pendingCategoryTags, categoriesLoading, mapTagsToCategoryIds]);
+  }, [categories]);
+
+  useEffect(() => {
+    if (!shouldAutoCreate || !shopContextId || isProductModalOpen) return;
+    resetProductForm();
+    openProductModal('create');
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('create');
+    setSearchParams(nextParams, { replace: true });
+  }, [
+    shouldAutoCreate,
+    shopContextId,
+    isProductModalOpen,
+    searchParams,
+    setSearchParams,
+  ]);
+
+
+  const categoryNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    categories.forEach((category) => map.set(category.id, category.name));
+    return map;
+  }, [categories]);
 
   const categoryStats = useMemo(() => {
     return categories
       .map((category) => {
-        const loweredName = category.name.trim().toLowerCase();
         const productIds =
           products
-            .filter((product) =>
-              (product.tags ?? []).some(
-                (tag) => tag.trim().toLowerCase() === loweredName
-              )
-            )
+            .filter((product) => {
+              const hasMatchingId =
+                product.categoryDetails?.some(
+                  (detail) => detail.id === category.id
+                ) ?? false;
+              const hasMatchingName =
+                product.categories?.includes(category.name) ?? false;
+              return hasMatchingId || hasMatchingName;
+            })
             .map((product) => product.id) ?? [];
         return {
           ...category,
@@ -444,15 +424,14 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
       );
   }, [categories, products]);
 
-  const selectedCategoryNames = useMemo(
-    () =>
-      categories
-        .filter((category) =>
-          productFormState.selectedCategoryIds.includes(category.id)
-        )
-        .map((category) => category.name),
-    [categories, productFormState.selectedCategoryIds]
-  );
+  const selectedCategoryNames = useMemo(() => {
+    const names = productFormState.selectedCategoryIds
+      .map((id) => categoryNameById.get(id))
+      .filter((name): name is string => Boolean(name));
+    return names;
+  }, [productFormState.selectedCategoryIds, categoryNameById]);
+
+  const filteredCategories = useMemo(() => categories, [categories]);
 
   const totalCategoryAssignments = useMemo(
     () =>
@@ -491,7 +470,7 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
                   <p className="text-sm text-gray-500">Loading categories…</p>
                 ) : categoriesError ? (
                   <p className="text-sm text-red-600">{categoriesError}</p>
-                ) : categories.length === 0 ? (
+                ) : filteredCategories.length === 0 ? (
                   <div className="text-sm text-gray-500 space-y-2">
                     <p>No categories yet. Create reusable labels such as Lunch or Drinks.</p>
                     <button
@@ -509,7 +488,7 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
                 ) : (
                   <div className="space-y-3">
                     <div className="flex flex-wrap gap-2">
-                      {categories.map((category) => {
+                      {filteredCategories.map((category) => {
                         const isSelected =
                           productFormState.selectedCategoryIds.includes(
                             category.id
@@ -598,6 +577,7 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
           </p>
           <VariantGroupsEditor
             groups={productFormState.variantGroups}
+            defaultCurrency={productFormState.defaultCurrency}
             onChange={(variantGroups) =>
               setProductFormState((prev) => ({ ...prev, variantGroups }))
             }
@@ -614,6 +594,7 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
           </p>
           <AddonGroupsEditor
             groups={productFormState.addonGroups}
+            defaultCurrency={productFormState.defaultCurrency}
             onChange={(addonGroups) =>
               setProductFormState((prev) => ({ ...prev, addonGroups }))
             }
@@ -662,10 +643,10 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
 
   const heroCopies = {
     products: {
-      eyebrow: 'Catalog products',
+      eyebrow: 'Products',
       title: 'Craft, launch, and maintain your best-sellers',
       description:
-        'Centralize every catalog asset with guided workflows and consistent pricing controls.',
+        'Centralize every product asset with guided workflows and consistent pricing controls.',
       primaryStatLabel: 'Active products',
       primaryStatValue: products.filter((product) => product.isActive).length,
       secondaryStatLabel: 'Variant groups',
@@ -678,7 +659,7 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
       eyebrow: 'Product categories',
       title: 'Keep menus structured and intuitive',
       description:
-        'Group catalog items by use-case (Lunch, Drinks, Specials) and assign products consistently.',
+        'Group products by use-case (Lunch, Drinks, Specials) and assign them consistently.',
       primaryStatLabel: 'Categories',
       primaryStatValue: categories.length,
       secondaryStatLabel: 'Assignments',
@@ -696,7 +677,7 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
         <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
-              Catalog products
+              Products
             </h2>
             <p className="text-sm text-gray-600">
               Craft reusable products including variant and add-on pricing.
@@ -705,7 +686,7 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-colors"
+              className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 hover:bg-blue-700 disabled:opacity-50 transition-colors"
               onClick={() => {
                 resetProductForm();
                 openProductModal('create');
@@ -716,7 +697,7 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
           </div>
         </header>
         {productsLoading ? (
-          <p className="text-sm text-gray-500">Loading catalog…</p>
+          <p className="text-sm text-gray-500">Loading products…</p>
         ) : productsError ? (
           <p className="text-sm text-red-600">{productsError}</p>
         ) : (
@@ -803,10 +784,13 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
             </h2>
             <p className="text-sm text-gray-600">
               Assign reusable labels such as Lunch, Drinks, or Specials to keep
-              your catalog organized across storefronts.
+              your products organized across storefronts.
             </p>
           </div>
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+            <p className="text-sm text-gray-500">
+              Categories are shared globally and can be applied to any product.
+            </p>
             <button
               type="button"
               className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-colors"
@@ -842,58 +826,6 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
                   </p>
                 </div>
               ))}
-            </div>
-            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-              <table className="min-w-full divide-y divide-gray-100 text-sm">
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
-                    <th className="px-4 py-3">Product</th>
-                    <th className="px-4 py-3">Categories</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {products.map((product) => (
-                    <tr key={product.id}>
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-gray-900">
-                          {product.title}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {product.description ?? '—'}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          {(product.tags ?? []).length === 0 ? (
-                            <span className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600">
-                              Uncategorized
-                            </span>
-                          ) : (
-                            (product.tags ?? []).map((tag) => (
-                              <span
-                                key={tag}
-                                className="rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-700"
-                              >
-                                {tag}
-                              </span>
-                            ))
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          className="text-sm font-medium text-blue-600 hover:underline"
-                          onClick={() => onEditProduct(product.id)}
-                        >
-                          Edit product
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           </>
         )}
@@ -944,8 +876,8 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
         <Modal
           title={
             productFormMode === 'create'
-              ? 'Create catalog product'
-              : 'Edit catalog product'
+              ? 'Create product'
+              : 'Edit product'
           }
           onClose={closeProductModal}
         >
@@ -965,31 +897,43 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
                   <button
                     type="button"
                     className="rounded-md border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                    onClick={goToPreviousStep}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      goToPreviousStep();
+                    }}
                   >
                     Previous
                   </button>
                 )}
-                <button
-                  type="submit"
-                  disabled={
-                    (productStep < productSteps.length &&
-                      !isStepReady(productStep)) ||
-                    (productStep === productSteps.length &&
-                      (productSubmitting ||
-                        !productFormState.title.trim() ||
-                        !hasAtLeastOneVariant))
-                  }
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {productStep < productSteps.length
-                    ? 'Next'
-                    : productSubmitting
-                    ? 'Saving…'
-                    : productFormMode === 'create'
-                    ? 'Publish product'
-                    : 'Save changes'}
-                </button>
+                {productStep < productSteps.length ? (
+                  <button
+                    type="button"
+                    disabled={!isStepReady(productStep)}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      goToNextStep();
+                    }}
+                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={
+                      productSubmitting ||
+                      !productFormState.title.trim() ||
+                      !hasAtLeastOneVariant
+                    }
+                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {productSubmitting
+                      ? 'Saving…'
+                      : productFormMode === 'create'
+                      ? 'Publish product'
+                      : 'Save changes'}
+                  </button>
+                )}
               </div>
             </div>
           </form>
@@ -1023,6 +967,10 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
                 Examples: Lunch, Drinks, Weekend specials.
               </p>
             </div>
+            <p className="text-xs text-gray-500">
+              Categories are saved once and can then be used by every shop you
+              manage.
+            </p>
             {categoryModalError && (
               <p className="text-sm text-red-600">{categoryModalError}</p>
             )}
@@ -1049,365 +997,6 @@ const CatalogModule = ({ view }: { view: CatalogView }) => {
   );
 };
 
-const VariantGroupsEditor = ({
-  groups,
-  onChange,
-}: {
-  groups: VariantGroupDraft[];
-  onChange: (next: VariantGroupDraft[]) => void;
-}) => {
-  const updateGroup = (groupId: string, updates: Partial<VariantGroupDraft>) => {
-    onChange(
-      groups.map((group) =>
-        group.id === groupId ? { ...group, ...updates } : group
-      )
-    );
-  };
-
-  const updateVariant = (
-    groupId: string,
-    variantId: string,
-    updates: Partial<VariantDraft>
-  ) => {
-    onChange(
-      groups.map((group) =>
-        group.id === groupId
-          ? {
-              ...group,
-              variants: group.variants.map((variant) =>
-                variant.id === variantId ? { ...variant, ...updates } : variant
-              ),
-            }
-          : group
-      )
-    );
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-gray-900">Variant groups</p>
-        <button
-          type="button"
-          className="text-sm font-medium text-blue-600 hover:underline"
-          onClick={() => onChange([...groups, emptyVariantGroup()])}
-        >
-          Add group
-        </button>
-      </div>
-      {groups.map((group) => (
-        <div key={group.id} className="border border-gray-200 rounded-lg p-4 space-y-3">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="text-xs font-medium text-gray-700">
-                Group name
-              </label>
-              <input
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-                value={group.name}
-                onChange={(event) =>
-                  updateGroup(group.id, { name: event.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700">
-                Selection mode
-              </label>
-              <select
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-                value={group.selectionMode}
-                onChange={(event) =>
-                  updateGroup(group.id, {
-                    selectionMode: event.target.value as 'single' | 'multiple',
-                  })
-                }
-              >
-                <option value="single">Single</option>
-                <option value="multiple">Multiple</option>
-              </select>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {group.variants.map((variant) => (
-              <div
-                key={variant.id}
-                className="rounded-lg border border-gray-100 bg-gray-50 p-3 grid gap-3 md:grid-cols-4"
-              >
-                <div>
-                  <label className="text-xs font-medium text-gray-700">
-                    Label
-                  </label>
-                  <input
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-                    value={variant.label}
-                    onChange={(event) =>
-                      updateVariant(group.id, variant.id, {
-                        label: event.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-700">
-                    Amount
-                  </label>
-                  <input
-                    type="number"
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-                    value={variant.basePrice.amount}
-                    onChange={(event) =>
-                      updateVariant(group.id, variant.id, {
-                        basePrice: {
-                          ...variant.basePrice,
-                          amount: Number(event.target.value),
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-700">
-                    Currency
-                  </label>
-                  <input
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 uppercase"
-                    value={variant.basePrice.currency ?? 'USD'}
-                    onChange={(event) =>
-                      updateVariant(group.id, variant.id, {
-                        basePrice: {
-                          ...variant.basePrice,
-                          currency: event.target.value.toUpperCase(),
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-gray-700">
-                    Active
-                  </label>
-                  <input
-                    type="checkbox"
-                    checked={variant.isActive}
-                    onChange={(event) =>
-                      updateVariant(group.id, variant.id, {
-                        isActive: event.target.checked,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="text-xs font-medium text-blue-600 hover:underline"
-            onClick={() =>
-              updateGroup(group.id, {
-                variants: [...group.variants, emptyVariant()],
-              })
-            }
-          >
-            Add variant
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const AddonGroupsEditor = ({
-  groups,
-  onChange,
-}: {
-  groups: AddonGroupDraft[];
-  onChange: (next: AddonGroupDraft[]) => void;
-}) => {
-  const updateGroup = (groupId: string, updates: Partial<AddonGroupDraft>) => {
-    onChange(
-      groups.map((group) =>
-        group.id === groupId ? { ...group, ...updates } : group
-      )
-    );
-  };
-
-  const updateOption = (
-    groupId: string,
-    optionId: string,
-    updates: Partial<AddonGroupDraft['options'][number]>
-  ) => {
-    onChange(
-      groups.map((group) =>
-        group.id === groupId
-          ? {
-              ...group,
-              options: group.options.map((option) =>
-                option.id === optionId ? { ...option, ...updates } : option
-              ),
-            }
-          : group
-      )
-    );
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-gray-900">Addon groups</p>
-        <button
-          type="button"
-          className="text-sm font-medium text-blue-600 hover:underline"
-          onClick={() => onChange([...groups, emptyAddonGroup()])}
-        >
-          Add group
-        </button>
-      </div>
-      {groups.map((group) => (
-        <div key={group.id} className="border border-gray-200 rounded-lg p-4 space-y-3">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <label className="text-xs font-medium text-gray-700">
-                Group name
-              </label>
-              <input
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-                value={group.name}
-                onChange={(event) =>
-                  updateGroup(group.id, { name: event.target.value })
-                }
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700">
-                Required
-              </label>
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={group.required}
-                  onChange={(event) =>
-                    updateGroup(group.id, { required: event.target.checked })
-                  }
-                />
-                <span className="text-xs text-gray-600">Must pick one</span>
-              </div>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-700">
-                Max selectable
-              </label>
-              <input
-                type="number"
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-                value={group.maxSelectable ?? 0}
-                onChange={(event) =>
-                  updateGroup(group.id, {
-                    maxSelectable: Number(event.target.value),
-                  })
-                }
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            {group.options.map((option) => (
-              <div
-                key={option.id}
-                className="rounded-lg border border-gray-100 bg-gray-50 p-3 grid gap-3 md:grid-cols-4"
-              >
-                <div>
-                  <label className="text-xs font-medium text-gray-700">
-                    Label
-                  </label>
-                  <input
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-                    value={option.label}
-                    onChange={(event) =>
-                      updateOption(group.id, option.id, {
-                        label: event.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-700">
-                    Amount
-                  </label>
-                  <input
-                    type="number"
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-                    value={option.priceDelta.amount}
-                    onChange={(event) =>
-                      updateOption(group.id, option.id, {
-                        priceDelta: {
-                          ...option.priceDelta,
-                          amount: Number(event.target.value),
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-700">
-                    Currency
-                  </label>
-                  <input
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 uppercase"
-                    value={option.priceDelta.currency ?? 'USD'}
-                    onChange={(event) =>
-                      updateOption(group.id, option.id, {
-                        priceDelta: {
-                          ...option.priceDelta,
-                          currency: event.target.value.toUpperCase(),
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-gray-700">
-                    Active
-                  </label>
-                  <input
-                    type="checkbox"
-                    checked={option.isActive}
-                    onChange={(event) =>
-                      updateOption(group.id, option.id, {
-                        isActive: event.target.checked,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="text-xs font-medium text-blue-600 hover:underline"
-            onClick={() =>
-              updateGroup(group.id, {
-                options: [
-                  ...group.options,
-                  {
-                    id: createId(),
-                    label: 'New option',
-                    priceDelta: defaultMoney(),
-                    isActive: true,
-                  },
-                ],
-              })
-            }
-          >
-            Add option
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-export default CatalogModule;
-
 const Modal = ({
   title,
   onClose,
@@ -1422,7 +1011,7 @@ const Modal = ({
       <div className="flex items-start justify-between border-b border-gray-100 px-6 py-4">
         <div>
           <p className="text-xs uppercase tracking-widest text-blue-600">
-            Catalog workflow
+            Products workflow
           </p>
           <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
         </div>
@@ -1440,37 +1029,4 @@ const Modal = ({
   </div>
 );
 
-const StepIndicator = ({
-  steps,
-  currentStep,
-}: {
-  steps: string[];
-  currentStep: number;
-}) => (
-  <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-gray-50 px-4 py-3">
-    {steps.map((label, index) => {
-      const stepNumber = index + 1;
-      const isActive = stepNumber === currentStep;
-      const isCompleted = stepNumber < currentStep;
-      return (
-        <div key={label} className="flex items-center gap-2">
-          <span
-            className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold ${
-              isActive
-                ? 'bg-blue-600 text-white'
-                : isCompleted
-                ? 'bg-emerald-100 text-emerald-700'
-                : 'bg-white text-gray-500 border border-gray-200'
-            }`}
-          >
-            {stepNumber}
-          </span>
-          <span className="text-xs font-medium text-gray-700">{label}</span>
-          {stepNumber < steps.length && (
-            <span className="hidden h-px w-8 bg-gray-200 md:block" />
-          )}
-        </div>
-      );
-    })}
-  </div>
-);
+export default ProductWorkspace;

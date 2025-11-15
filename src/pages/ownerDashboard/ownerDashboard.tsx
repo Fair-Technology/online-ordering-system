@@ -2,13 +2,12 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import Sidebar from './sidebar';
 import TopBar from './topBar';
 import DashboardHome from './views/DashboardHome';
-import CatalogProductsPage from './views/CatalogProductsPage';
-import CatalogCategoriesPage from './views/CatalogCategoriesPage';
+import ProductCategoriesPage from './views/ProductCategoriesPage';
 import AssociationsModule from './views/AssociationsModule';
 import OrdersModule from './views/OrdersModule';
 import UsersModule from './views/UsersModule';
 import ShopsPage from './views/ShopsPage';
-import ShopCatalogPage from './views/ShopCatalogPage';
+import ShopProductsPage from './views/ShopProductsPage';
 
 const OwnerDashboard = () => {
   return (
@@ -27,16 +26,11 @@ const OwnerDashboard = () => {
             <Routes>
               <Route index element={<DashboardHome />} />
               <Route
-                path="catalog"
-                element={<Navigate to="/owner/catalog/products" replace />}
-              />
-              <Route path="catalog/products" element={<CatalogProductsPage />} />
-              <Route
-                path="catalog/categories"
-                element={<CatalogCategoriesPage />}
+                path="products/categories"
+                element={<ProductCategoriesPage />}
               />
               <Route path="shops" element={<ShopsPage />} />
-              <Route path="shops/:shopId" element={<ShopCatalogPage />} />
+              <Route path="shops/:shopId" element={<ShopProductsPage />} />
               <Route path="associations" element={<AssociationsModule />} />
               <Route path="orders" element={<OrdersModule />} />
               <Route path="users" element={<UsersModule />} />

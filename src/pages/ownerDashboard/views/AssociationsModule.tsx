@@ -37,7 +37,6 @@ const AssociationsModule = () => {
   const [inviteForm, setInviteForm] = useState({
     userId: '',
     role: 'manager' as ShopMember['role'],
-    permissions: '',
   });
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
   const [membershipsSubmitting, setMembershipsSubmitting] = useState<
@@ -229,7 +228,6 @@ const AssociationsModule = () => {
     try {
       await api.updateShopMember(selectedShopId, member.id, {
         role: updates.role ?? member.role,
-        permissions: updates.permissions ?? member.permissions,
         isActive: updates.isActive ?? member.isActive,
       });
       await loadShopContext(selectedShopId);
@@ -252,12 +250,9 @@ const AssociationsModule = () => {
       await api.createShopMember(selectedShopId, {
         userId: inviteForm.userId,
         role: inviteForm.role,
-        permissions: inviteForm.permissions
-          ? inviteForm.permissions.split(',').map((perm) => perm.trim())
-          : undefined,
       });
       await loadShopContext(selectedShopId);
-      setInviteForm({ userId: '', role: 'manager', permissions: '' });
+      setInviteForm({ userId: '', role: 'manager' });
     } catch (error) {
       alert(
         error instanceof Error
@@ -595,17 +590,6 @@ const AssociationsModule = () => {
                     </option>
                   ))}
                 </select>
-                <input
-                  className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  placeholder="perm1, perm2"
-                  value={inviteForm.permissions}
-                  onChange={(event) =>
-                    setInviteForm((prev) => ({
-                      ...prev,
-                      permissions: event.target.value,
-                    }))
-                  }
-                />
                 <button
                   type="submit"
                   disabled={inviteSubmitting}
@@ -621,7 +605,6 @@ const AssociationsModule = () => {
                   <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
                     <th className="px-3 py-2">User</th>
                     <th className="px-3 py-2">Role</th>
-                    <th className="px-3 py-2">Permissions</th>
                     <th className="px-3 py-2">Status</th>
                     <th className="px-3 py-2 text-right">Actions</th>
                   </tr>
@@ -656,22 +639,6 @@ const AssociationsModule = () => {
                             )
                           )}
                         </select>
-                      </td>
-                      <td className="px-3 py-2">
-                        <textarea
-                          className="w-full rounded-md border border-gray-300 px-2 py-1 text-xs"
-                          rows={2}
-                          value={member.permissions.join(', ')}
-                          onChange={(event) =>
-                            handleMemberUpdate(member, {
-                              permissions: event.target.value
-                                .split(',')
-                                .map((perm) => perm.trim())
-                                .filter(Boolean),
-                            })
-                          }
-                          disabled={membershipsSubmitting[member.id]}
-                        />
                       </td>
                       <td className="px-3 py-2">
                         <span
@@ -711,43 +678,46 @@ const AssociationsModule = () => {
             </h2>
             {menu ? (
               <div className="grid gap-6 md:grid-cols-2">
-                {menu.categories.map((category) => (
-                  <div key={category.id} className="rounded-xl border border-gray-100 p-4">
-                    <p className="text-sm font-medium text-gray-900">
-                      {category.name}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {category.description || 'No description'}
-                    </p>
-                    <div className="mt-3 space-y-2">
-                      {menu.catalogEntries
-                        .filter((entry) =>
-                          entry.categoryIds.includes(category.id)
-                        )
-                        .map((entry) => {
-                          const product = menu.catalogProducts.find(
-                            (product) => product.id === entry.productId
-                          );
-                          return (
+                {menu.categories.map((category) => {
+                  const productsInCategory = menu.products.filter((product) => {
+                    const matchesById =
+                      product.categoryDetails?.some(
+                        (detail) => detail.id === category.id
+                      ) ?? false;
+                    const matchesByName =
+                      product.categories?.includes(category.name) ?? false;
+                    return matchesById || matchesByName;
+                  });
+                  return (
+                    <div key={category.id} className="rounded-xl border border-gray-100 p-4">
+                      <p className="text-sm font-medium text-gray-900">
+                        {category.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {category.description || 'No description'}
+                      </p>
+                      <div className="mt-3 space-y-2">
+                        {productsInCategory.length === 0 ? (
+                          <p className="text-xs text-gray-500">No products assigned.</p>
+                        ) : (
+                          productsInCategory.map((product) => (
                             <div
-                              key={entry.id}
+                              key={product.id}
                               className="rounded-lg bg-gray-50 p-3 space-y-1"
                             >
                               <p className="text-sm font-semibold text-gray-900">
-                                {product?.title ?? entry.productId}
+                                {product.title}
                               </p>
                               <p className="text-xs text-gray-500">
-                                {entry.salesChannels?.join(', ') || 'channel agnostic'}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {entry.isAvailable ? 'Available' : 'Unavailable'}
+                                {product.isActive ? 'Available' : 'Unavailable'}
                               </p>
                             </div>
-                          );
-                        })}
+                          ))
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-gray-500">

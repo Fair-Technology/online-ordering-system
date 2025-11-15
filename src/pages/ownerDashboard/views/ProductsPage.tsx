@@ -382,7 +382,7 @@ const ProductsPage = () => {
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold text-gray-900">Products</h1>
         <p className="text-gray-600">
-          Create shared SKUs and keep catalogue metadata synchronised across
+          Create shared SKUs and keep product metadata synchronised across
           shops.
         </p>
       </header>

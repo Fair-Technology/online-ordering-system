@@ -5,8 +5,7 @@ type Shop = Awaited<ReturnType<ApiShape['listShops']>>[number];
 type ShopOrder = Awaited<ReturnType<ApiShape['listShopOrders']>>[number];
 type OrderStatus = ShopOrder['status'];
 type ShopMenu = Awaited<ReturnType<ApiShape['getShopMenu']>>;
-type CatalogEntry = ShopMenu['catalogEntries'][number];
-type CatalogProduct = ShopMenu['catalogProducts'][number];
+type ShopMenuProduct = ShopMenu['products'][number];
 type NewOrderItem = Parameters<ApiShape['createOrder']>[1]['items'][number];
 type OrderSummary = Awaited<ReturnType<ApiShape['listOrders']>>[number];
 
@@ -147,23 +146,14 @@ const OrdersModule = () => {
     }
   };
 
-  const catalogEntriesById = useMemo(() => {
-    const map = new Map<string, CatalogEntry>();
-    menu?.catalogEntries.forEach((entry) => map.set(entry.id, entry));
+  const productsById = useMemo(() => {
+    const map = new Map<string, ShopMenuProduct>();
+    menu?.products?.forEach((product) => map.set(product.id, product));
     return map;
   }, [menu]);
 
-  const productById = useMemo(() => {
-    const map = new Map<string, CatalogProduct>();
-    menu?.catalogProducts.forEach((product) => map.set(product.id, product));
-    return map;
-  }, [menu]);
-
-  const pendingEntry = newOrderForm.pendingEntryId
-    ? catalogEntriesById.get(newOrderForm.pendingEntryId)
-    : undefined;
-  const pendingProduct = pendingEntry
-    ? productById.get(pendingEntry.productId)
+  const pendingProduct = newOrderForm.pendingEntryId
+    ? productsById.get(newOrderForm.pendingEntryId)
     : undefined;
   const pendingVariants = pendingProduct?.variantGroups.flatMap(
     (group) => group.variants
@@ -177,15 +167,14 @@ const OrdersModule = () => {
     ) ?? [];
 
   const handleAddItem = () => {
-    if (!pendingEntry || !pendingProduct || !newOrderForm.pendingVariantId) {
-      alert('Select a catalog entry and variant first.');
+    if (!pendingProduct || !newOrderForm.pendingVariantId) {
+      alert('Select a product and variant first.');
       return;
     }
     const item: NewOrderItem = {
       productId: pendingProduct.id,
       productVariantId: newOrderForm.pendingVariantId,
       quantity: newOrderForm.pendingQuantity,
-      shopCatalogEntryId: pendingEntry.id,
       addonOptionIds: Array.from(newOrderForm.pendingAddons),
     };
     setNewOrderForm((prev) => ({
@@ -408,7 +397,7 @@ const OrdersModule = () => {
           Manual order entry
         </h2>
         {menuLoading ? (
-          <p className="text-sm text-gray-500">Loading catalog…</p>
+          <p className="text-sm text-gray-500">Loading products…</p>
         ) : (
           <form className="space-y-4" onSubmit={handleCreateOrder}>
             <div className="grid gap-4 md:grid-cols-3">
@@ -461,15 +450,12 @@ const OrdersModule = () => {
                     }))
                   }
                 >
-                  <option value="">Select catalog entry</option>
-                  {menu?.catalogEntries.map((entry) => {
-                    const product = productById.get(entry.productId);
-                    return (
-                      <option key={entry.id} value={entry.id}>
-                        {product?.title ?? entry.productId}
-                      </option>
-                    );
-                  })}
+                  <option value="">Select product</option>
+                  {menu?.products?.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.title}
+                    </option>
+                  ))}
                 </select>
                 <select
                   className="rounded-md border border-gray-300 px-3 py-2"
@@ -484,7 +470,7 @@ const OrdersModule = () => {
                   <option value="">Select variant</option>
                   {pendingVariants?.map((variant) => (
                     <option key={variant.id} value={variant.id}>
-                      {variant.label} ({variant.basePrice.amount}{' '}
+                      {variant.name} ({variant.basePrice.amount}{' '}
                       {variant.basePrice.currency})
                     </option>
                   ))}
@@ -531,7 +517,7 @@ const OrdersModule = () => {
                           })
                         }
                       />
-                      {addon.groupName}: {addon.label} (+{' '}
+                      {addon.groupName}: {addon.name} (+{' '}
                       {addon.priceDelta.amount} {addon.priceDelta.currency})
                     </label>
                   ))}
@@ -549,7 +535,7 @@ const OrdersModule = () => {
                     className="flex items-center justify-between text-sm text-gray-700"
                   >
                     <span>
-                      {productById.get(item.productId)?.title ?? item.productId}{' '}
+                      {productsById.get(item.productId)?.title ?? item.productId}{' '}
                       × {item.quantity}
                     </span>
                     <button

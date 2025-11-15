@@ -193,8 +193,8 @@ const DashboardHome = () => {
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold text-gray-900">Owner console</h1>
         <p className="text-gray-600">
-          Monitor member shops, track incoming orders, and keep catalogues up to
-          date.
+          Monitor member shops, track incoming orders, and keep product data up
+          to date.
         </p>
       </header>
 
