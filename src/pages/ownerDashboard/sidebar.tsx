@@ -5,7 +5,6 @@ import {
   Squares2X2Icon,
   ShoppingCartIcon,
   UserGroupIcon,
-  RectangleStackIcon,
   FolderIcon,
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
@@ -18,7 +17,6 @@ const Sidebar: React.FC = () => {
     { icon: HomeIcon, label: 'Overview', to: '/owner' },
     { icon: BuildingStorefrontIcon, label: 'Shops', to: '/owner/shops' },
     { icon: Squares2X2Icon, label: 'Products', to: '/owner/catalog/products' },
-    { icon: RectangleStackIcon, label: 'Catalog entries', to: '/owner/catalog/entries' },
     { icon: FolderIcon, label: 'Categories', to: '/owner/catalog/categories' },
     { icon: ShieldCheckIcon, label: 'Associations', to: '/owner/associations' },
     { icon: ShoppingCartIcon, label: 'Orders', to: '/owner/orders' },

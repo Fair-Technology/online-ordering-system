@@ -125,8 +125,7 @@ interface ShopHoursPayload {
 
 interface Category {
   id: string;
-  kind: 'category';
-  shopId: string;
+  kind: 'productCategory';
   name: string;
   description?: string;
   sortOrder?: number;
@@ -191,6 +190,8 @@ interface CatalogProduct {
   variantGroups: CatalogVariantGroup[];
   addonGroups: CatalogAddonGroup[];
   isActive: boolean;
+  categoryIds?: string[];
+  categories: CategoryResponse[];
   createdAt: string;
   updatedAt: string;
 }
@@ -225,7 +226,13 @@ interface CatalogAddonGroupPayload extends Omit<CatalogAddonGroup, 'options'> {
 interface CreateCatalogProductRequest
   extends Omit<
     CatalogProduct,
-    'id' | 'kind' | 'createdAt' | 'updatedAt' | 'variantGroups' | 'addonGroups'
+    | 'id'
+    | 'kind'
+    | 'createdAt'
+    | 'updatedAt'
+    | 'variantGroups'
+    | 'addonGroups'
+    | 'categories'
   > {
   variantGroups: CatalogVariantGroupPayload[];
   addonGroups: CatalogAddonGroupPayload[];
@@ -316,6 +323,8 @@ interface CreateOrderRequest {
 interface UpdateOrderStatusRequest {
   nextStatus: OrderStatus;
 }
+
+interface CategoryListResponse extends Array<CategoryResponse> {}
 
 interface ShopMenuResponse {
   shop: ShopResponse;
@@ -510,31 +519,28 @@ export class ApiClient {
   /* Categories                                                               */
   /* ------------------------------------------------------------------------ */
 
-  listCategories(shopId: string) {
-    return this.request<CategoryResponse[]>(
-      'GET',
-      `/shops/${shopId}/categories`
-    );
+  listCategories() {
+    return this.request<CategoryResponse[]>('GET', `/categories`);
   }
 
-  createCategory(shopId: string, body: CreateCategoryRequest) {
-    return this.request<CategoryResponse>(
-      'POST',
-      `/shops/${shopId}/categories`,
-      body
-    );
+  getCategory(categoryId: string) {
+    return this.request<CategoryResponse>('GET', `/categories/${categoryId}`);
   }
 
-  updateCategory(
-    shopId: string,
-    categoryId: string,
-    body: UpdateCategoryRequest
-  ) {
+  createCategory(body: CreateCategoryRequest) {
+    return this.request<CategoryResponse>('POST', `/categories`, body);
+  }
+
+  updateCategory(categoryId: string, body: UpdateCategoryRequest) {
     return this.request<CategoryResponse>(
       'PATCH',
-      `/shops/${shopId}/categories/${categoryId}`,
+      `/categories/${categoryId}`,
       body
     );
+  }
+
+  deleteCategory(categoryId: string) {
+    return this.request<void>('DELETE', `/categories/${categoryId}`);
   }
 
   /* ------------------------------------------------------------------------ */

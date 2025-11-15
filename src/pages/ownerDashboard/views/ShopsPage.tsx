@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { skipToken } from '@reduxjs/toolkit/query';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ORDER_ACCEPTANCE_MODES,
   PAYMENT_POLICIES,
@@ -118,6 +119,7 @@ const mapSummaryToForm = (summary: ShopSummary): ShopFormState => ({
 
 const ShopsPage = () => {
   const { accounts } = useMsal();
+  const navigate = useNavigate();
   const ownerUserId =
     accounts[0]?.localAccountId ||
     accounts[0]?.homeAccountId ||
@@ -182,6 +184,10 @@ const ShopsPage = () => {
 
   const openCreateModal = () => {
     setIsCreateModalOpen(true);
+  };
+
+  const goToShopCatalog = (shopId: string) => {
+    navigate(`/owner/shops/${shopId}`);
   };
 
   const openEditModal = (shopId: string) => {
@@ -575,6 +581,17 @@ const ShopsPage = () => {
 
   return (
     <section className="space-y-6">
+      <nav className="text-sm text-gray-500" aria-label="Breadcrumb">
+        <ol className="flex items-center gap-2">
+          <li>
+            <Link to="/owner" className="hover:text-gray-900">
+              Dashboard
+            </Link>
+          </li>
+          <li>/</li>
+          <li className="font-semibold text-gray-900">Shops</li>
+        </ol>
+      </nav>
       <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Shops</h1>
@@ -657,7 +674,19 @@ const ShopsPage = () => {
                 </tr>
               )}
             {filteredShops.map((shop) => (
-              <tr key={shop.shopId}>
+              <tr
+                key={shop.shopId}
+                role="button"
+                tabIndex={0}
+                onClick={() => goToShopCatalog(shop.shopId)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    goToShopCatalog(shop.shopId);
+                  }
+                }}
+                className="cursor-pointer transition-colors hover:bg-slate-50 focus-visible:bg-slate-100"
+              >
                 <td className="px-4 py-4">
                   <div>
                     <p className="font-medium text-gray-900">{shop.name}</p>
@@ -691,14 +720,20 @@ const ShopsPage = () => {
                     <button
                       type="button"
                       className="text-sm font-medium text-blue-600 hover:underline"
-                      onClick={() => openEditModal(shop.shopId)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openEditModal(shop.shopId);
+                      }}
                     >
                       Edit
                     </button>
                     <button
                       type="button"
                       className="text-sm font-medium text-red-600 hover:underline"
-                      onClick={() => openDeleteModal(shop)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openDeleteModal(shop);
+                      }}
                     >
                       Delete
                     </button>

@@ -6,22 +6,11 @@ type CatalogProductList = Awaited<
   ReturnType<ApiShape['listCatalogProducts']>
 >;
 type CatalogProductSummary = CatalogProductList[number];
-type Shop = Awaited<ReturnType<ApiShape['listShops']>>[number];
-type ShopMenu = Awaited<ReturnType<ApiShape['getShopMenu']>>;
-type ShopCatalogEntry = ShopMenu['catalogEntries'][number];
-type CategoryNode = ShopMenu['categories'][number];
-type CategoryTreeItem = CategoryNode & { children: CategoryTreeItem[] };
 type CatalogVariantGroupPayload =
   Parameters<ApiShape['createCatalogProduct']>[0]['variantGroups'][number];
 type CatalogAddonGroupPayload =
   Parameters<ApiShape['createCatalogProduct']>[0]['addonGroups'][number];
 type MoneyInput = CatalogVariantGroupPayload['variants'][number]['basePrice'];
-const salesChannelOptions: Array<'online' | 'pos' | 'kiosk'> = [
-  'online',
-  'pos',
-  'kiosk',
-];
-
 type VariantDraft = Omit<CatalogVariantGroupPayload['variants'][number], 'basePrice'> & {
   basePrice: MoneyInput;
 };
@@ -75,11 +64,29 @@ const emptyAddonGroup = (currency = 'USD'): AddonGroupDraft => ({
   ],
 });
 
-const CatalogModule = ({
-  view,
-}: {
-  view: 'products' | 'entries' | 'categories';
-}) => {
+type CatalogView = 'products' | 'categories';
+
+type ProductFormState = {
+  title: string;
+  description: string;
+  isActive: boolean;
+  variantGroups: VariantGroupDraft[];
+  addonGroups: AddonGroupDraft[];
+  defaultCurrency: string;
+  selectedCategoryIds: string[];
+};
+
+const createDefaultProductFormState = (): ProductFormState => ({
+  title: '',
+  description: '',
+  isActive: true,
+  variantGroups: [emptyVariantGroup()],
+  addonGroups: [emptyAddonGroup()],
+  defaultCurrency: 'USD',
+  selectedCategoryIds: [],
+});
+
+const CatalogModule = ({ view }: { view: CatalogView }) => {
   const [products, setProducts] = useState<CatalogProductSummary[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
@@ -89,47 +96,21 @@ const CatalogModule = ({
   const [productFormMode, setProductFormMode] = useState<'create' | 'edit'>(
     'create'
   );
-  const [shops, setShops] = useState<Shop[]>([]);
-  const [shopsLoading, setShopsLoading] = useState(true);
-  const [selectedShopId, setSelectedShopId] = useState<string>('');
-  const [shopMenu, setShopMenu] = useState<ShopMenu | null>(null);
-  const [menuLoading, setMenuLoading] = useState(false);
-  const [menuError, setMenuError] = useState<string | null>(null);
-  const [categoryError, setCategoryError] = useState<string | null>(null);
-  const [categorySuccess, setCategorySuccess] = useState<string | null>(null);
-  const [categoryForm, setCategoryForm] = useState({
-    name: '',
-    description: '',
-    sortOrder: 0,
-    parentCategoryId: '',
-    isActive: true,
-    editingId: '',
-  });
-  const [categorySaving, setCategorySaving] = useState(false);
-  const [entrySaving, setEntrySaving] = useState<string | null>(null);
-  const [entryForm, setEntryForm] = useState({
-    productId: '',
-    categoryIds: [] as string[],
-    isAvailable: true,
-    salesChannels: [] as Array<'online' | 'pos' | 'kiosk'>,
-    priceAmount: '',
-    priceCurrency: 'USD',
-  });
   const [productSubmitting, setProductSubmitting] = useState(false);
-  const [productFormState, setProductFormState] = useState({
-    title: '',
-    description: '',
-    tags: '',
-    isActive: true,
-    variantGroups: [emptyVariantGroup()],
-    addonGroups: [emptyAddonGroup()],
-    defaultCurrency: 'USD',
-  });
+  const [productFormState, setProductFormState] = useState<ProductFormState>(
+    createDefaultProductFormState
+  );
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [productStep, setProductStep] = useState(1);
   const productSteps = ['Product basics', 'Variants', 'Add-ons & review'];
-  const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [categoryModalState, setCategoryModalState] = useState({
+    name: '',
+  });
+  const [categoryModalError, setCategoryModalError] = useState<string | null>(
+    null
+  );
+  const [isCategorySubmitting, setIsCategorySubmitting] = useState(false);
 
   const loadProducts = useCallback(async () => {
     setProductsLoading(true);
@@ -146,66 +127,40 @@ const CatalogModule = ({
     }
   }, []);
 
-  const loadShops = useCallback(async () => {
-    setShopsLoading(true);
-    try {
-      const data = await api.listShops();
-      setShops(data);
-      if (!selectedShopId && data.length) {
-        setSelectedShopId(data[0].id);
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setShopsLoading(false);
-    }
-  }, [selectedShopId]);
-
-  const loadShopMenu = useCallback(
-    async (shopId: string) => {
-      if (!shopId) return;
-      setMenuLoading(true);
-      setMenuError(null);
-      try {
-        const menu = await api.getShopMenu(shopId);
-        setShopMenu(menu);
-      } catch (error) {
-        setMenuError(
-          error instanceof Error ? error.message : 'Unable to load shop menu.'
-        );
-      } finally {
-        setMenuLoading(false);
-      }
-    },
-    []
-  );
-
   useEffect(() => {
     loadProducts();
-    loadShops();
-  }, [loadProducts, loadShops]);
-
-  useEffect(() => {
-    if (selectedShopId) {
-      loadShopMenu(selectedShopId);
-    }
-  }, [selectedShopId, loadShopMenu]);
+  }, [loadProducts]);
 
   const resetProductForm = () => {
     setProductFormMode('create');
     setEditingProduct(null);
-    setProductFormState({
-      title: '',
-      description: '',
-      tags: '',
-      isActive: true,
-      variantGroups: [emptyVariantGroup()],
-      addonGroups: [emptyAddonGroup()],
-      defaultCurrency: 'USD',
-    });
+    setProductFormState(createDefaultProductFormState());
     setProductStep(1);
   };
-
+  const handleCategoryCreate = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = categoryModalState.name.trim();
+    if (!name) {
+      setCategoryModalError('Category name is required.');
+      return;
+    }
+    setCategoryModalError(null);
+    setIsCategorySubmitting(true);
+    try {
+      await api.createCategory({ name });
+      await loadCategories();
+      setCategoryModalState({ name: '' });
+      setIsCategoryModalOpen(false);
+    } catch (error) {
+      setCategoryModalError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to create category.'
+      );
+    } finally {
+      setIsCategorySubmitting(false);
+    }
+  };
   const openProductModal = (mode: 'create' | 'edit') => {
     setProductFormMode(mode);
     setIsProductModalOpen(true);
@@ -216,18 +171,64 @@ const CatalogModule = ({
     setProductStep(1);
     setEditingProduct(null);
     resetProductForm();
+    setPendingCategoryTags(null);
+  };
+
+  const totalProductSteps = productSteps.length;
+
+  const hasAtLeastOneVariant = useMemo(
+    () =>
+      productFormState.variantGroups.some((group) =>
+        group.variants.some((variant) => variant.label.trim())
+      ),
+    [productFormState.variantGroups]
+  );
+
+  const isStepReady = (step: number) => {
+    if (step === 1) {
+      return productFormState.title.trim().length > 0;
+    }
+    if (step === 2) {
+      return hasAtLeastOneVariant;
+    }
+    return true;
+  };
+
+  const goToNextStep = () => {
+    if (!isStepReady(productStep)) {
+      return;
+    }
+    setProductStep((prev) => Math.min(totalProductSteps, prev + 1));
+  };
+
+  const goToPreviousStep = () => {
+    setProductStep((prev) => Math.max(1, prev - 1));
   };
 
   const handleProductSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!isStepReady(productStep)) {
+      return;
+    }
+    if (productStep < totalProductSteps) {
+      goToNextStep();
+      return;
+    }
     setProductSubmitting(true);
     try {
+      const selectedCategoryNames = Array.from(
+        new Set(
+          categories
+            .filter((category) =>
+              productFormState.selectedCategoryIds.includes(category.id)
+            )
+            .map((category) => category.name)
+        )
+      );
       const payload = {
         title: productFormState.title,
         description: productFormState.description,
-        tags: productFormState.tags
-          ? productFormState.tags.split(',').map((tag) => tag.trim())
-          : [],
+        tags: selectedCategoryNames,
         variantGroups: productFormState.variantGroups.map((group) => ({
           id: group.id,
           name: group.name,
@@ -287,10 +288,13 @@ const CatalogModule = ({
       const product = await api.getCatalogProduct(productId);
       setEditingProduct(product);
       setProductFormMode('edit');
+      const mappedCategoryIds = mapTagsToCategoryIds(product.tags);
+      if (!mappedCategoryIds.length && (product.tags?.length ?? 0) > 0) {
+        setPendingCategoryTags(product.tags ?? []);
+      }
       setProductFormState({
         title: product.title,
         description: product.description ?? '',
-        tags: product.tags?.join(', ') ?? '',
         isActive: product.isActive,
         defaultCurrency:
           product.variantGroups[0]?.variants[0]?.basePrice.currency ?? 'USD',
@@ -325,6 +329,7 @@ const CatalogModule = ({
             isActive: option.isActive,
           })),
         })),
+        selectedCategoryIds: mappedCategoryIds,
       });
       setProductStep(1);
       openProductModal('edit');
@@ -353,52 +358,107 @@ const CatalogModule = ({
     }
   };
 
-  const categoriesById = useMemo(() => {
-    const map = new Map<string, CategoryNode>();
-    shopMenu?.categories.forEach((category) => map.set(category.id, category));
-    return map;
-  }, [shopMenu]);
-
-  const categoryTree: CategoryTreeItem[] = useMemo(() => {
-    if (!shopMenu?.categories) return [];
-    const map = new Map<string, CategoryTreeItem>();
-    shopMenu.categories.forEach((category) => {
-      map.set(category.id, { ...category, children: [] });
+  const toggleCategorySelection = (categoryId: string) => {
+    setProductFormState((prev) => {
+      const isSelected = prev.selectedCategoryIds.includes(categoryId);
+      return {
+        ...prev,
+        selectedCategoryIds: isSelected
+          ? prev.selectedCategoryIds.filter((id) => id !== categoryId)
+          : [...prev.selectedCategoryIds, categoryId],
+      };
     });
-    const roots: CategoryTreeItem[] = [];
-    map.forEach((category) => {
-      if (category.parentCategoryId) {
-        const parent = map.get(category.parentCategoryId);
-        parent?.children.push(category);
-      } else {
-        roots.push(category);
-      }
-    });
-    const sortChildren = (nodes: CategoryTreeItem[]) => {
-      nodes.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-      nodes.forEach((node) => sortChildren(node.children));
-    };
-    sortChildren(roots);
-    return roots;
-  }, [shopMenu]);
+  };
 
-  const hasAtLeastOneVariant = useMemo(
-    () =>
-      productFormState.variantGroups.some((group) =>
-        group.variants.some((variant) => variant.label.trim())
-      ),
-    [productFormState.variantGroups]
+  const [categories, setCategories] = useState<
+    Awaited<ReturnType<ApiShape['listCategories']>>
+  >([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [pendingCategoryTags, setPendingCategoryTags] = useState<string[] | null>(
+    null
   );
 
-  const isStepReady = (step: number) => {
-    if (step === 1) {
-      return productFormState.title.trim().length > 0;
+  const loadCategories = useCallback(async () => {
+    setCategoriesLoading(true);
+    setCategoriesError(null);
+    try {
+      const list = await api.listCategories();
+      setCategories(list);
+    } catch (error) {
+      setCategoriesError(
+        error instanceof Error ? error.message : 'Unable to load categories.'
+      );
+    } finally {
+      setCategoriesLoading(false);
     }
-    if (step === 2) {
-      return hasAtLeastOneVariant;
-    }
-    return true;
-  };
+  }, []);
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
+
+  const mapTagsToCategoryIds = useCallback(
+    (tagNames?: string[] | null) => {
+      if (!tagNames?.length) return [];
+      const normalized = tagNames.map((tag) => tag.trim().toLowerCase());
+      return categories
+        .filter((category) =>
+          normalized.includes(category.name.trim().toLowerCase())
+        )
+        .map((category) => category.id);
+    },
+    [categories]
+  );
+
+  useEffect(() => {
+    if (!pendingCategoryTags || categoriesLoading) return;
+    setProductFormState((prev) => ({
+      ...prev,
+      selectedCategoryIds: mapTagsToCategoryIds(pendingCategoryTags),
+    }));
+    setPendingCategoryTags(null);
+  }, [pendingCategoryTags, categoriesLoading, mapTagsToCategoryIds]);
+
+  const categoryStats = useMemo(() => {
+    return categories
+      .map((category) => {
+        const loweredName = category.name.trim().toLowerCase();
+        const productIds =
+          products
+            .filter((product) =>
+              (product.tags ?? []).some(
+                (tag) => tag.trim().toLowerCase() === loweredName
+              )
+            )
+            .map((product) => product.id) ?? [];
+        return {
+          ...category,
+          productIds,
+          productCount: productIds.length,
+        };
+      })
+      .sort(
+        (a, b) =>
+          b.productCount - a.productCount || a.name.localeCompare(b.name)
+      );
+  }, [categories, products]);
+
+  const selectedCategoryNames = useMemo(
+    () =>
+      categories
+        .filter((category) =>
+          productFormState.selectedCategoryIds.includes(category.id)
+        )
+        .map((category) => category.name),
+    [categories, productFormState.selectedCategoryIds]
+  );
+
+  const totalCategoryAssignments = useMemo(
+    () =>
+      categoryStats.reduce((sum, category) => sum + category.productIds.length, 0),
+    [categoryStats]
+  );
 
   const renderProductStepContent = () => {
     if (productStep === 1) {
@@ -424,19 +484,70 @@ const CatalogModule = ({
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700">
-                Tags
+                Categories
               </label>
-              <input
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={productFormState.tags}
-                onChange={(event) =>
-                  setProductFormState((prev) => ({
-                    ...prev,
-                    tags: event.target.value,
-                  }))
-                }
-                placeholder="espresso, seasonal"
-              />
+              <div className="mt-1 rounded-lg border border-gray-200 p-3">
+                {categoriesLoading ? (
+                  <p className="text-sm text-gray-500">Loading categories…</p>
+                ) : categoriesError ? (
+                  <p className="text-sm text-red-600">{categoriesError}</p>
+                ) : categories.length === 0 ? (
+                  <div className="text-sm text-gray-500 space-y-2">
+                    <p>No categories yet. Create reusable labels such as Lunch or Drinks.</p>
+                    <button
+                      type="button"
+                      className="text-sm font-semibold text-blue-600 hover:underline"
+                      onClick={() => {
+                        setIsCategoryModalOpen(true);
+                        setCategoryModalState({ name: '' });
+                        setCategoryModalError(null);
+                      }}
+                    >
+                      Create category
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {categories.map((category) => {
+                        const isSelected =
+                          productFormState.selectedCategoryIds.includes(
+                            category.id
+                          );
+                        return (
+                          <button
+                            type="button"
+                            key={category.id}
+                            onClick={() => toggleCategorySelection(category.id)}
+                            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                              isSelected
+                                ? 'bg-blue-600 text-white shadow'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {category.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Need another category?{' '}
+                      <button
+                        type="button"
+                        className="font-semibold text-blue-600 hover:underline"
+                        onClick={() => {
+                          setIsCategoryModalOpen(true);
+                          setCategoryModalState({ name: '' });
+                          setCategoryModalError(null);
+                        }}
+                      >
+                        Create it here
+                      </button>
+                      .
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <div>
@@ -516,8 +627,12 @@ const CatalogModule = ({
               <dd>{productFormState.title || '—'}</dd>
             </div>
             <div>
-              <dt className="font-medium text-gray-700">Tags</dt>
-              <dd>{productFormState.tags || '—'}</dd>
+              <dt className="font-medium text-gray-700">Categories</dt>
+              <dd>
+                {selectedCategoryNames.length > 0
+                  ? selectedCategoryNames.join(', ')
+                  : '—'}
+              </dd>
             </div>
             <div>
               <dt className="font-medium text-gray-700">Variants</dt>
@@ -559,32 +674,19 @@ const CatalogModule = ({
         0
       ),
     },
-    entries: {
-      eyebrow: 'Shop catalog entries',
-      title: 'Control availability across every storefront',
-      description:
-        'Toggle channels, override pricing, and ensure each shop is merchandised for its audience.',
-      primaryStatLabel: 'Catalog entries',
-      primaryStatValue: shopMenu?.catalogEntries.length ?? 0,
-      secondaryStatLabel: 'Connected shops',
-      secondaryStatValue: shops.length,
-    },
     categories: {
-      eyebrow: 'Category architecture',
+      eyebrow: 'Product categories',
       title: 'Keep menus structured and intuitive',
       description:
-        'Build nested hierarchies, manage visibility, and keep ordering experiences cohesive.',
-      primaryStatLabel: 'Active categories',
-      primaryStatValue:
-        shopMenu?.categories.filter((category) => category.isActive).length ??
-        0,
-      secondaryStatLabel: 'Top-level groups',
-      secondaryStatValue: categoryTree.length,
+        'Group catalog items by use-case (Lunch, Drinks, Specials) and assign products consistently.',
+      primaryStatLabel: 'Categories',
+      primaryStatValue: categories.length,
+      secondaryStatLabel: 'Assignments',
+      secondaryStatValue: totalCategoryAssignments,
     },
   } as const;
   const heroContent = heroCopies[view];
   const showProductsView = view === 'products';
-  const showEntriesView = view === 'entries';
   const showCategoriesView = view === 'categories';
 
   const renderProductsSection = () => {
@@ -689,504 +791,114 @@ const CatalogModule = ({
     );
   };
 
-  const renderEntriesSection = () => {
-    if (!showEntriesView) return null;
-    return (
-      <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6">
-        <header className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              Shop catalog entries
-            </h2>
-            <p className="text-sm text-gray-600">
-              Control availability, categories, pricing, and sales channels per
-              shop.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
-            <select
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-              value={selectedShopId}
-              onChange={(event) => setSelectedShopId(event.target.value)}
-              disabled={shopsLoading}
-            >
-              {shops.map((shop) => (
-                <option key={shop.id} value={shop.id}>
-                  {shop.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-colors"
-              onClick={() => {
-                setEntryForm({
-                  productId: '',
-                  categoryIds: [],
-                  isAvailable: true,
-                  salesChannels: [],
-                  priceAmount: '',
-                  priceCurrency: 'USD',
-                });
-                setIsEntryModalOpen(true);
-              }}
-            >
-              New catalog entry
-            </button>
-          </div>
-        </header>
-        {menuLoading ? (
-          <p className="text-sm text-gray-500">Loading shop menu…</p>
-        ) : menuError ? (
-          <p className="text-sm text-red-600">{menuError}</p>
-        ) : (
-          <div className="space-y-4">
-            {shopMenu?.catalogEntries.length ? (
-              shopMenu.catalogEntries.map((entry) => {
-                const product = products.find(
-                  (item) => item.id === entry.productId
-                );
-                return (
-                  <div
-                    key={entry.id}
-                    className="rounded-xl border border-gray-200 p-4 space-y-4"
-                  >
-                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                      <div>
-                        <p className="font-semibold text-gray-900">
-                          {product?.title ?? entry.productId}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Entry #{entry.id}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <label className="text-xs font-medium text-gray-700">
-                          Available
-                        </label>
-                        <button
-                          type="button"
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                            entry.isAvailable
-                              ? 'bg-green-50 text-green-700'
-                              : 'bg-gray-100 text-gray-600'
-                          }`}
-                          disabled={entrySaving === entry.id}
-                          onClick={() =>
-                            handleEntryUpdate(entry, {
-                              isAvailable: !entry.isAvailable,
-                            })
-                          }
-                        >
-                          {entry.isAvailable ? 'Enabled' : 'Disabled'}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div>
-                        <label className="text-sm font-medium text-gray-700">
-                          Categories
-                        </label>
-                        <select
-                          multiple
-                          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 h-28"
-                          value={entry.categoryIds}
-                          onChange={(event) => {
-                            const selected = Array.from(
-                              event.target.selectedOptions
-                            ).map((option) => option.value);
-                            handleEntryUpdate(entry, { categoryIds: selected });
-                          }}
-                          disabled={entrySaving === entry.id}
-                        >
-                          {shopMenu?.categories.map((category) => (
-                            <option key={category.id} value={category.id}>
-                              {category.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-700">
-                          Price override
-                        </label>
-                        <div className="mt-1 flex items-center gap-2">
-                          <input
-                            type="number"
-                            className="w-24 rounded-md border border-gray-300 px-3 py-2"
-                            placeholder="Amount"
-                            value={entry.priceOverride?.amount ?? ''}
-                            onChange={(event) =>
-                              handleEntryUpdate(entry, {
-                                priceOverride: {
-                                  amount: Number(event.target.value),
-                                  currency:
-                                    entry.priceOverride?.currency ?? 'USD',
-                                },
-                              })
-                            }
-                            disabled={entrySaving === entry.id}
-                          />
-                          <input
-                            className="w-20 rounded-md border border-gray-300 px-3 py-2 uppercase"
-                            value={entry.priceOverride?.currency ?? 'USD'}
-                            onChange={(event) =>
-                              handleEntryUpdate(entry, {
-                                priceOverride: {
-                                  amount: entry.priceOverride?.amount ?? 0,
-                                  currency: event.target.value.toUpperCase(),
-                                },
-                              })
-                            }
-                            disabled={entrySaving === entry.id}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-700">
-                          Sales channels
-                        </label>
-                        <div className="mt-1 flex flex-wrap gap-2">
-                          {salesChannelOptions.map((channel) => (
-                            <label
-                              key={channel}
-                              className="inline-flex items-center gap-2 text-xs text-gray-700"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={entry.salesChannels?.includes(channel)}
-                                onChange={(event) => {
-                                  const next = new Set(
-                                    entry.salesChannels ?? []
-                                  );
-                                  if (event.target.checked) {
-                                    next.add(channel);
-                                  } else {
-                                    next.delete(channel);
-                                  }
-                                  handleEntryUpdate(entry, {
-                                    salesChannels: Array.from(next) as Array<
-                                      'online' | 'pos' | 'kiosk'
-                                    >,
-                                  });
-                                }}
-                                disabled={entrySaving === entry.id}
-                              />
-                              {channel.toUpperCase()}
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <p className="text-sm text-gray-500">
-                No entries yet for this shop.
-              </p>
-            )}
-          </div>
-        )}
-      </section>
-    );
-  };
 
   const renderCategoriesSection = () => {
     if (!showCategoriesView) return null;
     return (
       <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6">
-        <header>
-          <h2 className="text-lg font-semibold text-gray-900">
-            Hierarchical categories
-          </h2>
-          <p className="text-sm text-gray-600">
-            Drag-inspired structure for menu organization. Select a category to
-            edit, or create new nodes.
-          </p>
-          <div className="mt-4">
+        <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Product categories
+            </h2>
+            <p className="text-sm text-gray-600">
+              Assign reusable labels such as Lunch, Drinks, or Specials to keep
+              your catalog organized across storefronts.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
             <button
               type="button"
               className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-colors"
               onClick={() => {
-                setCategoryForm({
-                  name: '',
-                  description: '',
-                  sortOrder: 0,
-                  parentCategoryId: '',
-                  isActive: true,
-                  editingId: '',
-                });
                 setIsCategoryModalOpen(true);
+                setCategoryModalState({ name: '' });
+                setCategoryModalError(null);
               }}
             >
               New category
             </button>
           </div>
         </header>
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-3">
-            {categoryTree.length === 0 && (
-              <p className="text-sm text-gray-500">
-                No categories yet. Create one using the form.
-              </p>
-            )}
-            {categoryTree.map((category) => (
-              <CategoryTreeNode
-                key={category.id}
-                node={category}
-                depth={0}
-                onSelect={onSelectCategory}
-              />
-            ))}
-          </div>
-          <form className="space-y-4" onSubmit={handleCategorySubmit}>
-            <div>
-              <label className="text-sm font-medium text-gray-700">
-                Category name
-              </label>
-              <input
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={categoryForm.name}
-                onChange={(event) =>
-                  setCategoryForm((prev) => ({ ...prev, name: event.target.value }))
-                }
-                required
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700">
-                Description
-              </label>
-              <textarea
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={3}
-                value={categoryForm.description}
-                onChange={(event) =>
-                  setCategoryForm((prev) => ({
-                    ...prev,
-                    description: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="text-sm font-medium text-gray-700">
-                  Parent category
-                </label>
-                <select
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-                  value={categoryForm.parentCategoryId}
-                  onChange={(event) =>
-                    setCategoryForm((prev) => ({
-                      ...prev,
-                      parentCategoryId: event.target.value,
-                    }))
-                  }
+        {categoryStats.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            No categories yet. Use the button above to create your first product
+            category.
+          </p>
+        ) : (
+          <>
+            <div className="grid gap-4 md:grid-cols-3">
+              {categoryStats.map((category) => (
+                <div
+                  key={category.name}
+                  className="rounded-2xl border border-gray-200 bg-gray-50 p-4"
                 >
-                  <option value="">Top level</option>
-                  {shopMenu?.categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {category.name}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {category.productCount} product
+                    {category.productCount === 1 ? '' : 's'}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <table className="min-w-full divide-y divide-gray-100 text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                    <th className="px-4 py-3">Product</th>
+                    <th className="px-4 py-3">Categories</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {products.map((product) => (
+                    <tr key={product.id}>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-gray-900">
+                          {product.title}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {product.description ?? '—'}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          {(product.tags ?? []).length === 0 ? (
+                            <span className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600">
+                              Uncategorized
+                            </span>
+                          ) : (
+                            (product.tags ?? []).map((tag) => (
+                              <span
+                                key={tag}
+                                className="rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-700"
+                              >
+                                {tag}
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          type="button"
+                          className="text-sm font-medium text-blue-600 hover:underline"
+                          onClick={() => onEditProduct(product.id)}
+                        >
+                          Edit product
+                        </button>
+                      </td>
+                    </tr>
                   ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700">
-                  Sort order
-                </label>
-                <input
-                  type="number"
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-                  value={categoryForm.sortOrder}
-                  onChange={(event) =>
-                    setCategoryForm((prev) => ({
-                      ...prev,
-                      sortOrder: Number(event.target.value),
-                    }))
-                  }
-                />
-              </div>
+                </tbody>
+              </table>
             </div>
-            <label className="flex items-center gap-2 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={categoryForm.isActive}
-                onChange={(event) =>
-                  setCategoryForm((prev) => ({
-                    ...prev,
-                    isActive: event.target.checked,
-                  }))
-                }
-              />
-              Category active
-            </label>
-            {categoryError && (
-              <p className="text-sm text-red-600">{categoryError}</p>
-            )}
-            {categorySuccess && (
-              <p className="text-sm text-green-600">{categorySuccess}</p>
-            )}
-            <div className="flex items-center justify-end gap-3">
-              {categoryForm.editingId && (
-                <button
-                  type="button"
-                  className="text-sm text-gray-600 hover:text-gray-900"
-                  onClick={() =>
-                    setCategoryForm({
-                      name: '',
-                      description: '',
-                      sortOrder: 0,
-                      parentCategoryId: '',
-                      isActive: true,
-                      editingId: '',
-                    })
-                  }
-                >
-                  Cancel
-                </button>
-              )}
-              <button
-                type="submit"
-                disabled={categorySaving}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-              >
-                {categorySaving
-                  ? 'Saving…'
-                  : categoryForm.editingId
-                  ? 'Update category'
-                  : 'Create category'}
-              </button>
-            </div>
-          </form>
-        </div>
+          </>
+        )}
       </section>
     );
-  };
-
-  const handleCategorySubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!selectedShopId) return;
-    setCategorySaving(true);
-    setCategoryError(null);
-    setCategorySuccess(null);
-    try {
-      const payload = {
-        name: categoryForm.name,
-        description: categoryForm.description || undefined,
-        parentCategoryId: categoryForm.parentCategoryId || undefined,
-        sortOrder: Number(categoryForm.sortOrder),
-        isActive: categoryForm.isActive,
-      };
-      if (categoryForm.editingId) {
-        await api.updateCategory(selectedShopId, categoryForm.editingId, payload);
-        setCategorySuccess('Category updated.');
-      } else {
-        await api.createCategory(selectedShopId, payload);
-        setCategorySuccess('Category created.');
-      }
-      await loadShopMenu(selectedShopId);
-      setCategoryForm({
-        name: '',
-        description: '',
-        sortOrder: 0,
-        parentCategoryId: '',
-        isActive: true,
-        editingId: '',
-      });
-      setIsCategoryModalOpen(false);
-    } catch (error) {
-      setCategoryError(
-        error instanceof Error ? error.message : 'Unable to save category.'
-      );
-    } finally {
-      setCategorySaving(false);
-    }
-  };
-
-  const onSelectCategory = (categoryId: string) => {
-    const category = categoriesById.get(categoryId);
-    if (!category) return;
-    setCategoryForm({
-      name: category.name,
-      description: category.description ?? '',
-      sortOrder: category.sortOrder ?? 0,
-      parentCategoryId: category.parentCategoryId ?? '',
-      isActive: category.isActive,
-      editingId: category.id,
-    });
-  };
-
-  const handleEntryUpdate = async (
-    entry: ShopCatalogEntry,
-    updates: Partial<ShopCatalogEntry>
-  ) => {
-    if (!selectedShopId) return;
-    setEntrySaving(entry.id);
-    try {
-      await api.updateShopCatalogEntry(selectedShopId, entry.id, {
-        productId: entry.productId,
-        categoryIds: updates.categoryIds ?? entry.categoryIds,
-        isAvailable: updates.isAvailable ?? entry.isAvailable,
-        salesChannels: (updates.salesChannels ??
-          entry.salesChannels) as Array<'online' | 'pos' | 'kiosk'>,
-        priceOverride: updates.priceOverride
-          ? {
-              amount: Number(updates.priceOverride.amount),
-              currency: updates.priceOverride.currency,
-            }
-          : entry.priceOverride,
-      } as Partial<Parameters<ApiShape['updateShopCatalogEntry']>[2]>);
-      await loadShopMenu(selectedShopId);
-    } catch (error) {
-      alert(
-        error instanceof Error
-          ? error.message
-          : 'Unable to update catalog entry.'
-      );
-    } finally {
-      setEntrySaving(null);
-    }
-  };
-
-  const handleEntryCreate = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!selectedShopId || !entryForm.productId) return;
-    setEntrySaving('new');
-    try {
-      await api.createShopCatalogEntry(selectedShopId, {
-        productId: entryForm.productId,
-        categoryIds: entryForm.categoryIds,
-        isAvailable: entryForm.isAvailable,
-        salesChannels: entryForm.salesChannels,
-        priceOverride: entryForm.priceAmount
-          ? {
-              amount: Number(entryForm.priceAmount),
-              currency: entryForm.priceCurrency,
-            }
-          : undefined,
-      });
-      await loadShopMenu(selectedShopId);
-      setEntryForm({
-        productId: '',
-        categoryIds: [],
-        isAvailable: true,
-        salesChannels: [],
-        priceAmount: '',
-        priceCurrency: 'USD',
-      });
-      setIsEntryModalOpen(false);
-    } catch (error) {
-      alert(
-        error instanceof Error
-          ? error.message
-          : 'Unable to create catalog entry.'
-      );
-    } finally {
-      setEntrySaving(null);
-    }
   };
 
   return (
@@ -1226,7 +938,6 @@ const CatalogModule = ({
         </div>
       </div>
       {renderProductsSection()}
-      {renderEntriesSection()}
       {renderCategoriesSection()}
 
       {isProductModalOpen ? (
@@ -1254,283 +965,66 @@ const CatalogModule = ({
                   <button
                     type="button"
                     className="rounded-md border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                    onClick={() => setProductStep((prev) => Math.max(1, prev - 1))}
+                    onClick={goToPreviousStep}
                   >
                     Previous
                   </button>
                 )}
-                {productStep < productSteps.length ? (
-                  <button
-                    type="button"
-                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-                    onClick={() => setProductStep((prev) => prev + 1)}
-                    disabled={!isStepReady(productStep)}
-                  >
-                    Next
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={
-                      productSubmitting ||
-                      !productFormState.title.trim() ||
-                      !hasAtLeastOneVariant
-                    }
-                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {productSubmitting
-                      ? 'Saving…'
-                      : productFormMode === 'create'
-                      ? 'Publish product'
-                      : 'Save changes'}
-                  </button>
-                )}
+                <button
+                  type="submit"
+                  disabled={
+                    (productStep < productSteps.length &&
+                      !isStepReady(productStep)) ||
+                    (productStep === productSteps.length &&
+                      (productSubmitting ||
+                        !productFormState.title.trim() ||
+                        !hasAtLeastOneVariant))
+                  }
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {productStep < productSteps.length
+                    ? 'Next'
+                    : productSubmitting
+                    ? 'Saving…'
+                    : productFormMode === 'create'
+                    ? 'Publish product'
+                    : 'Save changes'}
+                </button>
               </div>
             </div>
           </form>
         </Modal>
       ) : null}
 
-      {isEntryModalOpen ? (
-        <Modal
-          title="Create catalog entry"
-          onClose={() => setIsEntryModalOpen(false)}
-        >
-          <form className="space-y-4" onSubmit={handleEntryCreate}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="text-sm font-medium text-gray-700">
-                  Catalog product
-                </label>
-                <select
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-                  value={entryForm.productId}
-                  onChange={(event) =>
-                    setEntryForm((prev) => ({
-                      ...prev,
-                      productId: event.target.value,
-                    }))
-                  }
-                  required
-                >
-                  <option value="">Select product</option>
-                  {products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700">
-                  Categories
-                </label>
-                <select
-                  multiple
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 h-28"
-                  value={entryForm.categoryIds}
-                  onChange={(event) => {
-                    const values = Array.from(event.target.selectedOptions).map(
-                      (option) => option.value
-                    );
-                    setEntryForm((prev) => ({ ...prev, categoryIds: values }));
-                  }}
-                >
-                  {shopMenu?.categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700">
-                Sales channels
-              </label>
-              <div className="mt-1 flex flex-wrap gap-2">
-                {salesChannelOptions.map((channel) => (
-                  <label
-                    key={channel}
-                    className="inline-flex items-center gap-2 text-xs text-gray-700"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={entryForm.salesChannels.includes(channel)}
-                      onChange={(event) => {
-                        setEntryForm((prev) => {
-                          const next = new Set(prev.salesChannels);
-                          if (event.target.checked) {
-                            next.add(channel);
-                          } else {
-                            next.delete(channel);
-                          }
-                          return {
-                            ...prev,
-                            salesChannels: Array.from(next) as Array<
-                              'online' | 'pos' | 'kiosk'
-                            >,
-                          };
-                        });
-                      }}
-                    />
-                    {channel.toUpperCase()}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700">
-                Price override
-              </label>
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  type="number"
-                  className="w-24 rounded-md border border-gray-300 px-3 py-2"
-                  value={entryForm.priceAmount}
-                  onChange={(event) =>
-                    setEntryForm((prev) => ({
-                      ...prev,
-                      priceAmount: event.target.value,
-                    }))
-                  }
-                  placeholder="Amount"
-                />
-                <input
-                  className="w-20 rounded-md border border-gray-300 px-3 py-2 uppercase"
-                  value={entryForm.priceCurrency}
-                  onChange={(event) =>
-                    setEntryForm((prev) => ({
-                      ...prev,
-                      priceCurrency: event.target.value.toUpperCase(),
-                    }))
-                  }
-                />
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-3 pt-4">
-              <button
-                type="button"
-                className="text-sm text-gray-500 hover:text-gray-900"
-                onClick={() => setIsEntryModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={entrySaving === 'new'}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-              >
-                {entrySaving === 'new' ? 'Creating…' : 'Add to shop'}
-              </button>
-            </div>
-          </form>
-        </Modal>
-      ) : null}
 
       {isCategoryModalOpen ? (
         <Modal
           title="Create category"
           onClose={() => {
             setIsCategoryModalOpen(false);
-            setCategoryForm({
-              name: '',
-              description: '',
-              sortOrder: 0,
-              parentCategoryId: '',
-              isActive: true,
-              editingId: '',
-            });
+            setCategoryModalState({ name: '' });
+            setCategoryModalError(null);
           }}
         >
-          <form className="space-y-4" onSubmit={handleCategorySubmit}>
+          <form className="space-y-4" onSubmit={handleCategoryCreate}>
             <div>
               <label className="text-sm font-medium text-gray-700">
                 Category name
               </label>
               <input
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={categoryForm.name}
+                value={categoryModalState.name}
                 onChange={(event) =>
-                  setCategoryForm((prev) => ({ ...prev, name: event.target.value }))
+                  setCategoryModalState({ name: event.target.value })
                 }
                 required
               />
+              <p className="mt-1 text-xs text-gray-500">
+                Examples: Lunch, Drinks, Weekend specials.
+              </p>
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700">
-                Description
-              </label>
-              <textarea
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={3}
-                value={categoryForm.description}
-                onChange={(event) =>
-                  setCategoryForm((prev) => ({
-                    ...prev,
-                    description: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="text-sm font-medium text-gray-700">
-                  Parent category
-                </label>
-                <select
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-                  value={categoryForm.parentCategoryId}
-                  onChange={(event) =>
-                    setCategoryForm((prev) => ({
-                      ...prev,
-                      parentCategoryId: event.target.value,
-                    }))
-                  }
-                >
-                  <option value="">Top level</option>
-                  {shopMenu?.categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700">
-                  Sort order
-                </label>
-                <input
-                  type="number"
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-                  value={categoryForm.sortOrder}
-                  onChange={(event) =>
-                    setCategoryForm((prev) => ({
-                      ...prev,
-                      sortOrder: Number(event.target.value),
-                    }))
-                  }
-                />
-              </div>
-            </div>
-            <label className="flex items-center gap-2 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={categoryForm.isActive}
-                onChange={(event) =>
-                  setCategoryForm((prev) => ({
-                    ...prev,
-                    isActive: event.target.checked,
-                  }))
-                }
-              />
-              Category active
-            </label>
-            {categoryError && (
-              <p className="text-sm text-red-600">{categoryError}</p>
-            )}
-            {categorySuccess && (
-              <p className="text-sm text-green-600">{categorySuccess}</p>
+            {categoryModalError && (
+              <p className="text-sm text-red-600">{categoryModalError}</p>
             )}
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
@@ -1542,59 +1036,15 @@ const CatalogModule = ({
               </button>
               <button
                 type="submit"
-                disabled={categorySaving}
+                disabled={isCategorySubmitting}
                 className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
               >
-                {categorySaving ? 'Saving…' : 'Create category'}
+                {isCategorySubmitting ? 'Saving…' : 'Create category'}
               </button>
             </div>
           </form>
         </Modal>
       ) : null}
-    </div>
-  );
-};
-
-const CategoryTreeNode = ({
-  node,
-  depth,
-  onSelect,
-}: {
-  node: CategoryTreeItem;
-  depth: number;
-  onSelect: (categoryId: string) => void;
-}) => {
-  return (
-    <div className="border border-gray-200 rounded-lg p-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="font-medium text-gray-900">
-            {'—'.repeat(depth)} {node.name}
-          </p>
-          <p className="text-xs text-gray-500">
-            {node.isActive ? 'Active' : 'Hidden'}
-          </p>
-        </div>
-        <button
-          type="button"
-          className="text-xs font-medium text-blue-600 hover:underline"
-          onClick={() => onSelect(node.id)}
-        >
-          Edit
-        </button>
-      </div>
-      {node.children.length > 0 && (
-        <div className="pl-4 space-y-2">
-          {node.children.map((child) => (
-            <CategoryTreeNode
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              onSelect={onSelect}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 };
