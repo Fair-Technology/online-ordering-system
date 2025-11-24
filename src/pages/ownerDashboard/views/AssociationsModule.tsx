@@ -706,10 +706,10 @@ const AssociationsModule = () => {
                               className="rounded-lg bg-gray-50 p-3 space-y-1"
                             >
                               <p className="text-sm font-semibold text-gray-900">
-                                {product.title}
+                                {product.label}
                               </p>
                               <p className="text-xs text-gray-500">
-                                {product.isActive ? 'Available' : 'Unavailable'}
+                                {product.isAvailable ? 'Available' : 'Unavailable'}
                               </p>
                             </div>
                           ))

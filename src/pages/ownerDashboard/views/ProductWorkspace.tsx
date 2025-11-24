@@ -982,7 +982,7 @@ const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
                     </td>
                     <td className="px-4 py-2">
                       {product.variantGroups.reduce(
-                        (count, group) => count + group.variants.length,
+                        (count, group) => count + group.options.length,
                         0
                       )}
                     </td>

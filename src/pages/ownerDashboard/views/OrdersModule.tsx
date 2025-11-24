@@ -156,13 +156,13 @@ const OrdersModule = () => {
     ? productsById.get(newOrderForm.pendingEntryId)
     : undefined;
   const pendingVariants = pendingProduct?.variantGroups.flatMap(
-    (group) => group.variants
+    (group) => group.options
   );
   const pendingAddons =
     pendingProduct?.addonGroups.flatMap((group) =>
       group.options.map((option) => ({
         ...option,
-        groupName: group.name,
+        groupLabel: group.label,
       }))
     ) ?? [];
 
@@ -453,7 +453,7 @@ const OrdersModule = () => {
                   <option value="">Select product</option>
                   {menu?.products?.map((product) => (
                     <option key={product.id} value={product.id}>
-                      {product.title}
+                      {product.label}
                     </option>
                   ))}
                 </select>
@@ -470,8 +470,8 @@ const OrdersModule = () => {
                   <option value="">Select variant</option>
                   {pendingVariants?.map((variant) => (
                     <option key={variant.id} value={variant.id}>
-                      {variant.name} ({variant.basePrice.amount}{' '}
-                      {variant.basePrice.currency})
+                      {variant.label} (+{variant.priceDelta.amount}{' '}
+                      {variant.priceDelta.currency})
                     </option>
                   ))}
                 </select>
@@ -497,11 +497,11 @@ const OrdersModule = () => {
               </div>
               {pendingAddons.length > 0 && (
                 <div className="grid gap-2 md:grid-cols-3">
-                  {pendingAddons.map((addon) => (
-                    <label
-                      key={addon.id}
-                      className="flex items-center gap-2 text-xs text-gray-700 border border-gray-200 rounded-lg px-3 py-2"
-                    >
+                      {pendingAddons.map((addon) => (
+                        <label
+                          key={addon.id}
+                          className="flex items-center gap-2 text-xs text-gray-700 border border-gray-200 rounded-lg px-3 py-2"
+                        >
                       <input
                         type="checkbox"
                         checked={newOrderForm.pendingAddons.has(addon.id)}
@@ -517,7 +517,7 @@ const OrdersModule = () => {
                           })
                         }
                       />
-                      {addon.groupName}: {addon.name} (+{' '}
+                      {addon.groupLabel}: {addon.label} (+{' '}
                       {addon.priceDelta.amount} {addon.priceDelta.currency})
                     </label>
                   ))}
@@ -535,7 +535,7 @@ const OrdersModule = () => {
                     className="flex items-center justify-between text-sm text-gray-700"
                   >
                     <span>
-                      {productsById.get(item.productId)?.title ?? item.productId}{' '}
+                      {productsById.get(item.productId)?.label ?? item.productId}{' '}
                       × {item.quantity}
                     </span>
                     <button

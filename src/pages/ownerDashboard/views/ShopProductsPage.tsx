@@ -289,50 +289,50 @@ const ShopProductsPage = () => {
     if (mode === 'edit' && product) {
       setProductFormMode('edit');
       setEditingProduct(product);
-      const firstVariant = product.variantGroups[0]?.variants[0];
+      const firstVariant = product.variantGroups[0]?.options[0];
       const isStandardSimple =
         product.variantGroups.length === 1 &&
-        product.variantGroups[0]?.name === 'Standard group' &&
-        (product.variantGroups[0]?.variants.length ?? 0) === 1 &&
-        firstVariant?.name === 'Standard';
+        product.variantGroups[0]?.label === 'Standard group' &&
+        (product.variantGroups[0]?.options.length ?? 0) === 1 &&
+        firstVariant?.label === 'Standard';
       const variantMode = isStandardSimple ? 'simple' : 'advanced';
       const addonsEnabled = product.addonGroups.length > 0;
       setProductFormState({
-        title: product.title,
+        title: product.label,
         description: product.description ?? '',
-        isActive: product.isActive,
-        defaultCurrency: firstVariant?.basePrice.currency ?? 'USD',
+        isActive: product.isAvailable,
+        defaultCurrency: firstVariant?.priceDelta.currency ?? 'USD',
         variantMode,
         variantGroups:
           variantMode === 'advanced'
             ? product.variantGroups.map((group) => ({
                 id: group.id,
-                name: group.name,
-                variants: group.variants.map((variant) => ({
+                name: group.label,
+                variants: group.options.map((variant) => ({
                   id: variant.id,
-                  name: variant.name,
+                  name: variant.label,
                   basePrice: {
-                    amount: variant.basePrice.amount,
-                    currency: variant.basePrice.currency,
+                    amount: variant.priceDelta.amount,
+                    currency: variant.priceDelta.currency,
                   },
-                  isActive: variant.isActive,
+                  isActive: variant.isAvailable,
                 })),
               }))
             : [],
         addonGroups: addonsEnabled
           ? product.addonGroups.map((group) => ({
               id: group.id,
-              name: group.name,
+              name: group.label,
               required: group.required,
               maxSelectable: group.maxSelectable,
               options: group.options.map((option) => ({
                 id: option.id,
-                name: option.name,
+                name: option.label,
                 priceDelta: {
                   amount: option.priceDelta.amount,
                   currency: option.priceDelta.currency,
                 },
-                isActive: option.isActive,
+                isActive: option.isAvailable,
               })),
             }))
           : [],
@@ -340,9 +340,9 @@ const ShopProductsPage = () => {
         selectedCategoryIds:
           product.categoryDetails?.map((category) => category.id) ?? [],
         simplePriceAmount: firstVariant
-          ? String(firstVariant.basePrice.amount)
-          : '',
-        simplePriceCurrency: firstVariant?.basePrice.currency ?? 'USD',
+          ? String(firstVariant.priceDelta.amount)
+          : String(product.price ?? 0),
+        simplePriceCurrency: firstVariant?.priceDelta.currency ?? 'USD',
       });
     } else {
       setProductFormMode('create');
