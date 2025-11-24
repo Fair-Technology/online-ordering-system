@@ -53,8 +53,7 @@ const UserCreation = () => {
     const existingUser = users?.find(
       (user) =>
         user.id === userIdentifier ||
-        (normalizedEmail &&
-          user.email?.toLowerCase() === normalizedEmail)
+        (normalizedEmail && user.email?.toLowerCase() === normalizedEmail)
     );
 
     if (existingUser) {
@@ -66,6 +65,7 @@ const UserCreation = () => {
     if (!creationRequested && !isCreatingUser) {
       setCreationRequested(true);
       createUser({
+        entraId: 'some-random-id',
         email: activeAccount.username,
         role: 'shopAdmin',
         name: activeAccount.name ?? activeAccount.username ?? 'New User',

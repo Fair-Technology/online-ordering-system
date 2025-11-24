@@ -38,6 +38,7 @@ export interface FulfillmentOptions {
 export interface ShopSummary {
   id: string;
   name: string;
+  slug: string;
   address: string;
   isActive: boolean;
   status: ShopStatus;
@@ -52,6 +53,7 @@ export interface ShopSummary {
 
 export interface ShopSettingsUpdateRequest {
   name?: string;
+  slug?: string;
   address?: string;
   status?: ShopStatus;
   acceptingOrders?: boolean;
@@ -65,6 +67,7 @@ export interface ShopSettingsUpdateRequest {
 // Shops
 export interface CreateShopRequest {
   name: string;
+  slug: string;
   address: string;
   ownerUserId: string;
   isActive: boolean;

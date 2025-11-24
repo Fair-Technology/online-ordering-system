@@ -7,7 +7,12 @@ const OnlineOrderingSystem = () => {
 
   const handleLogin = () => {
     instance.loginRedirect({
-      scopes: ['openid', 'profile', 'email'],
+      scopes: [
+        'openid',
+        'profile',
+        'email',
+        'api://5940f49f-d6ec-4865-b38e-379de583765c/users.read',
+      ],
       redirectStartPage: '/user-creation',
     });
   };

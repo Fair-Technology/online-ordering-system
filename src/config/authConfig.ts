@@ -9,3 +9,11 @@ export const msalConfig = {
     redirectUri,
   },
 };
+
+export const loginRequest = {
+  scopes: ['api://5940f49f-d6ec-4865-b38e-379de583765c/users.read'],
+};
+
+export const apiScopes = [
+  'api://5940f49f-d6ec-4865-b38e-379de583765c/users.read',
+];

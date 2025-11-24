@@ -139,7 +139,7 @@ const MenuPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold">Menu Management</h1>
           <p className="text-sm text-gray-500">
-            Review your shop catalogue and keep items up to date.
+            Review your shop products and keep items up to date.
           </p>
         </div>
 

@@ -1,6 +1,14 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import {
+  Dispatch,
+  FormEvent,
+  SetStateAction,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { useMsal } from '@azure/msal-react';
 import { skipToken } from '@reduxjs/toolkit/query';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ORDER_ACCEPTANCE_MODES,
   PAYMENT_POLICIES,
@@ -12,37 +20,19 @@ import {
   type ShopSettingsUpdateRequest,
   type ShopStatus,
   type ShopSummary,
-  type UpsertShopHoursRequest,
   type UserShopView,
 } from '../../../types/apiTypes';
 import {
-  useShopHoursUpsertMutation,
   useShopsCreateMutation,
+  useShopsDeleteMutation,
   useShopsGetByIdQuery,
   useShopsUpdateMutation,
   useUsersGetShopsQuery,
 } from '../../../store/api/ownerApi';
+import { useAppDispatch } from '../../../store/hooks';
+import { syncAccessTokenFromMsal } from '../../../auth/syncAccessToken';
 
 type ShopFormState = Omit<CreateShopRequest, 'ownerUserId'>;
-
-type Weekday =
-  | 'monday'
-  | 'tuesday'
-  | 'wednesday'
-  | 'thursday'
-  | 'friday'
-  | 'saturday'
-  | 'sunday';
-
-const weekdays: { key: Weekday; label: string }[] = [
-  { key: 'monday', label: 'Mon' },
-  { key: 'tuesday', label: 'Tue' },
-  { key: 'wednesday', label: 'Wed' },
-  { key: 'thursday', label: 'Thu' },
-  { key: 'friday', label: 'Fri' },
-  { key: 'saturday', label: 'Sat' },
-  { key: 'sunday', label: 'Sun' },
-];
 
 const statusStyles: Record<string, string> = {
   open: 'bg-green-100 text-green-800',
@@ -56,8 +46,17 @@ const defaultFulfillment: FulfillmentOptions = {
   deliveryFee: 0,
 };
 
+const toSlug = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+
 const createDefaultShopForm = (): ShopFormState => ({
   name: '',
+  slug: '',
   address: '',
   status: 'open',
   isActive: true,
@@ -66,16 +65,6 @@ const createDefaultShopForm = (): ShopFormState => ({
   orderAcceptanceMode: 'auto',
   allowGuestCheckout: true,
   fulfillmentOptions: { ...defaultFulfillment },
-});
-
-const createDefaultHoursDraft = () => ({
-  timezone: 'UTC',
-  open: '09:00',
-  close: '17:00',
-  days: weekdays.reduce<Record<Weekday, boolean>>(
-    (acc, { key }) => ({ ...acc, [key]: true }),
-    {} as Record<Weekday, boolean>
-  ),
 });
 
 const ShopStatusBadge = ({ status }: { status: ShopStatus }) => (
@@ -119,40 +108,6 @@ const Modal = ({
   </div>
 );
 
-const StepIndicator = ({
-  current,
-  total,
-}: {
-  current: number;
-  total: number;
-}) => (
-  <div className="flex items-center gap-2 text-sm text-gray-600">
-    {Array.from({ length: total }).map((_, index) => {
-      const stepNumber = index + 1;
-      const isActive = stepNumber === current;
-      const isCompleted = stepNumber < current;
-      return (
-        <div key={stepNumber} className="flex items-center gap-2">
-          <span
-            className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
-              isActive
-                ? 'bg-blue-600 text-white'
-                : isCompleted
-                ? 'bg-green-100 text-green-700'
-                : 'bg-gray-100 text-gray-500'
-            }`}
-          >
-            {stepNumber}
-          </span>
-          {stepNumber < total ? (
-            <span className="h-px w-10 bg-gray-200" aria-hidden />
-          ) : null}
-        </div>
-      );
-    })}
-  </div>
-);
-
 const normalizeFulfillment = (
   options: FulfillmentOptions
 ): FulfillmentOptions => ({
@@ -170,6 +125,7 @@ const normalizeFulfillment = (
 
 const mapSummaryToForm = (summary: ShopSummary): ShopFormState => ({
   name: summary.name,
+  slug: summary.slug,
   address: summary.address,
   status: summary.status,
   isActive: summary.isActive,
@@ -182,6 +138,7 @@ const mapSummaryToForm = (summary: ShopSummary): ShopFormState => ({
 
 const ShopsPage = () => {
   const { accounts } = useMsal();
+  const navigate = useNavigate();
   const ownerUserId =
     accounts[0]?.localAccountId ||
     accounts[0]?.homeAccountId ||
@@ -198,16 +155,22 @@ const ShopsPage = () => {
   } = useUsersGetShopsQuery(queryArg);
   const [createShop, { isLoading: isCreating }] = useShopsCreateMutation();
   const [updateShop, { isLoading: isUpdating }] = useShopsUpdateMutation();
-  const [upsertHours, { isLoading: isSavingHours }] =
-    useShopHoursUpsertMutation();
+  const [deleteShop, { isLoading: isDeleting }] = useShopsDeleteMutation();
+
+  const { instance } = useMsal();
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    syncAccessTokenFromMsal(instance, dispatch).catch((err) => {
+      console.error('Failed to sync access token:', err);
+    });
+  }, [instance, dispatch]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [creationError, setCreationError] = useState<string | null>(null);
   const [newShop, setNewShop] = useState<ShopFormState>(
     createDefaultShopForm()
   );
-  const [hoursDraft, setHoursDraft] = useState(createDefaultHoursDraft);
-  const [createStep, setCreateStep] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const [editingShopId, setEditingShopId] = useState<string | null>(null);
@@ -217,6 +180,10 @@ const ShopsPage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [editSuccess, setEditSuccess] = useState<string | null>(null);
+  const [pendingDeleteShop, setPendingDeleteShop] =
+    useState<UserShopView | null>(null);
+  const [deleteStep, setDeleteStep] = useState(1);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (editingShopDetails) {
@@ -225,6 +192,17 @@ const ShopsPage = () => {
       setEditSuccess(null);
     }
   }, [editingShopDetails]);
+
+  const applyEditFormUpdate: Dispatch<SetStateAction<ShopFormState>> = (
+    update
+  ) => {
+    setEditForm((prev) => {
+      if (!prev) return prev;
+      return typeof update === 'function'
+        ? (update as (prev: ShopFormState) => ShopFormState)(prev)
+        : update;
+    });
+  };
 
   const resolvedShops: UserShopView[] = shops ?? [];
   const filteredShops = useMemo(() => {
@@ -240,14 +218,16 @@ const ShopsPage = () => {
 
   const closeCreateModal = () => {
     setIsCreateModalOpen(false);
-    setCreateStep(1);
     setNewShop(createDefaultShopForm());
-    setHoursDraft(createDefaultHoursDraft());
     setCreationError(null);
   };
 
   const openCreateModal = () => {
     setIsCreateModalOpen(true);
+  };
+
+  const goToShopProducts = (shopId: string) => {
+    navigate(`/owner/shops/${shopId}`);
   };
 
   const openEditModal = (shopId: string) => {
@@ -263,6 +243,18 @@ const ShopsPage = () => {
     setEditSuccess(null);
   };
 
+  const openDeleteModal = (shop: UserShopView) => {
+    setPendingDeleteShop(shop);
+    setDeleteStep(1);
+    setDeleteError(null);
+  };
+
+  const closeDeleteModal = () => {
+    setPendingDeleteShop(null);
+    setDeleteStep(1);
+    setDeleteError(null);
+  };
+
   const handleCreateShop = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!ownerUserId) {
@@ -273,31 +265,23 @@ const ShopsPage = () => {
       setCreationError('Name and address are required.');
       return;
     }
+    const slug = resolveSlug(newShop.name, newShop.slug);
+    if (!slug) {
+      setCreationError('Slug is required.');
+      return;
+    }
 
     try {
       setCreationError(null);
       const payload: CreateShopRequest = {
         ...newShop,
         name: newShop.name.trim(),
+        slug,
         address: newShop.address.trim(),
         ownerUserId,
         fulfillmentOptions: normalizeFulfillment(newShop.fulfillmentOptions),
       };
-      const createdShop = await createShop(payload).unwrap();
-
-      const weekly: UpsertShopHoursRequest['weekly'] = {};
-      (Object.keys(hoursDraft.days) as Weekday[]).forEach((day) => {
-        if (hoursDraft.days[day]) {
-          weekly[day] = [{ open: hoursDraft.open, close: hoursDraft.close }];
-        }
-      });
-      if (Object.keys(weekly).length > 0) {
-        await upsertHours({
-          shopId: createdShop.id,
-          body: { timezone: hoursDraft.timezone, weekly },
-        }).unwrap();
-      }
-
+      await createShop(payload).unwrap();
       await refetchShops();
       closeCreateModal();
     } catch (error) {
@@ -315,8 +299,12 @@ const ShopsPage = () => {
     try {
       setEditError(null);
       setEditSuccess(null);
+      const slug = editForm.slug?.trim()
+        ? resolveSlug(editForm.name ?? '', editForm.slug)
+        : undefined;
       const payload: ShopSettingsUpdateRequest = {
         name: editForm.name?.trim(),
+        slug,
         address: editForm.address?.trim(),
         status: editForm.status,
         isActive: editForm.isActive,
@@ -340,24 +328,43 @@ const ShopsPage = () => {
   };
 
   const handleFulfillmentChange = (
-    setter: (next: ShopFormState) => void,
-    form: ShopFormState,
+    setter: Dispatch<SetStateAction<ShopFormState>>,
     field: keyof FulfillmentOptions,
     value: boolean | number
   ) => {
-    setter({
-      ...form,
+    setter((prev) => ({
+      ...prev,
       fulfillmentOptions: {
-        ...form.fulfillmentOptions,
+        ...prev.fulfillmentOptions,
         [field]:
           typeof value === 'number' ? (Number.isNaN(value) ? 0 : value) : value,
       },
-    });
+    }));
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!pendingDeleteShop) return;
+    if (deleteStep === 1) {
+      setDeleteStep(2);
+      return;
+    }
+    try {
+      setDeleteError(null);
+      await deleteShop(pendingDeleteShop.shopId).unwrap();
+      await refetchShops();
+      closeDeleteModal();
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to delete shop. Please try again.'
+      );
+    }
   };
 
   const renderBasicInfoFields = (
     form: ShopFormState,
-    setForm: (next: ShopFormState) => void,
+    setForm: Dispatch<SetStateAction<ShopFormState>>,
     disabled?: boolean
   ) => (
     <div className="grid gap-4">
@@ -367,14 +374,40 @@ const ShopsPage = () => {
           className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={form.name}
           onChange={(event) =>
-            setForm({
-              ...form,
-              name: event.target.value,
+            setForm((prev) => {
+              const nextName = event.target.value;
+              const prevSlugWasAuto =
+                !prev.slug || prev.slug === toSlug(prev.name ?? '');
+              return {
+                ...prev,
+                name: nextName,
+                slug: prevSlugWasAuto ? toSlug(nextName) : prev.slug,
+              };
             })
           }
           required
           disabled={disabled}
         />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Slug</label>
+        <input
+          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 lowercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={form.slug}
+          onChange={(event) =>
+            setForm((prev) => ({
+              ...prev,
+              slug: toSlug(event.target.value),
+            }))
+          }
+          placeholder="my-shop-slug"
+          required
+          disabled={disabled}
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          Used in URLs, letters, and links. Only lowercase letters, numbers, and
+          dashes are allowed.
+        </p>
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700">
@@ -384,10 +417,10 @@ const ShopsPage = () => {
           className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={form.address}
           onChange={(event) =>
-            setForm({
-              ...form,
+            setForm((prev) => ({
+              ...prev,
               address: event.target.value,
-            })
+            }))
           }
           required
           disabled={disabled}
@@ -398,7 +431,7 @@ const ShopsPage = () => {
 
   const renderOperationalFields = (
     form: ShopFormState,
-    setForm: (next: ShopFormState) => void,
+    setForm: Dispatch<SetStateAction<ShopFormState>>,
     disabled?: boolean
   ) => (
     <div className="grid gap-4 md:grid-cols-2">
@@ -410,10 +443,10 @@ const ShopsPage = () => {
           className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={form.status}
           onChange={(event) =>
-            setForm({
-              ...form,
+            setForm((prev) => ({
+              ...prev,
               status: event.target.value as ShopStatus,
-            })
+            }))
           }
           disabled={disabled}
         >
@@ -432,10 +465,10 @@ const ShopsPage = () => {
           className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={form.orderAcceptanceMode}
           onChange={(event) =>
-            setForm({
-              ...form,
+            setForm((prev) => ({
+              ...prev,
               orderAcceptanceMode: event.target.value as OrderAcceptanceMode,
-            })
+            }))
           }
           disabled={disabled}
         >
@@ -454,10 +487,10 @@ const ShopsPage = () => {
           className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={form.paymentPolicy}
           onChange={(event) =>
-            setForm({
-              ...form,
+            setForm((prev) => ({
+              ...prev,
               paymentPolicy: event.target.value as PaymentPolicy,
-            })
+            }))
           }
           disabled={disabled}
         >
@@ -476,7 +509,12 @@ const ShopsPage = () => {
               ? 'bg-green-50 text-green-700'
               : 'bg-gray-100 text-gray-600'
           }`}
-          onClick={() => setForm({ ...form, isActive: !form.isActive })}
+          onClick={() =>
+            setForm((prev) => ({
+              ...prev,
+              isActive: !prev.isActive,
+            }))
+          }
           disabled={disabled}
         >
           {form.isActive ? 'Active' : 'Inactive'}
@@ -489,7 +527,10 @@ const ShopsPage = () => {
               : 'bg-gray-100 text-gray-600'
           }`}
           onClick={() =>
-            setForm({ ...form, acceptingOrders: !form.acceptingOrders })
+            setForm((prev) => ({
+              ...prev,
+              acceptingOrders: !prev.acceptingOrders,
+            }))
           }
           disabled={disabled}
         >
@@ -501,7 +542,7 @@ const ShopsPage = () => {
 
   const renderFulfillmentFields = (
     form: ShopFormState,
-    setForm: (next: ShopFormState) => void,
+    setForm: Dispatch<SetStateAction<ShopFormState>>,
     disabled?: boolean
   ) => (
     <div className="space-y-4">
@@ -511,7 +552,10 @@ const ShopsPage = () => {
           className="h-4 w-4"
           checked={form.allowGuestCheckout}
           onChange={(event) =>
-            setForm({ ...form, allowGuestCheckout: event.target.checked })
+            setForm((prev) => ({
+              ...prev,
+              allowGuestCheckout: event.target.checked,
+            }))
           }
           disabled={disabled}
         />
@@ -525,7 +569,6 @@ const ShopsPage = () => {
           onChange={(event) =>
             handleFulfillmentChange(
               setForm,
-              form,
               'pickupEnabled',
               event.target.checked
             )
@@ -543,7 +586,6 @@ const ShopsPage = () => {
             onChange={(event) =>
               handleFulfillmentChange(
                 setForm,
-                form,
                 'deliveryEnabled',
                 event.target.checked
               )
@@ -566,7 +608,6 @@ const ShopsPage = () => {
                 onChange={(event) =>
                   handleFulfillmentChange(
                     setForm,
-                    form,
                     'deliveryRadiusKm',
                     Number(event.target.value)
                   )
@@ -588,7 +629,6 @@ const ShopsPage = () => {
                 onChange={(event) =>
                   handleFulfillmentChange(
                     setForm,
-                    form,
                     'deliveryFee',
                     Number(event.target.value)
                   )
@@ -607,139 +647,33 @@ const ShopsPage = () => {
     </div>
   );
 
-  const renderHoursStep = () => (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700">
-          Timezone
-        </label>
-        <input
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={hoursDraft.timezone}
-          onChange={(event) =>
-            setHoursDraft((prev) => ({ ...prev, timezone: event.target.value }))
-          }
-          required
-        />
+  const renderCreateFormSections = () => (
+    <>
+      <p className="text-sm text-gray-500">
+        Provide the essentials to get this storefront live. You can fill in the
+        rest after creation.
+      </p>
+      <div className="space-y-6">
+        {renderBasicInfoFields(newShop, setNewShop, isCreating)}
+        {renderOperationalFields(newShop, setNewShop, isCreating)}
+        {renderFulfillmentFields(newShop, setNewShop, isCreating)}
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Opening time
-          </label>
-          <input
-            type="time"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={hoursDraft.open}
-            onChange={(event) =>
-              setHoursDraft((prev) => ({ ...prev, open: event.target.value }))
-            }
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Closing time
-          </label>
-          <input
-            type="time"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={hoursDraft.close}
-            onChange={(event) =>
-              setHoursDraft((prev) => ({ ...prev, close: event.target.value }))
-            }
-          />
-        </div>
-      </div>
-      <div>
-        <p className="text-sm font-medium text-gray-700 mb-2">Days open</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {weekdays.map(({ key, label }) => (
-            <label
-              key={key}
-              className="flex items-center gap-2 rounded-md border border-gray-200 px-3 py-2 text-sm"
-            >
-              <input
-                type="checkbox"
-                className="h-4 w-4"
-                checked={hoursDraft.days[key]}
-                onChange={(event) =>
-                  setHoursDraft((prev) => ({
-                    ...prev,
-                    days: { ...prev.days, [key]: event.target.checked },
-                  }))
-                }
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-      </div>
-    </div>
+    </>
   );
-
-  const renderCreateStep = () => {
-    if (createStep === 1) {
-      return (
-        <>
-          <p className="text-sm text-gray-500 mb-4">
-            Provide the basics for this storefront.
-          </p>
-          {renderBasicInfoFields(newShop, setNewShop, isCreating)}
-        </>
-      );
-    }
-    if (createStep === 2) {
-      return (
-        <>
-          <p className="text-sm text-gray-500 mb-4">
-            Configure default opening hours. You can refine these later from the
-            settings page.
-          </p>
-          {renderHoursStep()}
-        </>
-      );
-    }
-    return (
-      <>
-        <p className="text-sm text-gray-500 mb-4">
-          Set operational preferences, then confirm everything looks correct.
-        </p>
-        <div className="space-y-6">
-          {renderOperationalFields(newShop, setNewShop, isCreating)}
-          {renderFulfillmentFields(newShop, setNewShop, isCreating)}
-          <div className="rounded-lg border border-gray-200 p-4 space-y-2">
-            <p className="text-sm font-semibold text-gray-900">
-              Review selections
-            </p>
-            <ul className="text-sm text-gray-600 space-y-1">
-              <li>
-                <strong>Name:</strong> {newShop.name || '—'}
-              </li>
-              <li>
-                <strong>Address:</strong> {newShop.address || '—'}
-              </li>
-              <li>
-                <strong>Status:</strong> {newShop.status}
-              </li>
-              <li>
-                <strong>Order acceptance:</strong> {newShop.orderAcceptanceMode}
-              </li>
-              <li>
-                <strong>Payment policy:</strong> {newShop.paymentPolicy}
-              </li>
-              <li>
-                <strong>Hours:</strong>{' '}
-                {`${hoursDraft.open}–${hoursDraft.close} (${hoursDraft.timezone})`}
-              </li>
-            </ul>
-          </div>
-        </div>
-      </>
-    );
-  };
 
   return (
     <section className="space-y-6">
+      <nav className="text-sm text-gray-500" aria-label="Breadcrumb">
+        <ol className="flex items-center gap-2">
+          <li>
+            <Link to="/owner" className="hover:text-gray-900">
+              Dashboard
+            </Link>
+          </li>
+          <li>/</li>
+          <li className="font-semibold text-gray-900">Shops</li>
+        </ol>
+      </nav>
       <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Shops</h1>
@@ -822,7 +756,19 @@ const ShopsPage = () => {
                 </tr>
               )}
             {filteredShops.map((shop) => (
-              <tr key={shop.shopId}>
+              <tr
+                key={shop.shopId}
+                role="button"
+                tabIndex={0}
+                onClick={() => goToShopProducts(shop.shopId)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    goToShopProducts(shop.shopId);
+                  }
+                }}
+                className="cursor-pointer transition-colors hover:bg-slate-50 focus-visible:bg-slate-100"
+              >
                 <td className="px-4 py-4">
                   <div>
                     <p className="font-medium text-gray-900">{shop.name}</p>
@@ -851,14 +797,29 @@ const ShopsPage = () => {
                 <td className="px-4 py-4 text-sm text-gray-500">
                   {new Date(shop.updatedAt).toLocaleDateString()}
                 </td>
-                <td className="px-4 py-4 text-center">
-                  <button
-                    type="button"
-                    className="text-sm font-medium text-blue-600 hover:underline"
-                    onClick={() => openEditModal(shop.shopId)}
-                  >
-                    Edit
-                  </button>
+                <td className="px-4 py-4">
+                  <div className="flex items-center justify-center gap-4">
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-blue-600 hover:underline"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openEditModal(shop.shopId);
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-red-600 hover:underline"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openDeleteModal(shop);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -869,42 +830,25 @@ const ShopsPage = () => {
       {isCreateModalOpen ? (
         <Modal title="Create a shop" onClose={closeCreateModal}>
           <form className="space-y-6" onSubmit={handleCreateShop}>
-            <div className="flex items-center justify-between border border-gray-100 rounded-lg p-3">
-              <StepIndicator current={createStep} total={3} />
-              <div className="text-xs text-gray-500">
-                Step {createStep} of 3
-              </div>
-            </div>
-            {renderCreateStep()}
+            {renderCreateFormSections()}
             {creationError && (
               <p className="text-sm text-red-600">{creationError}</p>
             )}
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
-                className="text-sm text-gray-600 hover:text-gray-800 disabled:opacity-50"
-                onClick={() => setCreateStep((prev) => Math.max(1, prev - 1))}
-                disabled={createStep === 1}
+                className="text-sm text-gray-600 hover:text-gray-800"
+                onClick={closeCreateModal}
               >
-                Previous
+                Cancel
               </button>
-              {createStep < 3 ? (
-                <button
-                  type="button"
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                  onClick={() => setCreateStep((prev) => Math.min(3, prev + 1))}
-                >
-                  Next
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={isCreating || isSavingHours}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-                >
-                  {isCreating || isSavingHours ? 'Saving…' : 'Save shop'}
-                </button>
-              )}
+              <button
+                type="submit"
+                disabled={isCreating}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {isCreating ? 'Creating…' : 'Create shop'}
+              </button>
             </div>
           </form>
         </Modal>
@@ -913,9 +857,9 @@ const ShopsPage = () => {
       {isEditModalOpen && editForm ? (
         <Modal title="Edit shop settings" onClose={closeEditModal}>
           <form className="space-y-5" onSubmit={handleEditSubmit}>
-            {renderBasicInfoFields(editForm, setEditForm, isUpdating)}
-            {renderOperationalFields(editForm, setEditForm, isUpdating)}
-            {renderFulfillmentFields(editForm, setEditForm, isUpdating)}
+            {renderBasicInfoFields(editForm, applyEditFormUpdate, isUpdating)}
+            {renderOperationalFields(editForm, applyEditFormUpdate, isUpdating)}
+            {renderFulfillmentFields(editForm, applyEditFormUpdate, isUpdating)}
             {editError && <p className="text-sm text-red-600">{editError}</p>}
             {editSuccess && (
               <p className="text-sm text-green-600">{editSuccess}</p>
@@ -943,8 +887,70 @@ const ShopsPage = () => {
           </form>
         </Modal>
       ) : null}
+      {pendingDeleteShop ? (
+        <Modal
+          title="Delete shop"
+          onClose={closeDeleteModal}
+          widthClass="max-w-lg"
+        >
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <p className="text-sm text-gray-700 font-medium">
+                {deleteStep === 1
+                  ? 'First confirmation required'
+                  : 'Final confirmation'}
+              </p>
+              <p className="text-sm text-gray-600">
+                {deleteStep === 1
+                  ? `You're about to remove "${pendingDeleteShop.name}". Confirm once more on the next step to proceed.`
+                  : `Deleting "${pendingDeleteShop.name}" is permanent and cannot be undone. This will immediately remove the shop from listings.`}
+              </p>
+            </div>
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <p>
+                <strong>Status:</strong> {pendingDeleteShop.status}{' '}
+                <strong className="ml-2">Address:</strong>{' '}
+                {pendingDeleteShop.address || 'Not provided'}
+              </p>
+            </div>
+            {deleteError && (
+              <p className="text-sm text-red-600">{deleteError}</p>
+            )}
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                className="text-sm text-gray-600 hover:text-gray-800 disabled:opacity-60"
+                onClick={closeDeleteModal}
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                className={`rounded-md px-4 py-2 text-sm font-semibold text-white ${
+                  deleteStep === 1
+                    ? 'bg-orange-500 hover:bg-orange-600'
+                    : 'bg-red-600 hover:bg-red-700'
+                } disabled:opacity-60`}
+                disabled={isDeleting}
+              >
+                {deleteStep === 1
+                  ? 'Yes, continue'
+                  : isDeleting
+                  ? 'Deleting…'
+                  : 'Yes, delete shop'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
     </section>
   );
 };
 
 export default ShopsPage;
+const resolveSlug = (name: string, slug?: string) => {
+  const candidate = slug?.trim() ? toSlug(slug) : toSlug(name);
+  return candidate;
+};
