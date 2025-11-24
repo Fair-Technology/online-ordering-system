@@ -34,6 +34,7 @@ import type {
   UserShopsResponse,
   UpdateCartRequest,
 } from '../../types/apiTypes';
+import { RootState } from '..';
 
 type ShopScopedBody<T> = { shopId: string; body: T };
 type ShopScopedQuery = { shopId: string };
@@ -63,17 +64,27 @@ type UserListResponse = UserResponse[];
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:7071';
 
+const baseQuery = fetchBaseQuery({
+  baseUrl,
+  prepareHeaders: (headers, { getState }) => {
+    const state = getState() as RootState;
+    const token = state.auth.accessToken;
+
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    if (!headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
+
+    return headers;
+  },
+});
+
 export const ownerApi = createApi({
   reducerPath: 'ownerApi',
-  baseQuery: fetchBaseQuery({
-    baseUrl,
-    prepareHeaders: (headers) => {
-      if (!headers.has('Content-Type')) {
-        headers.set('Content-Type', 'application/json');
-      }
-      return headers;
-    },
-  }),
+  baseQuery,
   tagTypes: [
     'Cart',
     'Category',

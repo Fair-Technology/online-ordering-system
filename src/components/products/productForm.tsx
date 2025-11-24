@@ -48,6 +48,8 @@ export type ProductFormState = {
   selectedCategoryIds: string[];
   simplePriceAmount: string;
   simplePriceCurrency: string;
+  variantMode: 'simple' | 'advanced';
+  addonsEnabled: boolean;
 };
 
 export const defaultMoney = (currency = 'USD'): MoneyInput => ({
@@ -96,6 +98,8 @@ export const createDefaultProductFormState = (): ProductFormState => ({
   selectedCategoryIds: [],
   simplePriceAmount: '',
   simplePriceCurrency: 'USD',
+  variantMode: 'simple',
+  addonsEnabled: false,
 });
 
 export const useHasAtLeastOneVariant = (variantGroups: VariantGroupDraft[]) =>

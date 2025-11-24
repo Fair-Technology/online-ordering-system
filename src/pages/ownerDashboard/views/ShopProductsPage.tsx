@@ -87,9 +87,19 @@ const ShopProductsPage = () => {
   const hasSimplePrice =
     Number(productFormState.simplePriceAmount || '') > 0;
   const hasPricingConfigured =
-    productFormState.variantGroups.length > 0
+    productFormState.variantMode === 'advanced'
       ? hasAtLeastOneVariant
       : hasSimplePrice;
+  const variantGroupsLength = productFormState.variantGroups.length;
+
+  useEffect(() => {
+    if (
+      productFormState.variantMode === 'advanced' &&
+      variantGroupsLength === 0
+    ) {
+      setProductFormState((prev) => ({ ...prev, variantMode: 'simple' }));
+    }
+  }, [productFormState.variantMode, variantGroupsLength]);
 
   const isStepReady = (step: number) => {
     if (step === 1) {
@@ -149,6 +159,95 @@ const ShopProductsPage = () => {
     }
   }, [shopId]);
 
+  const buildStandardVariantGroupPayload = () => ({
+    label: 'Standard group',
+    options: [
+      {
+        label: 'Standard',
+        priceDelta: {
+          amount: Number(productFormState.simplePriceAmount || 0),
+          currency:
+            productFormState.simplePriceCurrency ||
+            productFormState.defaultCurrency,
+        },
+        isAvailable: true,
+      },
+    ],
+  });
+
+  const enableAdvancedVariants = () => {
+    setProductFormState((prev) => ({
+      ...prev,
+      variantMode: 'advanced',
+      variantGroups:
+        prev.variantGroups.length > 0
+          ? prev.variantGroups
+          : [
+              {
+                id: createId(),
+                name: 'Standard group',
+                variants: [
+                  {
+                    id: createId(),
+                    name: 'Standard',
+                    basePrice: {
+                      amount: Number(prev.simplePriceAmount || 0),
+                      currency:
+                        prev.simplePriceCurrency || prev.defaultCurrency,
+                    },
+                    isActive: true,
+                  },
+                ],
+              },
+            ],
+    }));
+  };
+
+  const revertToSimplePricing = () => {
+    setProductFormState((prev) => ({
+      ...prev,
+      variantMode: 'simple',
+      variantGroups: [],
+    }));
+  };
+
+  const enableAddons = () => {
+    setProductFormState((prev) => ({
+      ...prev,
+      addonsEnabled: true,
+      addonGroups:
+        prev.addonGroups.length > 0
+          ? prev.addonGroups
+          : [
+              {
+                id: createId(),
+                name: 'Add-ons',
+                required: false,
+                maxSelectable: 0,
+                options: [
+                  {
+                    id: createId(),
+                    name: 'Option 1',
+                    priceDelta: {
+                      amount: 0,
+                      currency: prev.defaultCurrency,
+                    },
+                    isActive: true,
+                  },
+                ],
+              },
+            ],
+    }));
+  };
+
+  const disableAddons = () => {
+    setProductFormState((prev) => ({
+      ...prev,
+      addonsEnabled: false,
+      addonGroups: [],
+    }));
+  };
+
   useEffect(() => {
     const loadCategories = async () => {
       setCategoriesLoading(true);
@@ -174,7 +273,7 @@ const ShopProductsPage = () => {
   const toggleProductAvailability = async (productId: string, next: boolean) => {
     setUpdatingProductId(productId);
     try {
-      await api.updateProduct(productId, { isActive: next });
+      await api.updateProduct(productId, { isAvailable: next });
       await Promise.all([refreshShop(), loadShopProducts()]);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Unable to update product.');
@@ -190,45 +289,60 @@ const ShopProductsPage = () => {
     if (mode === 'edit' && product) {
       setProductFormMode('edit');
       setEditingProduct(product);
+      const firstVariant = product.variantGroups[0]?.variants[0];
+      const isStandardSimple =
+        product.variantGroups.length === 1 &&
+        product.variantGroups[0]?.name === 'Standard group' &&
+        (product.variantGroups[0]?.variants.length ?? 0) === 1 &&
+        firstVariant?.name === 'Standard';
+      const variantMode = isStandardSimple ? 'simple' : 'advanced';
+      const addonsEnabled = product.addonGroups.length > 0;
       setProductFormState({
         title: product.title,
         description: product.description ?? '',
         isActive: product.isActive,
-        defaultCurrency:
-          product.variantGroups[0]?.variants[0]?.basePrice.currency ?? 'USD',
-        variantGroups: product.variantGroups.map((group) => ({
-          id: group.id,
-          name: group.name,
-          variants: group.variants.map((variant) => ({
-            id: variant.id,
-            name: variant.name,
-            basePrice: {
-              amount: variant.basePrice.amount,
-              currency: variant.basePrice.currency,
-            },
-            isActive: variant.isActive,
-          })),
-        })),
-        addonGroups: product.addonGroups.map((group) => ({
-          id: group.id,
-          name: group.name,
-          required: group.required,
-          maxSelectable: group.maxSelectable,
-          options: group.options.map((option) => ({
-            id: option.id,
-            name: option.name,
-            priceDelta: {
-              amount: option.priceDelta.amount,
-              currency: option.priceDelta.currency,
-            },
-            isActive: option.isActive,
-          })),
-        })),
+        defaultCurrency: firstVariant?.basePrice.currency ?? 'USD',
+        variantMode,
+        variantGroups:
+          variantMode === 'advanced'
+            ? product.variantGroups.map((group) => ({
+                id: group.id,
+                name: group.name,
+                variants: group.variants.map((variant) => ({
+                  id: variant.id,
+                  name: variant.name,
+                  basePrice: {
+                    amount: variant.basePrice.amount,
+                    currency: variant.basePrice.currency,
+                  },
+                  isActive: variant.isActive,
+                })),
+              }))
+            : [],
+        addonGroups: addonsEnabled
+          ? product.addonGroups.map((group) => ({
+              id: group.id,
+              name: group.name,
+              required: group.required,
+              maxSelectable: group.maxSelectable,
+              options: group.options.map((option) => ({
+                id: option.id,
+                name: option.name,
+                priceDelta: {
+                  amount: option.priceDelta.amount,
+                  currency: option.priceDelta.currency,
+                },
+                isActive: option.isActive,
+              })),
+            }))
+          : [],
+        addonsEnabled,
         selectedCategoryIds:
           product.categoryDetails?.map((category) => category.id) ?? [],
-        simplePriceAmount: '',
-        simplePriceCurrency:
-          product.variantGroups[0]?.variants[0]?.basePrice.currency ?? 'USD',
+        simplePriceAmount: firstVariant
+          ? String(firstVariant.basePrice.amount)
+          : '',
+        simplePriceCurrency: firstVariant?.basePrice.currency ?? 'USD',
       });
     } else {
       setProductFormMode('create');
@@ -279,66 +393,55 @@ const ShopProductsPage = () => {
     setProductSubmitting(true);
     try {
       const selectedNames = Array.from(new Set(selectedCategoryNames));
+      const standardVariantGroup = buildStandardVariantGroupPayload();
       const variantGroupsPayload =
-        productFormState.variantGroups.length > 0
-          ? productFormState.variantGroups.map((group) => ({
-              id: group.id,
-              name: group.name,
-              variants: group.variants.map((variant) => ({
-                id: variant.id,
-                name: variant.name,
-                basePrice: {
-                  amount: Number(variant.basePrice.amount),
-                  currency:
-                    variant.basePrice.currency || productFormState.defaultCurrency,
-                },
-                isActive: variant.isActive,
-              })),
-            }))
-          : [
-              {
-                id: editingProduct?.variantGroups[0]?.id,
-                name: 'Standard group',
-                variants: [
-                  {
-                    id: editingProduct?.variantGroups[0]?.variants[0]?.id,
-                    name: 'Standard',
-                    basePrice: {
-                      amount: Number(productFormState.simplePriceAmount),
-                      currency:
-                        productFormState.simplePriceCurrency ||
-                        productFormState.defaultCurrency,
-                    },
-                    isActive: true,
+        productFormState.variantMode === 'advanced'
+          ? productFormState.variantGroups.length > 0
+            ? productFormState.variantGroups.map((group) => ({
+                id: group.id,
+                label: group.name,
+                options: group.variants.map((variant) => ({
+                  id: variant.id,
+                  label: variant.name,
+                  priceDelta: {
+                    amount: Number(variant.basePrice.amount),
+                    currency:
+                      variant.basePrice.currency || productFormState.defaultCurrency,
                   },
-                ],
+                  isAvailable: variant.isActive,
+                })),
+              }))
+            : [standardVariantGroup]
+          : [standardVariantGroup];
+      const addonGroupsPayload = productFormState.addonsEnabled
+        ? productFormState.addonGroups.map((group) => ({
+            id: group.id,
+            label: group.name,
+            required: group.required,
+            maxSelectable: group.maxSelectable,
+            options: group.options.map((option) => ({
+              id: option.id,
+              label: option.name,
+              priceDelta: {
+                amount: Number(option.priceDelta.amount),
+                currency:
+                  option.priceDelta.currency || productFormState.defaultCurrency,
               },
-            ];
+              isAvailable: option.isActive,
+            })),
+          }))
+        : [];
       const payload = {
         shopId,
         ownerUserId: ownerUserId || undefined,
-        title: productFormState.title,
+        label: productFormState.title,
+        price: Number(productFormState.simplePriceAmount || 0),
         description: productFormState.description,
         tags: selectedNames,
         categories: selectedNames,
         variantGroups: variantGroupsPayload,
-        addonGroups: productFormState.addonGroups.map((group) => ({
-          id: group.id,
-          name: group.name,
-          required: group.required,
-          maxSelectable: group.maxSelectable,
-          options: group.options.map((option) => ({
-            id: option.id,
-            name: option.name,
-            priceDelta: {
-              amount: Number(option.priceDelta.amount),
-              currency:
-                option.priceDelta.currency || productFormState.defaultCurrency,
-            },
-            isActive: option.isActive,
-          })),
-        })),
-        isActive: productFormState.isActive,
+        addonGroups: addonGroupsPayload,
+        isAvailable: productFormState.isActive,
       };
       if (productFormMode === 'edit' && editingProduct) {
         await api.updateProduct(editingProduct.id, payload);
@@ -443,7 +546,7 @@ const ShopProductsPage = () => {
                 <div className="space-y-2">
                   <div className="space-y-1">
                     <p className="text-base font-semibold text-gray-900">
-                      {product.title}
+                      {product.label}
                     </p>
                     <p className="text-xs text-gray-500 line-clamp-2">
                       Product #{product.id} — {product.description || 'No description'}
@@ -493,17 +596,17 @@ const ShopProductsPage = () => {
                   <button
                     type="button"
                     className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      product.isActive
+                      product.isAvailable
                         ? 'bg-green-50 text-green-700'
                         : 'bg-gray-100 text-gray-600'
                     }`}
                     disabled={updatingProductId === product.id}
                     onClick={(event) => {
                       event.stopPropagation();
-                      toggleProductAvailability(product.id, !product.isActive);
+                      toggleProductAvailability(product.id, !product.isAvailable);
                     }}
                   >
-                    {product.isActive ? 'Enabled' : 'Disabled'}
+                    {product.isAvailable ? 'Enabled' : 'Disabled'}
                   </button>
                 </div>
               </button>
@@ -678,7 +781,7 @@ const ShopProductsPage = () => {
                 )}
                 {productStep === 2 && (
                   <div className="space-y-4">
-                    {productFormState.variantGroups.length === 0 ? (
+                    {productFormState.variantMode === 'simple' ? (
                       <>
                         <p className="text-sm text-gray-600">
                           Set a single base price. Switch to advanced variants if you need more
@@ -727,29 +830,7 @@ const ShopProductsPage = () => {
                           <button
                             type="button"
                             className="text-sm font-semibold text-blue-600 hover:underline"
-                            onClick={() =>
-                              setProductFormState((prev) => ({
-                                ...prev,
-                                variantGroups: [
-                                  {
-                                    id: createId(),
-                                    name: 'Standard group',
-                                    variants: [
-                                      {
-                                        id: createId(),
-                                        name: 'Standard',
-                                        basePrice: {
-                                          amount: Number(prev.simplePriceAmount || 0),
-                                          currency:
-                                            prev.simplePriceCurrency || prev.defaultCurrency,
-                                        },
-                                        isActive: true,
-                                      },
-                                    ],
-                                  },
-                                ],
-                              }))
-                            }
+                            onClick={enableAdvancedVariants}
                           >
                             Configure advanced variants
                           </button>
@@ -771,12 +852,7 @@ const ShopProductsPage = () => {
                           <button
                             type="button"
                             className="text-sm font-semibold text-blue-600 hover:underline"
-                            onClick={() =>
-                              setProductFormState((prev) => ({
-                                ...prev,
-                                variantGroups: [],
-                              }))
-                            }
+                            onClick={revertToSimplePricing}
                           >
                             Revert to simple pricing
                           </button>
@@ -791,13 +867,37 @@ const ShopProductsPage = () => {
                       <p className="text-sm text-gray-600">
                         Optional add-ons help with upsells. Keep them concise and easy to scan.
                       </p>
-                      <AddonGroupsEditor
-                        groups={productFormState.addonGroups}
-                        defaultCurrency={productFormState.defaultCurrency}
-                        onChange={(addonGroups) =>
-                          setProductFormState((prev) => ({ ...prev, addonGroups }))
-                        }
-                      />
+                      {productFormState.addonsEnabled ? (
+                        <>
+                          <AddonGroupsEditor
+                            groups={productFormState.addonGroups}
+                            defaultCurrency={productFormState.defaultCurrency}
+                            onChange={(addonGroups) =>
+                              setProductFormState((prev) => ({ ...prev, addonGroups }))
+                            }
+                          />
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              className="text-sm font-semibold text-blue-600 hover:underline"
+                              onClick={disableAddons}
+                            >
+                              Disable add-ons
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
+                          <p>No add-ons configured for this product.</p>
+                          <button
+                            type="button"
+                            className="mt-3 text-sm font-semibold text-blue-600 hover:underline"
+                            onClick={enableAddons}
+                          >
+                            Enable add-ons
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
                       <p className="text-sm font-semibold text-gray-900 mb-2">Quick review</p>
@@ -843,11 +943,21 @@ const ShopProductsPage = () => {
                         <div>
                           <dt className="font-medium text-gray-700">Add-ons</dt>
                           <dd>
-                            {productFormState.addonGroups.reduce(
-                              (count, group) => count + group.options.length,
-                              0
-                            )}{' '}
-                            options
+                            {productFormState.addonsEnabled
+                              ? `${
+                                  productFormState.addonGroups.reduce(
+                                    (count, group) => count + group.options.length,
+                                    0
+                                  )
+                                } option${
+                                  productFormState.addonGroups.reduce(
+                                    (count, group) => count + group.options.length,
+                                    0
+                                  ) === 1
+                                    ? ''
+                                    : 's'
+                                }`
+                              : 'Disabled'}
                           </dd>
                         </div>
                       </dl>

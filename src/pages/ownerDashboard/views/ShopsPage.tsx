@@ -29,6 +29,8 @@ import {
   useShopsUpdateMutation,
   useUsersGetShopsQuery,
 } from '../../../store/api/ownerApi';
+import { useAppDispatch } from '../../../store/hooks';
+import { syncAccessTokenFromMsal } from '../../../auth/syncAccessToken';
 
 type ShopFormState = Omit<CreateShopRequest, 'ownerUserId'>;
 
@@ -155,6 +157,15 @@ const ShopsPage = () => {
   const [updateShop, { isLoading: isUpdating }] = useShopsUpdateMutation();
   const [deleteShop, { isLoading: isDeleting }] = useShopsDeleteMutation();
 
+  const { instance } = useMsal();
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    syncAccessTokenFromMsal(instance, dispatch).catch((err) => {
+      console.error('Failed to sync access token:', err);
+    });
+  }, [instance, dispatch]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [creationError, setCreationError] = useState<string | null>(null);
   const [newShop, setNewShop] = useState<ShopFormState>(
@@ -169,7 +180,8 @@ const ShopsPage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [editSuccess, setEditSuccess] = useState<string | null>(null);
-  const [pendingDeleteShop, setPendingDeleteShop] = useState<UserShopView | null>(null);
+  const [pendingDeleteShop, setPendingDeleteShop] =
+    useState<UserShopView | null>(null);
   const [deleteStep, setDeleteStep] = useState(1);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -245,30 +257,30 @@ const ShopsPage = () => {
 
   const handleCreateShop = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-  if (!ownerUserId) {
-    setCreationError('A valid owner identity is required.');
-    return;
-  }
-  if (!newShop.name.trim() || !newShop.address.trim()) {
-    setCreationError('Name and address are required.');
-    return;
-  }
-  const slug = resolveSlug(newShop.name, newShop.slug);
-  if (!slug) {
-    setCreationError('Slug is required.');
-    return;
-  }
+    if (!ownerUserId) {
+      setCreationError('A valid owner identity is required.');
+      return;
+    }
+    if (!newShop.name.trim() || !newShop.address.trim()) {
+      setCreationError('Name and address are required.');
+      return;
+    }
+    const slug = resolveSlug(newShop.name, newShop.slug);
+    if (!slug) {
+      setCreationError('Slug is required.');
+      return;
+    }
 
-  try {
-    setCreationError(null);
-    const payload: CreateShopRequest = {
-      ...newShop,
-      name: newShop.name.trim(),
-      slug,
-      address: newShop.address.trim(),
-      ownerUserId,
-      fulfillmentOptions: normalizeFulfillment(newShop.fulfillmentOptions),
-    };
+    try {
+      setCreationError(null);
+      const payload: CreateShopRequest = {
+        ...newShop,
+        name: newShop.name.trim(),
+        slug,
+        address: newShop.address.trim(),
+        ownerUserId,
+        fulfillmentOptions: normalizeFulfillment(newShop.fulfillmentOptions),
+      };
       await createShop(payload).unwrap();
       await refetchShops();
       closeCreateModal();
@@ -284,18 +296,18 @@ const ShopsPage = () => {
   const handleEditSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!editingShopId || !editForm) return;
-  try {
-    setEditError(null);
-    setEditSuccess(null);
-    const slug = editForm.slug?.trim()
-      ? resolveSlug(editForm.name ?? '', editForm.slug)
-      : undefined;
-    const payload: ShopSettingsUpdateRequest = {
-      name: editForm.name?.trim(),
-      slug,
-      address: editForm.address?.trim(),
-      status: editForm.status,
-      isActive: editForm.isActive,
+    try {
+      setEditError(null);
+      setEditSuccess(null);
+      const slug = editForm.slug?.trim()
+        ? resolveSlug(editForm.name ?? '', editForm.slug)
+        : undefined;
+      const payload: ShopSettingsUpdateRequest = {
+        name: editForm.name?.trim(),
+        slug,
+        address: editForm.address?.trim(),
+        status: editForm.status,
+        isActive: editForm.isActive,
         acceptingOrders: editForm.acceptingOrders,
         paymentPolicy: editForm.paymentPolicy,
         orderAcceptanceMode: editForm.orderAcceptanceMode,
@@ -325,11 +337,7 @@ const ShopsPage = () => {
       fulfillmentOptions: {
         ...prev.fulfillmentOptions,
         [field]:
-          typeof value === 'number'
-            ? Number.isNaN(value)
-              ? 0
-              : value
-            : value,
+          typeof value === 'number' ? (Number.isNaN(value) ? 0 : value) : value,
       },
     }));
   };
@@ -354,80 +362,78 @@ const ShopsPage = () => {
     }
   };
 
-const renderBasicInfoFields = (
-  form: ShopFormState,
-  setForm: Dispatch<SetStateAction<ShopFormState>>,
-  disabled?: boolean
-) => (
-  <div className="grid gap-4">
-    <div>
-      <label className="block text-sm font-medium text-gray-700">Name</label>
-      <input
-        className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        value={form.name}
-        onChange={(event) =>
-          setForm((prev) => {
-            const nextName = event.target.value;
-            const prevSlugWasAuto =
-              !prev.slug || prev.slug === toSlug(prev.name ?? '');
-            return {
+  const renderBasicInfoFields = (
+    form: ShopFormState,
+    setForm: Dispatch<SetStateAction<ShopFormState>>,
+    disabled?: boolean
+  ) => (
+    <div className="grid gap-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Name</label>
+        <input
+          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={form.name}
+          onChange={(event) =>
+            setForm((prev) => {
+              const nextName = event.target.value;
+              const prevSlugWasAuto =
+                !prev.slug || prev.slug === toSlug(prev.name ?? '');
+              return {
+                ...prev,
+                name: nextName,
+                slug: prevSlugWasAuto ? toSlug(nextName) : prev.slug,
+              };
+            })
+          }
+          required
+          disabled={disabled}
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Slug</label>
+        <input
+          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 lowercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={form.slug}
+          onChange={(event) =>
+            setForm((prev) => ({
               ...prev,
-              name: nextName,
-              slug: prevSlugWasAuto ? toSlug(nextName) : prev.slug,
-            };
-          })
-        }
-        required
-        disabled={disabled}
-      />
+              slug: toSlug(event.target.value),
+            }))
+          }
+          placeholder="my-shop-slug"
+          required
+          disabled={disabled}
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          Used in URLs, letters, and links. Only lowercase letters, numbers, and
+          dashes are allowed.
+        </p>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">
+          Address
+        </label>
+        <input
+          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={form.address}
+          onChange={(event) =>
+            setForm((prev) => ({
+              ...prev,
+              address: event.target.value,
+            }))
+          }
+          required
+          disabled={disabled}
+        />
+      </div>
     </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700">
-        Slug
-      </label>
-      <input
-        className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 lowercase focus:outline-none focus:ring-2 focus:ring-blue-500"
-        value={form.slug}
-        onChange={(event) =>
-          setForm((prev) => ({
-            ...prev,
-            slug: toSlug(event.target.value),
-          }))
-        }
-        placeholder="my-shop-slug"
-        required
-        disabled={disabled}
-      />
-      <p className="text-xs text-gray-500 mt-1">
-        Used in URLs, letters, and links. Only lowercase letters, numbers, and
-        dashes are allowed.
-      </p>
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700">
-        Address
-      </label>
-      <input
-        className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        value={form.address}
-        onChange={(event) =>
-          setForm((prev) => ({
-            ...prev,
-            address: event.target.value,
-          }))
-        }
-        required
-        disabled={disabled}
-      />
-    </div>
-  </div>
-);
+  );
 
-const renderOperationalFields = (
-  form: ShopFormState,
-  setForm: Dispatch<SetStateAction<ShopFormState>>,
-  disabled?: boolean
-) => (
+  const renderOperationalFields = (
+    form: ShopFormState,
+    setForm: Dispatch<SetStateAction<ShopFormState>>,
+    disabled?: boolean
+  ) => (
     <div className="grid gap-4 md:grid-cols-2">
       <div>
         <label className="block text-sm font-medium text-gray-700">
@@ -534,11 +540,11 @@ const renderOperationalFields = (
     </div>
   );
 
-const renderFulfillmentFields = (
-  form: ShopFormState,
-  setForm: Dispatch<SetStateAction<ShopFormState>>,
-  disabled?: boolean
-) => (
+  const renderFulfillmentFields = (
+    form: ShopFormState,
+    setForm: Dispatch<SetStateAction<ShopFormState>>,
+    disabled?: boolean
+  ) => (
     <div className="space-y-4">
       <label className="flex items-center gap-2 text-sm text-gray-700">
         <input
@@ -561,7 +567,11 @@ const renderFulfillmentFields = (
           className="h-4 w-4"
           checked={form.fulfillmentOptions.pickupEnabled}
           onChange={(event) =>
-            handleFulfillmentChange(setForm, 'pickupEnabled', event.target.checked)
+            handleFulfillmentChange(
+              setForm,
+              'pickupEnabled',
+              event.target.checked
+            )
           }
           disabled={disabled}
         />
@@ -574,7 +584,11 @@ const renderFulfillmentFields = (
             className="h-4 w-4"
             checked={form.fulfillmentOptions.deliveryEnabled}
             onChange={(event) =>
-              handleFulfillmentChange(setForm, 'deliveryEnabled', event.target.checked)
+              handleFulfillmentChange(
+                setForm,
+                'deliveryEnabled',
+                event.target.checked
+              )
             }
             disabled={disabled}
           />
@@ -874,11 +888,17 @@ const renderFulfillmentFields = (
         </Modal>
       ) : null}
       {pendingDeleteShop ? (
-        <Modal title="Delete shop" onClose={closeDeleteModal} widthClass="max-w-lg">
+        <Modal
+          title="Delete shop"
+          onClose={closeDeleteModal}
+          widthClass="max-w-lg"
+        >
           <div className="space-y-5">
             <div className="space-y-2">
               <p className="text-sm text-gray-700 font-medium">
-                {deleteStep === 1 ? 'First confirmation required' : 'Final confirmation'}
+                {deleteStep === 1
+                  ? 'First confirmation required'
+                  : 'Final confirmation'}
               </p>
               <p className="text-sm text-gray-600">
                 {deleteStep === 1
@@ -893,7 +913,9 @@ const renderFulfillmentFields = (
                 {pendingDeleteShop.address || 'Not provided'}
               </p>
             </div>
-            {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
+            {deleteError && (
+              <p className="text-sm text-red-600">{deleteError}</p>
+            )}
             <div className="flex items-center justify-end gap-3">
               <button
                 type="button"
