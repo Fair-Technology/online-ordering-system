@@ -1,5 +1,3 @@
-import { ApiClient } from '../store/api/backend-generated/apiClient';
-
 const rawBaseUrl =
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:7071/api';
 
@@ -10,6 +8,3 @@ const normalizeBaseUrl = (value: string) => {
 };
 
 export const apiBaseUrl = normalizeBaseUrl(rawBaseUrl);
-export const api = new ApiClient(apiBaseUrl);
-
-export type ApiShape = ApiClient;

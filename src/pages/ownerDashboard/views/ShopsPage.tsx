@@ -17,13 +17,14 @@ import {
   type PaymentPolicy,
   type ShopStatus,
 } from '../../../types/apiTypes';
-import { useAppDispatch } from '../../../store/hooks';
+import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { syncAccessTokenFromMsal } from '../../../auth/syncAccessToken';
 import {
   type ShopResponse,
   useCreateShopMutation,
   useDeleteShopMutation,
   useLazyGetShopQuery,
+  useListShopsQuery,
   useUpdateShopMutation,
 } from '../../../store/api/shopsApi';
 import {
@@ -178,10 +179,17 @@ const ShopsPage = () => {
     accounts[0]?.username ||
     '';
 
-  const [shops, setShops] = useState<ManagedShopDetail[]>([]);
-  const [shopsLoading, setShopsLoading] = useState(false);
-  const [shopsError, setShopsError] = useState<string | null>(null);
-  const skipManagedQuery = !ownerUserId;
+  const accessToken = useAppSelector((state) => state.auth.accessToken);
+
+  const {
+    data: shopsList = [],
+    isLoading: isShopsLoading,
+    isError: isShopsError,
+    refetch: refetchShops,
+  } = useListShopsQuery(undefined, {
+    skip: !accessToken,
+  });
+  const skipManagedQuery = !ownerUserId || !accessToken;
   const {
     data: managedMemberships,
     isLoading: isManagedLoading,
@@ -199,68 +207,19 @@ const ShopsPage = () => {
     useDeleteShopMutation();
 
   const refreshManagedShops = useCallback(async () => {
-    if (skipManagedQuery) {
-      setShops([]);
-      return;
+    const tasks: Promise<unknown>[] = [refetchShops()];
+    if (!skipManagedQuery) {
+      tasks.push(refetchManagedShops());
     }
-    await refetchManagedShops();
-  }, [refetchManagedShops, skipManagedQuery]);
+    await Promise.all(tasks);
+  }, [refetchManagedShops, refetchShops, skipManagedQuery]);
 
-  useEffect(() => {
-    if (!managedMemberships || managedMemberships.length === 0) {
-      setShops([]);
-      setShopsError(null);
-      setShopsLoading(false);
-      return;
-    }
-    let cancelled = false;
-    const hydrate = async () => {
-      setShopsLoading(true);
-      setShopsError(null);
-      try {
-        const detailed = await Promise.all(
-          managedMemberships.map(async (membership) => {
-            try {
-              const shop = await fetchShop(membership.shopId).unwrap();
-              return {
-                ...shop,
-                membershipRole: membership.role,
-              } as ManagedShopDetail;
-            } catch (error) {
-              console.error('Unable to load shop', membership.shopId, error);
-              return null;
-            }
-          })
-        );
-        if (!cancelled) {
-          setShops(
-            detailed.filter(
-              (shop): shop is ManagedShopDetail => Boolean(shop)
-            )
-          );
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setShopsError(
-            error instanceof Error ? error.message : 'Unable to load shops.'
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setShopsLoading(false);
-        }
-      }
-    };
-    hydrate();
-    return () => {
-      cancelled = true;
-    };
-  }, [managedMemberships, fetchShop]);
-
-  const aggregateLoading = shopsLoading || isManagedLoading;
-  const aggregateError =
-    shopsError ||
-    (managedShopsError ? 'Unable to load shops. Please refresh.' : null);
+  const aggregateLoading = isShopsLoading || isManagedLoading;
+  const aggregateError = isShopsError
+    ? 'Unable to load shops. Please refresh.'
+    : managedShopsError
+      ? 'Unable to load shops. Please refresh.'
+      : null;
 
   const { instance } = useMsal();
   const dispatch = useAppDispatch();
@@ -336,7 +295,19 @@ const ShopsPage = () => {
     });
   };
 
-  const resolvedShops = shops;
+  const resolvedShops = useMemo<ManagedShopDetail[]>(() => {
+    const roleMap = new Map<string, ManagedShopSummary['role']>(
+      (managedMemberships ?? []).map((membership) => [
+        membership.shopId,
+        membership.role,
+      ])
+    );
+    return shopsList.map((shop) => ({
+      ...shop,
+      membershipRole:
+        roleMap.get(shop.id) ?? ('viewer' as ManagedShopSummary['role']),
+    }));
+  }, [managedMemberships, shopsList]);
   const filteredShops = useMemo(() => {
     if (!resolvedShops.length) return [];
     if (!searchTerm) return resolvedShops;

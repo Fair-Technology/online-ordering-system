@@ -4,7 +4,9 @@ import type {
   ProductResponse,
   UpdateProductRequest,
 } from './backend-generated/apiClient';
-import { callApi } from './clientUtils';
+import { client } from './clientUtils';
+import { getAccessToken } from './getAccessToken';
+import type { RootState, AppDispatch } from '..';
 
 export type ProductListResponse = ProductResponse[];
 export type CreateProductPayload = CreateProductRequest;
@@ -21,10 +23,29 @@ export const productsApi = createApi({
   tagTypes: ['Products'],
   endpoints: (builder) => ({
     listProducts: builder.query<ProductListResponse, ListProductsParams | void>({
-      queryFn: (params, apiCtx) =>
-        callApi(apiCtx.getState, (client) =>
-          client.listProducts(params ?? undefined)
-        ),
+      queryFn: async (params, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const token = await getAccessToken(state, dispatch as AppDispatch);
+
+        if (!token) {
+          return { error: { status: 401, data: 'No access token available' } };
+        }
+
+        try {
+          const response = await client.listProducts(token, params ?? {});
+          return { data: response };
+        } catch (error) {
+          const err = error as {
+            response?: { status?: number; data?: any };
+          };
+          return {
+            error: {
+              status: err.response?.status ?? 500,
+              data: err.response?.data ?? 'Unknown error occurred',
+            },
+          };
+        }
+      },
       providesTags: (result) => {
         const listTag = { type: 'Products' as const, id: 'LIST' };
         if (!result) return [listTag];
@@ -38,33 +59,115 @@ export const productsApi = createApi({
       },
     }),
     getProduct: builder.query<ProductResponse, string>({
-      queryFn: (productId, apiCtx) =>
-        callApi(apiCtx.getState, (client) => client.getProduct(productId)),
+      queryFn: async (productId, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const token = await getAccessToken(state, dispatch as AppDispatch);
+
+        if (!token) {
+          return { error: { status: 401, data: 'No access token available' } };
+        }
+
+        try {
+          const response = await client.getProduct(token, productId);
+          return { data: response };
+        } catch (error) {
+          const err = error as {
+            response?: { status?: number; data?: any };
+          };
+          return {
+            error: {
+              status: err.response?.status ?? 500,
+              data: err.response?.data ?? 'Unknown error occurred',
+            },
+          };
+        }
+      },
       providesTags: (_result, _error, productId) => [
         { type: 'Products', id: productId },
       ],
     }),
     createProduct: builder.mutation<ProductResponse, CreateProductPayload>({
-      queryFn: (body, apiCtx) =>
-        callApi(apiCtx.getState, (client) => client.createProduct(body)),
+      queryFn: async (body, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const token = await getAccessToken(state, dispatch as AppDispatch);
+
+        if (!token) {
+          return { error: { status: 401, data: 'No access token available' } };
+        }
+
+        try {
+          const response = await client.createProduct(token, body);
+          return { data: response };
+        } catch (error) {
+          const err = error as {
+            response?: { status?: number; data?: any };
+          };
+          return {
+            error: {
+              status: err.response?.status ?? 500,
+              data: err.response?.data ?? 'Unknown error occurred',
+            },
+          };
+        }
+      },
       invalidatesTags: [{ type: 'Products', id: 'LIST' }],
     }),
     updateProduct: builder.mutation<
       ProductResponse,
       { productId: string; body: UpdateProductPayload }
     >({
-      queryFn: ({ productId, body }, apiCtx) =>
-        callApi(apiCtx.getState, (client) =>
-          client.updateProduct(productId, body)
-        ),
+      queryFn: async ({ productId, body }, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const token = await getAccessToken(state, dispatch as AppDispatch);
+
+        if (!token) {
+          return { error: { status: 401, data: 'No access token available' } };
+        }
+
+        try {
+          const response = await client.updateProduct(token, productId, body);
+          return { data: response };
+        } catch (error) {
+          const err = error as {
+            response?: { status?: number; data?: any };
+          };
+          return {
+            error: {
+              status: err.response?.status ?? 500,
+              data: err.response?.data ?? 'Unknown error occurred',
+            },
+          };
+        }
+      },
       invalidatesTags: (_result, _error, { productId }) => [
         { type: 'Products', id: productId },
         { type: 'Products', id: 'LIST' },
       ],
     }),
     deleteProduct: builder.mutation<void, string>({
-      queryFn: (productId, apiCtx) =>
-        callApi(apiCtx.getState, (client) => client.deleteProduct(productId)),
+      queryFn: async (productId, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const token = await getAccessToken(state, dispatch as AppDispatch);
+
+        if (!token) {
+          return { error: { status: 401, data: 'No access token available' } };
+        }
+
+        try {
+          const response = await client.deleteProduct(token, productId);
+          return { data: response };
+        } catch (error) {
+          const err = error as {
+            response?: { status?: number; data?: any };
+          };
+          return {
+            error: {
+              status: err.response?.status ?? 500,
+              data: err.response?.data ?? 'Unknown error occurred',
+            },
+          };
+        }
+      },
       invalidatesTags: (_result, _error, productId) => [
         { type: 'Products', id: productId },
         { type: 'Products', id: 'LIST' },

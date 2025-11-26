@@ -10,7 +10,9 @@ import {
   type ShopMemberInvitePayload,
   type ShopMemberUpdatePayload,
 } from './backend-generated/apiClient';
-import { callApi } from './clientUtils';
+import { client } from './clientUtils';
+import { getAccessToken } from './getAccessToken';
+import type { RootState, AppDispatch } from '..';
 
 export type ShopResponse = Shop;
 export type ShopListResponse = Shop[];
@@ -30,10 +32,29 @@ export const shopsApi = createApi({
   tagTypes: ['Shops', 'ShopMenu', 'ShopHours', 'ShopMembers'],
   endpoints: (builder) => ({
     listShops: builder.query<ShopListResponse, ListShopsParams | void>({
-      queryFn: (params, apiCtx) =>
-        callApi(apiCtx.getState, (client) =>
-          client.listShops(params ?? undefined)
-        ),
+      queryFn: async (params, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const token = await getAccessToken(state, dispatch as AppDispatch);
+
+        if (!token) {
+          return { error: { status: 401, data: 'No access token available' } };
+        }
+
+        try {
+          const response = await client.listShops(token, params ?? undefined);
+          return { data: response };
+        } catch (error) {
+          const err = error as {
+            response?: { status?: number; data?: any };
+          };
+          return {
+            error: {
+              status: err.response?.status ?? 500,
+              data: err.response?.data ?? 'Unknown error occurred',
+            },
+          };
+        }
+      },
       providesTags: (result) => {
         const listTag = { type: 'Shops' as const, id: 'LIST' };
         if (!result) return [listTag];
@@ -44,48 +65,172 @@ export const shopsApi = createApi({
       },
     }),
     getShop: builder.query<ShopResponse, string>({
-      queryFn: (shopId, apiCtx) =>
-        callApi(apiCtx.getState, (client) => client.getShop(shopId)),
+      queryFn: async (shopId, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const token = await getAccessToken(state, dispatch as AppDispatch);
+
+        if (!token) {
+          return { error: { status: 401, data: 'No access token available' } };
+        }
+
+        try {
+          const response = await client.getShop(token, shopId);
+          return { data: response };
+        } catch (error) {
+          const err = error as {
+            response?: { status?: number; data?: any };
+          };
+          return {
+            error: {
+              status: err.response?.status ?? 500,
+              data: err.response?.data ?? 'Unknown error occurred',
+            },
+          };
+        }
+      },
       providesTags: (_result, _error, shopId) => [
         { type: 'Shops', id: shopId },
       ],
     }),
     createShop: builder.mutation<ShopResponse, CreateShopPayload>({
-      queryFn: (body, apiCtx) =>
-        callApi(apiCtx.getState, (client) => client.createShop(body)),
+      queryFn: async (body, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const token = await getAccessToken(state, dispatch as AppDispatch);
+
+        if (!token) {
+          return { error: { status: 401, data: 'No access token available' } };
+        }
+
+        try {
+          const response = await client.createShop(token, body);
+          return { data: response };
+        } catch (error) {
+          const err = error as {
+            response?: { status?: number; data?: any };
+          };
+          return {
+            error: {
+              status: err.response?.status ?? 500,
+              data: err.response?.data ?? 'Unknown error occurred',
+            },
+          };
+        }
+      },
       invalidatesTags: [{ type: 'Shops', id: 'LIST' }],
     }),
     updateShop: builder.mutation<
       ShopResponse,
       { shopId: string; body: UpdateShopPayload }
     >({
-      queryFn: ({ shopId, body }, apiCtx) =>
-        callApi(apiCtx.getState, (client) =>
-          client.updateShop(shopId, body)
-        ),
+      queryFn: async ({ shopId, body }, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const token = await getAccessToken(state, dispatch as AppDispatch);
+
+        if (!token) {
+          return { error: { status: 401, data: 'No access token available' } };
+        }
+
+        try {
+          const response = await client.updateShop(token, shopId, body);
+          return { data: response };
+        } catch (error) {
+          const err = error as {
+            response?: { status?: number; data?: any };
+          };
+          return {
+            error: {
+              status: err.response?.status ?? 500,
+              data: err.response?.data ?? 'Unknown error occurred',
+            },
+          };
+        }
+      },
       invalidatesTags: (_result, _error, { shopId }) => [
         { type: 'Shops', id: shopId },
         { type: 'Shops', id: 'LIST' },
       ],
     }),
     deleteShop: builder.mutation<void, string>({
-      queryFn: (shopId, apiCtx) =>
-        callApi(apiCtx.getState, (client) => client.deleteShop(shopId)),
+      queryFn: async (shopId, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const token = await getAccessToken(state, dispatch as AppDispatch);
+
+        if (!token) {
+          return { error: { status: 401, data: 'No access token available' } };
+        }
+
+        try {
+          const response = await client.deleteShop(token, shopId);
+          return { data: response };
+        } catch (error) {
+          const err = error as {
+            response?: { status?: number; data?: any };
+          };
+          return {
+            error: {
+              status: err.response?.status ?? 500,
+              data: err.response?.data ?? 'Unknown error occurred',
+            },
+          };
+        }
+      },
       invalidatesTags: (_result, _error, shopId) => [
         { type: 'Shops', id: shopId },
         { type: 'Shops', id: 'LIST' },
       ],
     }),
     getShopMenu: builder.query<ShopMenuPayload, string>({
-      queryFn: (shopId, apiCtx) =>
-        callApi(apiCtx.getState, (client) => client.getShopMenu(shopId)),
+      queryFn: async (shopId, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const token = await getAccessToken(state, dispatch as AppDispatch);
+
+        if (!token) {
+          return { error: { status: 401, data: 'No access token available' } };
+        }
+
+        try {
+          const response = await client.getShopMenu(token, shopId);
+          return { data: response };
+        } catch (error) {
+          const err = error as {
+            response?: { status?: number; data?: any };
+          };
+          return {
+            error: {
+              status: err.response?.status ?? 500,
+              data: err.response?.data ?? 'Unknown error occurred',
+            },
+          };
+        }
+      },
       providesTags: (_result, _error, shopId) => [
         { type: 'ShopMenu', id: shopId },
       ],
     }),
     getShopHours: builder.query<ShopHours, string>({
-      queryFn: (shopId, apiCtx) =>
-        callApi(apiCtx.getState, (client) => client.getShopHours(shopId)),
+      queryFn: async (shopId, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const token = await getAccessToken(state, dispatch as AppDispatch);
+
+        if (!token) {
+          return { error: { status: 401, data: 'No access token available' } };
+        }
+
+        try {
+          const response = await client.getShopHours(token, shopId);
+          return { data: response };
+        } catch (error) {
+          const err = error as {
+            response?: { status?: number; data?: any };
+          };
+          return {
+            error: {
+              status: err.response?.status ?? 500,
+              data: err.response?.data ?? 'Unknown error occurred',
+            },
+          };
+        }
+      },
       providesTags: (_result, _error, shopId) => [
         { type: 'ShopHours', id: shopId },
       ],
@@ -94,17 +239,57 @@ export const shopsApi = createApi({
       ShopHours,
       { shopId: string; body: ShopHoursPayload }
     >({
-      queryFn: ({ shopId, body }, apiCtx) =>
-        callApi(apiCtx.getState, (client) =>
-          client.upsertShopHours(shopId, body)
-        ),
+      queryFn: async ({ shopId, body }, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const token = await getAccessToken(state, dispatch as AppDispatch);
+
+        if (!token) {
+          return { error: { status: 401, data: 'No access token available' } };
+        }
+
+        try {
+          const response = await client.upsertShopHours(token, shopId, body);
+          return { data: response };
+        } catch (error) {
+          const err = error as {
+            response?: { status?: number; data?: any };
+          };
+          return {
+            error: {
+              status: err.response?.status ?? 500,
+              data: err.response?.data ?? 'Unknown error occurred',
+            },
+          };
+        }
+      },
       invalidatesTags: (_result, _error, { shopId }) => [
         { type: 'ShopHours', id: shopId },
       ],
     }),
     listShopMembers: builder.query<ShopMember[], string>({
-      queryFn: (shopId, apiCtx) =>
-        callApi(apiCtx.getState, (client) => client.listShopMembers(shopId)),
+      queryFn: async (shopId, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const token = await getAccessToken(state, dispatch as AppDispatch);
+
+        if (!token) {
+          return { error: { status: 401, data: 'No access token available' } };
+        }
+
+        try {
+          const response = await client.listShopMembers(token, shopId);
+          return { data: response };
+        } catch (error) {
+          const err = error as {
+            response?: { status?: number; data?: any };
+          };
+          return {
+            error: {
+              status: err.response?.status ?? 500,
+              data: err.response?.data ?? 'Unknown error occurred',
+            },
+          };
+        }
+      },
       providesTags: (result, _error, shopId) => {
         const listTag = { type: 'ShopMembers' as const, id: `${shopId}-LIST` };
         if (!result) return [listTag];
@@ -121,10 +306,29 @@ export const shopsApi = createApi({
       ShopMember,
       { shopId: string; body: ShopMemberInvitePayload }
     >({
-      queryFn: ({ shopId, body }, apiCtx) =>
-        callApi(apiCtx.getState, (client) =>
-          client.createShopMember(shopId, body)
-        ),
+      queryFn: async ({ shopId, body }, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const token = await getAccessToken(state, dispatch as AppDispatch);
+
+        if (!token) {
+          return { error: { status: 401, data: 'No access token available' } };
+        }
+
+        try {
+          const response = await client.createShopMember(token, shopId, body);
+          return { data: response };
+        } catch (error) {
+          const err = error as {
+            response?: { status?: number; data?: any };
+          };
+          return {
+            error: {
+              status: err.response?.status ?? 500,
+              data: err.response?.data ?? 'Unknown error occurred',
+            },
+          };
+        }
+      },
       invalidatesTags: (_result, _error, { shopId }) => [
         { type: 'ShopMembers', id: `${shopId}-LIST` },
       ],
@@ -133,10 +337,34 @@ export const shopsApi = createApi({
       ShopMember,
       { shopId: string; memberId: string; body: ShopMemberUpdatePayload }
     >({
-      queryFn: ({ shopId, memberId, body }, apiCtx) =>
-        callApi(apiCtx.getState, (client) =>
-          client.updateShopMember(shopId, memberId, body)
-        ),
+      queryFn: async ({ shopId, memberId, body }, { getState, dispatch }) => {
+        const state = getState() as RootState;
+        const token = await getAccessToken(state, dispatch as AppDispatch);
+
+        if (!token) {
+          return { error: { status: 401, data: 'No access token available' } };
+        }
+
+        try {
+          const response = await client.updateShopMember(
+            token,
+            shopId,
+            memberId,
+            body
+          );
+          return { data: response };
+        } catch (error) {
+          const err = error as {
+            response?: { status?: number; data?: any };
+          };
+          return {
+            error: {
+              status: err.response?.status ?? 500,
+              data: err.response?.data ?? 'Unknown error occurred',
+            },
+          };
+        }
+      },
       invalidatesTags: (_result, _error, { shopId, memberId }) => [
         { type: 'ShopMembers', id: memberId },
         { type: 'ShopMembers', id: `${shopId}-LIST` },

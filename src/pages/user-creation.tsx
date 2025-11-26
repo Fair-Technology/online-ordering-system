@@ -27,7 +27,7 @@ const UserCreation = () => {
 
   const shouldQuery = Boolean(activeAccount) && !isMsalLoading;
   const {
-    data: users,
+    data: users = [],
     isLoading: isUsersLoading,
     isError: isUsersError,
   } = useListUsersQuery(undefined, {
@@ -46,7 +46,28 @@ const UserCreation = () => {
       return;
     }
 
-    if (isUsersLoading || !users || isUsersError) return;
+    if (isUsersLoading) {
+      return;
+    }
+
+    if (isUsersError) {
+      if (!creationRequested && !isCreatingUser) {
+        setCreationRequested(true);
+        createUser({ id: userIdentifier })
+          .unwrap()
+          .catch((error) => {
+            // If the backend reports the user already exists, continue
+            if ((error as { status?: number })?.status !== 409) {
+              console.error('Unable to create user entry', error);
+            }
+          })
+          .finally(() => {
+            hasNavigatedRef.current = true;
+            navigate('/owner', { replace: true });
+          });
+      }
+      return;
+    }
 
     const existingUser = users.find((user) => user.id === userIdentifier);
 
