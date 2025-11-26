@@ -2,44 +2,65 @@ import {
   Dispatch,
   FormEvent,
   SetStateAction,
+  useCallback,
   useEffect,
   useMemo,
   useState,
 } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { skipToken } from '@reduxjs/toolkit/query';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ORDER_ACCEPTANCE_MODES,
   PAYMENT_POLICIES,
   SHOP_STATUSES,
-  type CreateShopRequest,
-  type FulfillmentOptions,
   type OrderAcceptanceMode,
   type PaymentPolicy,
-  type ShopSettingsUpdateRequest,
   type ShopStatus,
-  type ShopSummary,
-  type UserShopView,
 } from '../../../types/apiTypes';
-import {
-  useShopsCreateMutation,
-  useShopsDeleteMutation,
-  useShopsGetByIdQuery,
-  useShopsUpdateMutation,
-  useUsersGetShopsQuery,
-} from '../../../store/api/ownerApi';
 import { useAppDispatch } from '../../../store/hooks';
 import { syncAccessTokenFromMsal } from '../../../auth/syncAccessToken';
+import {
+  type ShopResponse,
+  useCreateShopMutation,
+  useDeleteShopMutation,
+  useLazyGetShopQuery,
+  useUpdateShopMutation,
+} from '../../../store/api/shopsApi';
+import {
+  type ManagedShopSummary,
+  useListManagedShopsQuery,
+} from '../../../store/api/usersApi';
 
-type ShopFormState = Omit<CreateShopRequest, 'ownerUserId'>;
+type FormFulfillmentOptions = {
+  pickupEnabled: boolean;
+  deliveryEnabled: boolean;
+  deliveryRadiusKm?: number;
+  deliveryFee?: number;
+};
+
+type ShopFormState = {
+  name: string;
+  slug: string;
+  address: string;
+  status: ShopStatus;
+  acceptingOrders: boolean;
+  paymentPolicy: PaymentPolicy;
+  orderAcceptanceMode: OrderAcceptanceMode;
+  allowGuestCheckout: boolean;
+  fulfillmentOptions: FormFulfillmentOptions;
+  defaultCurrency: string;
+};
+
+type ManagedShopDetail = ShopResponse & {
+  membershipRole: ManagedShopSummary['role'];
+};
 
 const statusStyles: Record<string, string> = {
   open: 'bg-green-100 text-green-800',
   closed: 'bg-gray-100 text-gray-700',
 };
 
-const defaultFulfillment: FulfillmentOptions = {
+const defaultFulfillment: FormFulfillmentOptions = {
   pickupEnabled: true,
   deliveryEnabled: false,
   deliveryRadiusKm: 0,
@@ -59,12 +80,12 @@ const createDefaultShopForm = (): ShopFormState => ({
   slug: '',
   address: '',
   status: 'open',
-  isActive: true,
   acceptingOrders: true,
   paymentPolicy: 'pay_on_pickup',
   orderAcceptanceMode: 'auto',
   allowGuestCheckout: true,
   fulfillmentOptions: { ...defaultFulfillment },
+  defaultCurrency: 'USD',
 });
 
 const ShopStatusBadge = ({ status }: { status: ShopStatus }) => (
@@ -108,9 +129,31 @@ const Modal = ({
   </div>
 );
 
-const normalizeFulfillment = (
-  options: FulfillmentOptions
-): FulfillmentOptions => ({
+const toUiStatus = (status: ShopResponse['status']): ShopStatus =>
+  status === 'open' ? 'open' : 'closed';
+
+const mapSummaryToForm = (summary: ShopResponse): ShopFormState => ({
+  name: summary.name,
+  slug: summary.slug,
+  address: summary.address ?? '',
+  status: toUiStatus(summary.status),
+  acceptingOrders: summary.acceptingOrders,
+  paymentPolicy: summary.paymentPolicy as PaymentPolicy,
+  orderAcceptanceMode: summary.orderAcceptanceMode as OrderAcceptanceMode,
+  allowGuestCheckout: summary.allowGuestCheckout,
+  fulfillmentOptions: {
+    pickupEnabled: summary.fulfillmentOptions.pickupEnabled,
+    deliveryEnabled: summary.fulfillmentOptions.deliveryEnabled,
+    deliveryRadiusKm: summary.fulfillmentOptions.deliveryRadiusKm ?? 0,
+    deliveryFee: summary.fulfillmentOptions.deliveryFee?.amount ?? 0,
+  },
+  defaultCurrency: summary.defaultCurrency ?? 'USD',
+});
+
+const buildFulfillmentPayload = (
+  options: FormFulfillmentOptions,
+  currency: string
+) => ({
   pickupEnabled: options.pickupEnabled,
   deliveryEnabled: options.deliveryEnabled,
   deliveryRadiusKm:
@@ -119,21 +162,11 @@ const normalizeFulfillment = (
       : undefined,
   deliveryFee:
     options.deliveryEnabled && typeof options.deliveryFee === 'number'
-      ? options.deliveryFee
+      ? {
+          amount: Number(options.deliveryFee),
+          currency,
+        }
       : undefined,
-});
-
-const mapSummaryToForm = (summary: ShopSummary): ShopFormState => ({
-  name: summary.name,
-  slug: summary.slug,
-  address: summary.address,
-  status: summary.status,
-  isActive: summary.isActive,
-  acceptingOrders: summary.acceptingOrders,
-  paymentPolicy: summary.paymentPolicy,
-  orderAcceptanceMode: summary.orderAcceptanceMode,
-  allowGuestCheckout: summary.allowGuestCheckout,
-  fulfillmentOptions: { ...summary.fulfillmentOptions },
 });
 
 const ShopsPage = () => {
@@ -145,17 +178,89 @@ const ShopsPage = () => {
     accounts[0]?.username ||
     '';
 
-  const queryArg = ownerUserId ? { userId: ownerUserId } : skipToken;
+  const [shops, setShops] = useState<ManagedShopDetail[]>([]);
+  const [shopsLoading, setShopsLoading] = useState(false);
+  const [shopsError, setShopsError] = useState<string | null>(null);
+  const skipManagedQuery = !ownerUserId;
   const {
-    data: shops,
-    isLoading,
-    isError,
-    refetch: refetchShops,
-    isUninitialized,
-  } = useUsersGetShopsQuery(queryArg);
-  const [createShop, { isLoading: isCreating }] = useShopsCreateMutation();
-  const [updateShop, { isLoading: isUpdating }] = useShopsUpdateMutation();
-  const [deleteShop, { isLoading: isDeleting }] = useShopsDeleteMutation();
+    data: managedMemberships,
+    isLoading: isManagedLoading,
+    isError: managedShopsError,
+    refetch: refetchManagedShops,
+  } = useListManagedShopsQuery(ownerUserId ?? '', {
+    skip: skipManagedQuery,
+  });
+  const [fetchShop] = useLazyGetShopQuery();
+  const [createShopMutation, { isLoading: isCreating }] =
+    useCreateShopMutation();
+  const [updateShopMutation, { isLoading: isUpdating }] =
+    useUpdateShopMutation();
+  const [deleteShopMutation, { isLoading: isDeleting }] =
+    useDeleteShopMutation();
+
+  const refreshManagedShops = useCallback(async () => {
+    if (skipManagedQuery) {
+      setShops([]);
+      return;
+    }
+    await refetchManagedShops();
+  }, [refetchManagedShops, skipManagedQuery]);
+
+  useEffect(() => {
+    if (!managedMemberships || managedMemberships.length === 0) {
+      setShops([]);
+      setShopsError(null);
+      setShopsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const hydrate = async () => {
+      setShopsLoading(true);
+      setShopsError(null);
+      try {
+        const detailed = await Promise.all(
+          managedMemberships.map(async (membership) => {
+            try {
+              const shop = await fetchShop(membership.shopId).unwrap();
+              return {
+                ...shop,
+                membershipRole: membership.role,
+              } as ManagedShopDetail;
+            } catch (error) {
+              console.error('Unable to load shop', membership.shopId, error);
+              return null;
+            }
+          })
+        );
+        if (!cancelled) {
+          setShops(
+            detailed.filter(
+              (shop): shop is ManagedShopDetail => Boolean(shop)
+            )
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setShopsError(
+            error instanceof Error ? error.message : 'Unable to load shops.'
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setShopsLoading(false);
+        }
+      }
+    };
+    hydrate();
+    return () => {
+      cancelled = true;
+    };
+  }, [managedMemberships, fetchShop]);
+
+  const aggregateLoading = shopsLoading || isManagedLoading;
+  const aggregateError =
+    shopsError ||
+    (managedShopsError ? 'Unable to load shops. Please refresh.' : null);
 
   const { instance } = useMsal();
   const dispatch = useAppDispatch();
@@ -174,16 +279,43 @@ const ShopsPage = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const [editingShopId, setEditingShopId] = useState<string | null>(null);
-  const editingQueryArg = editingShopId ?? skipToken;
-  const { data: editingShopDetails } = useShopsGetByIdQuery(editingQueryArg);
+  const [editingShopDetails, setEditingShopDetails] =
+    useState<ShopResponse | null>(null);
   const [editForm, setEditForm] = useState<ShopFormState | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [editSuccess, setEditSuccess] = useState<string | null>(null);
   const [pendingDeleteShop, setPendingDeleteShop] =
-    useState<UserShopView | null>(null);
+    useState<ManagedShopDetail | null>(null);
   const [deleteStep, setDeleteStep] = useState(1);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!editingShopId) {
+      setEditingShopDetails(null);
+      return;
+    }
+    let cancelled = false;
+    setEditError(null);
+    fetchShop(editingShopId)
+      .unwrap()
+      .then((shop) => {
+        if (!cancelled) {
+          setEditingShopDetails(shop);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.error('Unable to load shop details', error);
+          setEditError(
+            error instanceof Error ? error.message : 'Unable to load shop.'
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editingShopId, fetchShop]);
 
   useEffect(() => {
     if (editingShopDetails) {
@@ -204,7 +336,7 @@ const ShopsPage = () => {
     });
   };
 
-  const resolvedShops: UserShopView[] = shops ?? [];
+  const resolvedShops = shops;
   const filteredShops = useMemo(() => {
     if (!resolvedShops.length) return [];
     if (!searchTerm) return resolvedShops;
@@ -243,7 +375,7 @@ const ShopsPage = () => {
     setEditSuccess(null);
   };
 
-  const openDeleteModal = (shop: UserShopView) => {
+  const openDeleteModal = (shop: ManagedShopDetail) => {
     setPendingDeleteShop(shop);
     setDeleteStep(1);
     setDeleteError(null);
@@ -273,16 +405,24 @@ const ShopsPage = () => {
 
     try {
       setCreationError(null);
-      const payload: CreateShopRequest = {
-        ...newShop,
+      const payload = {
+        ownerUserId,
         name: newShop.name.trim(),
         slug,
         address: newShop.address.trim(),
-        ownerUserId,
-        fulfillmentOptions: normalizeFulfillment(newShop.fulfillmentOptions),
+        status: newShop.status,
+        acceptingOrders: newShop.acceptingOrders,
+        paymentPolicy: newShop.paymentPolicy,
+        orderAcceptanceMode: newShop.orderAcceptanceMode,
+        allowGuestCheckout: newShop.allowGuestCheckout,
+        fulfillmentOptions: buildFulfillmentPayload(
+          newShop.fulfillmentOptions,
+          newShop.defaultCurrency
+        ),
+        defaultCurrency: newShop.defaultCurrency,
       };
-      await createShop(payload).unwrap();
-      await refetchShops();
+      await createShopMutation(payload).unwrap();
+      await refreshManagedShops();
       closeCreateModal();
     } catch (error) {
       setCreationError(
@@ -302,21 +442,24 @@ const ShopsPage = () => {
       const slug = editForm.slug?.trim()
         ? resolveSlug(editForm.name ?? '', editForm.slug)
         : undefined;
-      const payload: ShopSettingsUpdateRequest = {
+      const payload = {
         name: editForm.name?.trim(),
         slug,
         address: editForm.address?.trim(),
         status: editForm.status,
-        isActive: editForm.isActive,
         acceptingOrders: editForm.acceptingOrders,
         paymentPolicy: editForm.paymentPolicy,
         orderAcceptanceMode: editForm.orderAcceptanceMode,
         allowGuestCheckout: editForm.allowGuestCheckout,
-        fulfillmentOptions: normalizeFulfillment(editForm.fulfillmentOptions),
+        fulfillmentOptions: buildFulfillmentPayload(
+          editForm.fulfillmentOptions,
+          editForm.defaultCurrency
+        ),
+        defaultCurrency: editForm.defaultCurrency,
       };
-      await updateShop({ shopId: editingShopId, body: payload }).unwrap();
+      await updateShopMutation({ shopId: editingShopId, body: payload }).unwrap();
       setEditSuccess('Shop updated successfully.');
-      await refetchShops();
+      await refreshManagedShops();
       closeEditModal();
     } catch (error) {
       setEditError(
@@ -329,7 +472,7 @@ const ShopsPage = () => {
 
   const handleFulfillmentChange = (
     setter: Dispatch<SetStateAction<ShopFormState>>,
-    field: keyof FulfillmentOptions,
+    field: keyof FormFulfillmentOptions,
     value: boolean | number
   ) => {
     setter((prev) => ({
@@ -350,8 +493,8 @@ const ShopsPage = () => {
     }
     try {
       setDeleteError(null);
-      await deleteShop(pendingDeleteShop.shopId).unwrap();
-      await refetchShops();
+      await deleteShopMutation(pendingDeleteShop.id).unwrap();
+      await refreshManagedShops();
       closeDeleteModal();
     } catch (error) {
       setDeleteError(
@@ -502,23 +645,6 @@ const ShopsPage = () => {
         </select>
       </div>
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-            form.isActive
-              ? 'bg-green-50 text-green-700'
-              : 'bg-gray-100 text-gray-600'
-          }`}
-          onClick={() =>
-            setForm((prev) => ({
-              ...prev,
-              isActive: !prev.isActive,
-            }))
-          }
-          disabled={disabled}
-        >
-          {form.isActive ? 'Active' : 'Inactive'}
-        </button>
         <button
           type="button"
           className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
@@ -702,7 +828,7 @@ const ShopsPage = () => {
       <div className="grid gap-6 md:grid-cols-3">
         {SHOP_STATUSES.map((status) => {
           const count = resolvedShops.filter(
-            (shop) => shop.status === status
+            (shop) => toUiStatus(shop.status) === status
           ).length;
           return (
             <div
@@ -711,7 +837,7 @@ const ShopsPage = () => {
             >
               <p className="text-sm text-gray-500 capitalize">{status}</p>
               <p className="mt-1 text-3xl font-semibold text-gray-900">
-                {isLoading ? '…' : count}
+                {aggregateLoading ? '…' : count}
               </p>
             </div>
           );
@@ -731,98 +857,97 @@ const ShopsPage = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {(isUninitialized || queryArg === skipToken || isLoading) && (
+            {aggregateLoading && (
               <tr>
                 <td colSpan={6} className="px-4 py-6 text-center text-sm">
                   Loading shops…
                 </td>
               </tr>
             )}
-            {isError && (
+            {aggregateError && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-sm">
-                  We could not load shops. Please refresh.
+                <td colSpan={6} className="px-4 py-6 text-center text-sm text-red-600">
+                  {aggregateError}
                 </td>
               </tr>
             )}
-            {!isLoading &&
-              queryArg !== skipToken &&
-              !isError &&
-              filteredShops.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-sm">
-                    No shops match the current filter.
-                  </td>
-                </tr>
-              )}
-            {filteredShops.map((shop) => (
-              <tr
-                key={shop.shopId}
-                role="button"
-                tabIndex={0}
-                onClick={() => goToShopProducts(shop.shopId)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    goToShopProducts(shop.shopId);
-                  }
-                }}
-                className="cursor-pointer transition-colors hover:bg-slate-50 focus-visible:bg-slate-100"
-              >
-                <td className="px-4 py-4">
-                  <div>
-                    <p className="font-medium text-gray-900">{shop.name}</p>
-                    <p className="text-xs text-gray-500">
-                      {shop.address || 'No address'}
-                    </p>
-                  </div>
-                </td>
-                <td className="px-4 py-4">
-                  <ShopStatusBadge status={shop.status} />
-                </td>
-                <td className="px-4 py-4">
-                  <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                      shop.acceptingOrders
-                        ? 'bg-green-50 text-green-700'
-                        : 'bg-gray-100 text-gray-700'
-                    }`}
-                  >
-                    {shop.acceptingOrders ? 'Yes' : 'No'}
-                  </span>
-                </td>
-                <td className="px-4 py-4 text-sm capitalize text-gray-700">
-                  {shop.role}
-                </td>
-                <td className="px-4 py-4 text-sm text-gray-500">
-                  {new Date(shop.updatedAt).toLocaleDateString()}
-                </td>
-                <td className="px-4 py-4">
-                  <div className="flex items-center justify-center gap-4">
-                    <button
-                      type="button"
-                      className="text-sm font-medium text-blue-600 hover:underline"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openEditModal(shop.shopId);
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="text-sm font-medium text-red-600 hover:underline"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openDeleteModal(shop);
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
+            {!aggregateLoading && !aggregateError && filteredShops.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-sm">
+                  No shops match the current filter.
                 </td>
               </tr>
-            ))}
+            )}
+            {!aggregateLoading &&
+              !aggregateError &&
+              filteredShops.map((shop) => (
+                <tr
+                  key={shop.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => goToShopProducts(shop.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      goToShopProducts(shop.id);
+                    }
+                  }}
+                  className="cursor-pointer transition-colors hover:bg-slate-50 focus-visible:bg-slate-100"
+                >
+                  <td className="px-4 py-4">
+                    <div>
+                      <p className="font-medium text-gray-900">{shop.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {shop.address || 'No address'}
+                      </p>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4">
+                  <ShopStatusBadge status={toUiStatus(shop.status)} />
+                  </td>
+                  <td className="px-4 py-4">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        shop.acceptingOrders
+                          ? 'bg-green-50 text-green-700'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      {shop.acceptingOrders ? 'Yes' : 'No'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-4 text-sm capitalize text-gray-700">
+                    {shop.membershipRole}
+                  </td>
+                  <td className="px-4 py-4 text-sm text-gray-500">
+                    {new Date(shop.updatedAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center justify-center gap-4">
+                      <button
+                        type="button"
+                        className="text-sm font-medium text-blue-600 hover:underline"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openEditModal(shop.id);
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="text-sm font-medium text-red-600 hover:underline"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openDeleteModal(shop);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
@@ -908,7 +1033,7 @@ const ShopsPage = () => {
             </div>
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               <p>
-                <strong>Status:</strong> {pendingDeleteShop.status}{' '}
+                <strong>Status:</strong> {toUiStatus(pendingDeleteShop.status)}{' '}
                 <strong className="ml-2">Address:</strong>{' '}
                 {pendingDeleteShop.address || 'Not provided'}
               </p>

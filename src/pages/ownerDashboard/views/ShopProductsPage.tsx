@@ -8,7 +8,16 @@ import {
 } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
-import { api, type ApiShape } from '../../../config/api';
+import {
+  useGetShopQuery,
+} from '../../../store/api/shopsApi';
+import {
+  useListProductsQuery,
+  useCreateProductMutation,
+  useUpdateProductMutation,
+  useDeleteProductMutation,
+} from '../../../store/api/productsApi';
+import { useListCategoriesQuery } from '../../../store/api/categoriesApi';
 import {
   createDefaultProductFormState,
   ProductFormState,
@@ -19,8 +28,9 @@ import {
   createId,
 } from '../../../components/products/productForm';
 
-type ShopResponse = Awaited<ReturnType<ApiShape['getShop']>>;
-type ShopProductResponse = Awaited<ReturnType<ApiShape['listProducts']>>[number];
+import type {
+  ProductResponse as ShopProductResponse,
+} from '../../../store/api/backend-generated/apiClient';
 
 const productSteps = ['Product basics', 'Variants', 'Add-ons & review'];
 
@@ -34,9 +44,39 @@ const ShopProductsPage = () => {
     accounts[0]?.username ||
     '';
 
-  const [shop, setShop] = useState<ShopResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: shopData,
+    isLoading: shopLoading,
+    error: shopError,
+    refetch: refetchShop,
+  } = useGetShopQuery(shopId ?? '', {
+    skip: !shopId,
+  });
+  const {
+    data: shopProductsData = [],
+    isLoading: shopProductsLoading,
+    error: shopProductsError,
+    refetch: refetchProducts,
+  } = useListProductsQuery(shopId ? { shopId } : undefined, {
+    skip: !shopId,
+  });
+  const {
+    data: categories = [],
+    isLoading: categoriesLoading,
+    error: categoriesError,
+  } = useListCategoriesQuery();
+  const [createProductMutation] = useCreateProductMutation();
+  const [updateProductMutation] = useUpdateProductMutation();
+  const [deleteProductMutation] = useDeleteProductMutation();
+  const shop = shopData ?? null;
+  const products = shopProductsData;
+  const shopErrorMessage = shopError ? 'Unable to load shop products.' : null;
+  const productsErrorMessage = shopProductsError
+    ? 'Unable to load products.'
+    : null;
+  const categoriesErrorMessage = categoriesError
+    ? 'Unable to load categories.'
+    : null;
   const [updatingProductId, setUpdatingProductId] = useState<string | null>(null);
 
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -52,21 +92,6 @@ const ShopProductsPage = () => {
   const [editingProduct, setEditingProduct] = useState<ShopProductResponse | null>(
     null
   );
-  const [shopProducts, setShopProducts] = useState<
-    Awaited<ReturnType<ApiShape['listProducts']>>
-  >([]);
-  const [shopProductsLoading, setShopProductsLoading] = useState(true);
-  const [shopProductsError, setShopProductsError] = useState<string | null>(
-    null
-  );
-
-  const [categories, setCategories] = useState<
-    Awaited<ReturnType<ApiShape['listCategories']>>
-  >([]);
-  const [categoriesLoading, setCategoriesLoading] = useState(false);
-  const [categoriesError, setCategoriesError] = useState<string | null>(null);
-  const products = shopProducts;
-
   const categoryNameById = useMemo(() => {
     const map = new Map<string, string>();
     categories.forEach((category) => map.set(category.id, category.name));
@@ -114,50 +139,14 @@ const ShopProductsPage = () => {
     return true;
   };
 
-  useEffect(() => {
-    if (!shopId) return;
-    const load = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const shopResponse = await api.getShop(shopId);
-        setShop(shopResponse);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'Unable to load shop products.'
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    load();
-  }, [shopId]);
-
   const refreshShop = useCallback(async () => {
     if (!shopId) return;
-    try {
-      const updatedShop = await api.getShop(shopId);
-      setShop(updatedShop);
-    } catch (err) {
-      console.error(err);
-    }
-  }, [shopId]);
+    await refetchShop();
+  }, [refetchShop, shopId]);
 
-  const loadShopProducts = useCallback(async () => {
-    if (!shopId) return;
-    setShopProductsLoading(true);
-    setShopProductsError(null);
-    try {
-      const list = await api.listProducts({ shopId });
-      setShopProducts(list);
-    } catch (err) {
-      setShopProductsError(
-        err instanceof Error ? err.message : 'Unable to load products.'
-      );
-    } finally {
-      setShopProductsLoading(false);
-    }
-  }, [shopId]);
+  const refreshProducts = useCallback(async () => {
+    await refetchProducts();
+  }, [refetchProducts]);
 
   const buildStandardVariantGroupPayload = () => ({
     label: 'Standard group',
@@ -248,33 +237,14 @@ const ShopProductsPage = () => {
     }));
   };
 
-  useEffect(() => {
-    const loadCategories = async () => {
-      setCategoriesLoading(true);
-      setCategoriesError(null);
-      try {
-        const list = await api.listCategories();
-        setCategories(list);
-      } catch (error) {
-        setCategoriesError(
-          error instanceof Error ? error.message : 'Unable to load categories.'
-        );
-      } finally {
-        setCategoriesLoading(false);
-      }
-    };
-    loadCategories();
-  }, []);
-
-  useEffect(() => {
-    loadShopProducts();
-  }, [loadShopProducts]);
-
   const toggleProductAvailability = async (productId: string, next: boolean) => {
     setUpdatingProductId(productId);
     try {
-      await api.updateProduct(productId, { isAvailable: next });
-      await Promise.all([refreshShop(), loadShopProducts()]);
+      await updateProductMutation({
+        productId,
+        body: { isAvailable: next },
+      }).unwrap();
+      await Promise.all([refreshShop(), refreshProducts()]);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Unable to update product.');
     } finally {
@@ -444,11 +414,14 @@ const ShopProductsPage = () => {
         isAvailable: productFormState.isActive,
       };
       if (productFormMode === 'edit' && editingProduct) {
-        await api.updateProduct(editingProduct.id, payload);
+        await updateProductMutation({
+          productId: editingProduct.id,
+          body: payload,
+        }).unwrap();
       } else {
-        await api.createProduct(payload);
+        await createProductMutation(payload).unwrap();
       }
-      await Promise.all([refreshShop(), loadShopProducts()]);
+      await Promise.all([refreshShop(), refreshProducts()]);
       closeProductModal();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Unable to create product.');
@@ -525,10 +498,12 @@ const ShopProductsPage = () => {
         </div>
       </div>
 
-      {isLoading || shopProductsLoading ? (
+      {shopLoading || shopProductsLoading ? (
         <p className="text-sm text-gray-600">Loading products…</p>
-      ) : error || shopProductsError ? (
-        <p className="text-sm text-red-600">{error ?? shopProductsError}</p>
+      ) : shopErrorMessage || productsErrorMessage ? (
+        <p className="text-sm text-red-600">
+          {shopErrorMessage ?? productsErrorMessage}
+        </p>
       ) : products.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600">
           This shop does not have any products yet. Use “Add product to shop” to publish
@@ -655,8 +630,8 @@ const ShopProductsPage = () => {
                           return;
                         }
                         try {
-                          await api.deleteProduct(editingProduct.id);
-                          await Promise.all([refreshShop(), loadShopProducts()]);
+                          await deleteProductMutation(editingProduct.id).unwrap();
+                          await Promise.all([refreshShop(), refreshProducts()]);
                           closeProductModal();
                         } catch (err) {
                           alert(
@@ -699,8 +674,10 @@ const ShopProductsPage = () => {
                         <div className="mt-1 rounded-lg border border-gray-200 p-3">
                           {categoriesLoading ? (
                             <p className="text-xs text-gray-500">Loading categories…</p>
-                          ) : categoriesError ? (
-                            <p className="text-xs text-red-600">{categoriesError}</p>
+                          ) : categoriesErrorMessage ? (
+                            <p className="text-xs text-red-600">
+                              {categoriesErrorMessage}
+                            </p>
                           ) : categories.length === 0 ? (
                             <p className="text-xs text-gray-500">
                               No categories yet. Create them under Products &gt; Categories.

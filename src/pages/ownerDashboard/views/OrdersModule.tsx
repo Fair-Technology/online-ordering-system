@@ -1,14 +1,26 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { api, type ApiShape } from '../../../config/api';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { skipToken } from '@reduxjs/toolkit/query';
+import {
+  useListShopsQuery,
+  useGetShopMenuQuery,
+} from '../../../store/api/shopsApi';
+import {
+  useListShopOrdersQuery,
+  useListOrdersQuery,
+  useCreateOrderMutation,
+  useUpdateOrderStatusMutation,
+} from '../../../store/api/ordersApi';
+import type {
+  ShopMenuResponse,
+  Order as OrderResponse,
+  CreateOrderRequest,
+} from '../../../store/api/backend-generated/apiClient';
 
-type Shop = Awaited<ReturnType<ApiShape['listShops']>>[number];
-type ShopOrder = Awaited<ReturnType<ApiShape['listShopOrders']>>[number];
+type ShopOrder = OrderResponse;
 type OrderStatus = ShopOrder['status'];
-type ShopMenu = Awaited<ReturnType<ApiShape['getShopMenu']>>;
+type ShopMenu = ShopMenuResponse;
 type ShopMenuProduct = ShopMenu['products'][number];
-type NewOrderItem = Parameters<ApiShape['createOrder']>[1]['items'][number];
-type OrderSummary = Awaited<ReturnType<ApiShape['listOrders']>>[number];
-
+type NewOrderItem = CreateOrderRequest['items'][number];
 const statusFlow: Record<OrderStatus, OrderStatus | null> = {
   placed: 'accepted',
   accepted: 'ready_for_pickup',
@@ -19,18 +31,13 @@ const statusFlow: Record<OrderStatus, OrderStatus | null> = {
 };
 
 const OrdersModule = () => {
-  const [shops, setShops] = useState<Shop[]>([]);
+  const { data: shops = [], isLoading: shopsLoading } = useListShopsQuery();
   const [selectedShopId, setSelectedShopId] = useState('');
-  const [shopOrders, setShopOrders] = useState<ShopOrder[]>([]);
-  const [shopOrdersLoading, setShopOrdersLoading] = useState(false);
   const [orderStatusFilter, setOrderStatusFilter] = useState<OrderStatus | ''>(
     ''
   );
-  const [ordersError, setOrdersError] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<ShopOrder | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
-  const [menu, setMenu] = useState<ShopMenu | null>(null);
-  const [menuLoading, setMenuLoading] = useState(false);
   const [newOrderForm, setNewOrderForm] = useState({
     customerName: '',
     customerPhone: '',
@@ -41,86 +48,62 @@ const OrdersModule = () => {
     pendingQuantity: 1,
     pendingAddons: new Set<string>(),
   });
-  const [creatingOrder, setCreatingOrder] = useState(false);
-  const [adminOrders, setAdminOrders] = useState<OrderSummary[]>([]);
-  const [adminLoading, setAdminLoading] = useState(false);
   const [adminFilters, setAdminFilters] = useState({ shopId: '', userId: '' });
-
-  const loadShops = useCallback(async () => {
-    try {
-      const data = await api.listShops();
-      setShops(data);
-      if (!selectedShopId && data.length) {
-        setSelectedShopId(data[0].id);
-      }
-    } catch (error) {
-      console.error(error);
+  useEffect(() => {
+    if (!selectedShopId && shops.length) {
+      setSelectedShopId(shops[0].id);
     }
-  }, [selectedShopId]);
+  }, [shops, selectedShopId]);
 
-  const loadShopOrders = useCallback(async () => {
-    if (!selectedShopId) return;
-    setShopOrdersLoading(true);
-    setOrdersError(null);
-    try {
-      const data = await api.listShopOrders(selectedShopId, {
-        status: orderStatusFilter || undefined,
-      });
-      setShopOrders(data);
-      if (data.length) {
-        setSelectedOrder(data[0]);
-      } else {
-        setSelectedOrder(null);
-      }
-    } catch (error) {
-      setOrdersError(
-        error instanceof Error ? error.message : 'Unable to load orders.'
-      );
-    } finally {
-      setShopOrdersLoading(false);
-    }
-  }, [selectedShopId, orderStatusFilter]);
+  const shopOrdersArgs =
+    selectedShopId === ''
+      ? skipToken
+      : {
+          shopId: selectedShopId,
+          params: orderStatusFilter
+            ? { status: orderStatusFilter }
+            : undefined,
+        };
 
-  const loadShopMenu = useCallback(async () => {
-    if (!selectedShopId) return;
-    setMenuLoading(true);
-    try {
-      const response = await api.getShopMenu(selectedShopId);
-      setMenu(response);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setMenuLoading(false);
-    }
-  }, [selectedShopId]);
+  const {
+    data: shopOrders = [],
+    isLoading: shopOrdersLoading,
+    isError: shopOrdersError,
+    refetch: refetchShopOrders,
+  } = useListShopOrdersQuery(shopOrdersArgs, {
+    skip: !selectedShopId,
+  });
+  const shopOrdersErrorMessage = shopOrdersError
+    ? 'Unable to load orders.'
+    : null;
 
-  const loadAdminOrders = useCallback(async () => {
-    setAdminLoading(true);
-    try {
-      const data = await api.listOrders({
-        shopId: adminFilters.shopId || undefined,
-        userId: adminFilters.userId || undefined,
-      });
-      setAdminOrders(data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setAdminLoading(false);
-    }
-  }, [adminFilters]);
+  const {
+    data: menuResponse,
+    isLoading: menuLoading,
+  } = useGetShopMenuQuery(selectedShopId ?? '', {
+    skip: !selectedShopId,
+  });
+  const menu = menuResponse ?? null;
+
+  const {
+    data: adminOrders = [],
+    isLoading: adminLoading,
+    refetch: refetchAdminOrders,
+  } = useListOrdersQuery({
+    shopId: adminFilters.shopId || undefined,
+    userId: adminFilters.userId || undefined,
+  });
+  const [createOrder, { isLoading: creatingOrder }] =
+    useCreateOrderMutation();
+  const [updateOrderStatus] = useUpdateOrderStatusMutation();
 
   useEffect(() => {
-    loadShops();
-  }, [loadShops]);
-
-  useEffect(() => {
-    loadShopOrders();
-    loadShopMenu();
-  }, [loadShopOrders, loadShopMenu]);
-
-  useEffect(() => {
-    loadAdminOrders();
-  }, [loadAdminOrders]);
+    if (shopOrders.length) {
+      setSelectedOrder(shopOrders[0]);
+    } else {
+      setSelectedOrder(null);
+    }
+  }, [shopOrders]);
 
   const handleAdvanceStatus = async (order: ShopOrder) => {
     if (!selectedShopId) return;
@@ -131,10 +114,12 @@ const OrdersModule = () => {
     }
     setUpdatingOrderId(order.id);
     try {
-      await api.updateOrderStatus(selectedShopId, order.id, {
-        nextStatus,
-      });
-      await loadShopOrders();
+      await updateOrderStatus({
+        shopId: selectedShopId,
+        orderId: order.id,
+        body: { nextStatus },
+      }).unwrap();
+      await refetchShopOrders();
     } catch (error) {
       alert(
         error instanceof Error
@@ -194,15 +179,17 @@ const OrdersModule = () => {
       alert('Add at least one item.');
       return;
     }
-    setCreatingOrder(true);
     try {
-      await api.createOrder(selectedShopId, {
+      await createOrder({
+        shopId: selectedShopId,
+        body: {
         userId: 'admin-ui',
         customerName: newOrderForm.customerName,
         customerPhone: newOrderForm.customerPhone,
         customerNotes: newOrderForm.customerNotes,
         items: newOrderForm.items,
-      });
+        },
+      }).unwrap();
       setNewOrderForm({
         customerName: '',
         customerPhone: '',
@@ -213,13 +200,12 @@ const OrdersModule = () => {
         pendingQuantity: 1,
         pendingAddons: new Set(),
       });
-      await loadShopOrders();
+      await refetchShopOrders();
+      await refetchAdminOrders();
     } catch (error) {
       alert(
         error instanceof Error ? error.message : 'Unable to create order.'
       );
-    } finally {
-      setCreatingOrder(false);
     }
   };
 
@@ -238,12 +224,19 @@ const OrdersModule = () => {
             className="rounded-md border border-gray-300 px-3 py-2 text-sm"
             value={selectedShopId}
             onChange={(event) => setSelectedShopId(event.target.value)}
+            disabled={shopsLoading || shops.length === 0}
           >
-            {shops.map((shop) => (
-              <option key={shop.id} value={shop.id}>
-                {shop.name}
+            {shops.length === 0 ? (
+              <option value="">
+                {shopsLoading ? 'Loading shops…' : 'No shops available'}
               </option>
-            ))}
+            ) : (
+              shops.map((shop) => (
+                <option key={shop.id} value={shop.id}>
+                  {shop.name}
+                </option>
+              ))
+            )}
           </select>
           <select
             className="rounded-md border border-gray-300 px-3 py-2 text-sm"
@@ -281,8 +274,8 @@ const OrdersModule = () => {
         </header>
         {shopOrdersLoading ? (
           <p className="text-sm text-gray-500">Loading orders…</p>
-        ) : ordersError ? (
-          <p className="text-sm text-red-600">{ordersError}</p>
+        ) : shopOrdersErrorMessage ? (
+          <p className="text-sm text-red-600">{shopOrdersErrorMessage}</p>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-3 max-h-[32rem] overflow-y-auto pr-2">
@@ -609,7 +602,7 @@ const OrdersModule = () => {
             <button
               type="button"
               className="rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white"
-              onClick={loadAdminOrders}
+              onClick={() => refetchAdminOrders()}
             >
               Refresh
             </button>

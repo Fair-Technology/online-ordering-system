@@ -3,9 +3,9 @@ import { useMsal } from '@azure/msal-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  useUsersCreateMutation,
-  useUsersListQuery,
-} from '../store/api/ownerApi';
+  useCreateUserMutation,
+  useListUsersQuery,
+} from '../store/api/usersApi';
 
 const UserCreation = () => {
   const { accounts, inProgress } = useMsal();
@@ -29,11 +29,11 @@ const UserCreation = () => {
   const {
     data: users,
     isLoading: isUsersLoading,
-    isFetching: isUsersFetching,
-  } = useUsersListQuery(undefined, {
+    isError: isUsersError,
+  } = useListUsersQuery(undefined, {
     skip: !shouldQuery,
   });
-  const [createUser, { isLoading: isCreatingUser }] = useUsersCreateMutation();
+  const [createUser, { isLoading: isCreatingUser }] = useCreateUserMutation();
 
   useEffect(() => {
     if (hasNavigatedRef.current || isMsalLoading) {
@@ -46,15 +46,9 @@ const UserCreation = () => {
       return;
     }
 
-    if (isUsersLoading || isUsersFetching) return;
+    if (isUsersLoading || !users || isUsersError) return;
 
-    const normalizedEmail = activeAccount.username?.toLowerCase();
-
-    const existingUser = users?.find(
-      (user) =>
-        user.id === userIdentifier ||
-        (normalizedEmail && user.email?.toLowerCase() === normalizedEmail)
-    );
+    const existingUser = users.find((user) => user.id === userIdentifier);
 
     if (existingUser) {
       hasNavigatedRef.current = true;
@@ -64,12 +58,7 @@ const UserCreation = () => {
 
     if (!creationRequested && !isCreatingUser) {
       setCreationRequested(true);
-      createUser({
-        entraId: 'some-random-id',
-        email: activeAccount.username,
-        role: 'shopAdmin',
-        name: activeAccount.name ?? activeAccount.username ?? 'New User',
-      })
+      createUser({ id: userIdentifier })
         .unwrap()
         .catch((error) => {
           console.error('Unable to create user entry', error);
@@ -81,12 +70,11 @@ const UserCreation = () => {
     }
   }, [
     activeAccount,
-    createUser,
     creationRequested,
     isMsalLoading,
     isCreatingUser,
-    isUsersFetching,
     isUsersLoading,
+    isUsersError,
     navigate,
     userIdentifier,
     users,

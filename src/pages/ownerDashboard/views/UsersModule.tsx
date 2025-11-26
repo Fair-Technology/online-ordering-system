@@ -1,100 +1,72 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { api, type ApiShape } from '../../../config/api';
-
-type User = Awaited<ReturnType<ApiShape['listUsers']>>[number];
-type ManagedShop = Awaited<ReturnType<ApiShape['listManagedShops']>>[number];
+import { FormEvent, useEffect, useState } from 'react';
+import {
+  useListUsersQuery,
+  useCreateUserMutation,
+  useDeleteUserMutation,
+  useListManagedShopsQuery,
+} from '../../../store/api/usersApi';
 
 const UsersModule = () => {
-  const [users, setUsers] = useState<User[]>([]);
-  const [usersLoading, setUsersLoading] = useState(true);
-  const [usersError, setUsersError] = useState<string | null>(null);
+  const {
+    data: users = [],
+    isLoading: usersLoading,
+    isError: usersError,
+    refetch: refetchUsers,
+  } = useListUsersQuery();
+  const [createUser, { isLoading: createSubmitting }] =
+    useCreateUserMutation();
+  const [deleteUser] = useDeleteUserMutation();
   const [selectedUserId, setSelectedUserId] = useState('');
-  const [managedShops, setManagedShops] = useState<ManagedShop[]>([]);
-  const [managedLoading, setManagedLoading] = useState(false);
+  const {
+    data: managedShopsData,
+    isLoading: managedLoading,
+  } = useListManagedShopsQuery(selectedUserId, {
+    skip: !selectedUserId,
+  });
+  const managedShops = managedShopsData ?? [];
   const [createForm, setCreateForm] = useState({ id: '' });
-  const [createSubmitting, setCreateSubmitting] = useState(false);
-
-  const loadUsers = useCallback(async () => {
-    setUsersLoading(true);
-    setUsersError(null);
-    try {
-      const response = await api.listUsers();
-      setUsers(response);
-      if (!selectedUserId && response.length) {
-        setSelectedUserId(response[0].id);
-      }
-    } catch (error) {
-      setUsersError(
-        error instanceof Error ? error.message : 'Unable to load users.'
-      );
-    } finally {
-      setUsersLoading(false);
-    }
-  }, [selectedUserId]);
-
-  const loadManagedShops = useCallback(
-    async (userId: string) => {
-      if (!userId) {
-        setManagedShops([]);
-        return;
-      }
-      setManagedLoading(true);
-      try {
-        const response = await api.listManagedShops(userId);
-        setManagedShops(response);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setManagedLoading(false);
-      }
-    },
-    []
-  );
 
   useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
-
-  useEffect(() => {
-    if (selectedUserId) {
-      loadManagedShops(selectedUserId);
+    if (!users.length) {
+      setSelectedUserId('');
+      return;
     }
-  }, [selectedUserId, loadManagedShops]);
+    if (!selectedUserId || !users.find((user) => user.id === selectedUserId)) {
+      setSelectedUserId(users[0]?.id ?? '');
+    }
+  }, [users, selectedUserId]);
 
   const handleCreateUser = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!createForm.id.trim()) return;
-    setCreateSubmitting(true);
     try {
-      await api.createUser({ id: createForm.id.trim() });
-      await loadUsers();
+      await createUser({ id: createForm.id.trim() }).unwrap();
+      await refetchUsers();
       setCreateForm({ id: '' });
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Unable to create user.');
-    } finally {
-      setCreateSubmitting(false);
     }
   };
 
-  const handleDeleteUser = async (user: User) => {
+  const handleDeleteUser = async (userId: string) => {
     if (
       !window.confirm(
-        `Deleting ${user.id} removes their access immediately. Continue?`
+        `Deleting ${userId} removes their access immediately. Continue?`
       )
     ) {
       return;
     }
     try {
-      await api.deleteUser(user.id);
-      if (selectedUserId === user.id) {
+      await deleteUser(userId).unwrap();
+      if (selectedUserId === userId) {
         setSelectedUserId('');
-        setManagedShops([]);
       }
-      await loadUsers();
+      await refetchUsers();
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Unable to delete user.');
     }
   };
+  const usersErrorMessage = usersError ? 'Unable to load users.' : null;
 
   return (
     <div className="space-y-10">
@@ -137,8 +109,8 @@ const UsersModule = () => {
         </div>
         {usersLoading ? (
           <p className="text-sm text-gray-500">Loading users…</p>
-        ) : usersError ? (
-          <p className="text-sm text-red-600">{usersError}</p>
+        ) : usersErrorMessage ? (
+          <p className="text-sm text-red-600">{usersErrorMessage}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-100 text-sm">
@@ -169,7 +141,7 @@ const UsersModule = () => {
                       <button
                         type="button"
                         className="text-xs font-medium text-red-600 hover:underline"
-                        onClick={() => handleDeleteUser(user)}
+                        onClick={() => handleDeleteUser(user.id)}
                       >
                         Delete
                       </button>

@@ -1,11 +1,22 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { api, type ApiShape } from '../../../config/api';
+import {
+  useListShopsQuery,
+  useGetShopQuery,
+  useGetShopHoursQuery,
+  useListShopMembersQuery,
+  useGetShopMenuQuery,
+  useUpdateShopMutation,
+  useUpsertShopHoursMutation,
+  useCreateShopMemberMutation,
+  useUpdateShopMemberMutation,
+} from '../../../store/api/shopsApi';
+import type {
+  Shop,
+  ShopHours,
+  ShopMember,
+} from '../../../store/api/backend-generated/apiClient';
 
-type Shop = Awaited<ReturnType<ApiShape['getShop']>>;
 type FulfillmentOptions = NonNullable<Shop['fulfillmentOptions']>;
-type ShopHours = Awaited<ReturnType<ApiShape['getShopHours']>>;
-type ShopMember = Awaited<ReturnType<ApiShape['listShopMembers']>>[number];
-type ShopMenu = Awaited<ReturnType<ApiShape['getShopMenu']>>;
 
 const weekdays: Array<keyof ShopHours['weekly']> = [
   'monday',
@@ -24,14 +35,39 @@ const defaultWindow = {
 };
 
 const AssociationsModule = () => {
-  const [shops, setShops] = useState<Shop[]>([]);
+  const {
+    data: shops = [],
+    isLoading: shopsLoading,
+    error: shopsError,
+  } = useListShopsQuery();
   const [selectedShopId, setSelectedShopId] = useState('');
-  const [shopDetails, setShopDetails] = useState<Shop | null>(null);
-  const [shopHours, setShopHours] = useState<ShopHours | null>(null);
-  const [members, setMembers] = useState<ShopMember[]>([]);
-  const [menu, setMenu] = useState<ShopMenu | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: shopDetails,
+    isLoading: shopDetailsLoading,
+    error: shopDetailsError,
+    refetch: refetchShopDetails,
+  } = useGetShopQuery(selectedShopId ?? '', { skip: !selectedShopId });
+  const {
+    data: shopHours,
+    isLoading: shopHoursLoading,
+    error: shopHoursError,
+    refetch: refetchShopHours,
+  } = useGetShopHoursQuery(selectedShopId ?? '', { skip: !selectedShopId });
+  const {
+    data: members = [],
+    isLoading: membersLoading,
+    error: membersError,
+    refetch: refetchMembers,
+  } = useListShopMembersQuery(selectedShopId ?? '', {
+    skip: !selectedShopId,
+  });
+  const {
+    data: menuData,
+    isLoading: menuLoading,
+    error: menuError,
+    refetch: refetchMenu,
+  } = useGetShopMenuQuery(selectedShopId ?? '', { skip: !selectedShopId });
+  const menu = menuData ?? null;
   const [detailsSubmitting, setDetailsSubmitting] = useState(false);
   const [hoursSubmitting, setHoursSubmitting] = useState(false);
   const [inviteForm, setInviteForm] = useState({
@@ -42,60 +78,53 @@ const AssociationsModule = () => {
   const [membershipsSubmitting, setMembershipsSubmitting] = useState<
     Record<string, boolean>
   >({});
+  const [updateShop] = useUpdateShopMutation();
+  const [upsertShopHours] = useUpsertShopHoursMutation();
+  const [createShopMember] = useCreateShopMemberMutation();
+  const [updateShopMember] = useUpdateShopMemberMutation();
 
-  const loadShops = useCallback(async () => {
-    try {
-      const data = await api.listShops();
-      setShops(data);
-      if (!selectedShopId && data.length) {
-        setSelectedShopId(data[0].id);
-      }
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : 'Unable to load shops.'
-      );
+  const extractErrorMessage = (err: unknown) => {
+    if (!err) return null;
+    if (typeof err === 'string') return err;
+    if (
+      typeof err === 'object' &&
+      err !== null &&
+      'message' in err &&
+      typeof (err as any).message === 'string'
+    ) {
+      return (err as any).message as string;
     }
-  }, [selectedShopId]);
+    return 'Something went wrong.';
+  };
 
-  const loadShopContext = useCallback(
-    async (shopId: string) => {
-      if (!shopId) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const [details, hours, membersResponse, menuResponse] =
-          await Promise.all([
-            api.getShop(shopId),
-            api.getShopHours(shopId),
-            api.listShopMembers(shopId),
-            api.getShopMenu(shopId),
-          ]);
-        setShopDetails(details);
-        setShopHours(hours);
-        setMembers(membersResponse);
-        setMenu(menuResponse);
-      } catch (error) {
-        setError(
-          error instanceof Error
-            ? error.message
-            : 'Unable to load shop associations.'
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
+  const errorMessage =
+    extractErrorMessage(shopsError) ??
+    extractErrorMessage(shopDetailsError) ??
+    extractErrorMessage(shopHoursError) ??
+    extractErrorMessage(membersError) ??
+    extractErrorMessage(menuError);
+
+  const loading =
+    shopsLoading ||
+    shopDetailsLoading ||
+    shopHoursLoading ||
+    membersLoading ||
+    menuLoading;
+
+  const refreshShopContext = useCallback(async () => {
+    await Promise.all([
+      refetchShopDetails(),
+      refetchShopHours(),
+      refetchMembers(),
+      refetchMenu(),
+    ]);
+  }, [refetchShopDetails, refetchShopHours, refetchMembers, refetchMenu]);
 
   useEffect(() => {
-    loadShops();
-  }, [loadShops]);
-
-  useEffect(() => {
-    if (selectedShopId) {
-      loadShopContext(selectedShopId);
+    if (!selectedShopId && shops.length) {
+      setSelectedShopId(shops[0].id);
     }
-  }, [selectedShopId, loadShopContext]);
+  }, [shops, selectedShopId]);
 
   const fulfillmentForm = useMemo<FulfillmentOptions>(() => {
     return (
@@ -141,8 +170,8 @@ const AssociationsModule = () => {
     };
     setDetailsSubmitting(true);
     try {
-      await api.updateShop(selectedShopId, payload);
-      await loadShopContext(selectedShopId);
+      await updateShop({ shopId: selectedShopId, body: payload }).unwrap();
+      await refreshShopContext();
     } catch (error) {
       alert(
         error instanceof Error ? error.message : 'Unable to update shop.'
@@ -175,8 +204,8 @@ const AssociationsModule = () => {
     };
     setDetailsSubmitting(true);
     try {
-      await api.updateShop(selectedShopId, payload);
-      await loadShopContext(selectedShopId);
+      await updateShop({ shopId: selectedShopId, body: payload }).unwrap();
+      await refreshShopContext();
     } catch (error) {
       alert(
         error instanceof Error
@@ -206,8 +235,11 @@ const AssociationsModule = () => {
     });
     setHoursSubmitting(true);
     try {
-      await api.upsertShopHours(selectedShopId, { timezone, weekly });
-      await loadShopContext(selectedShopId);
+      await upsertShopHours({
+        shopId: selectedShopId,
+        body: { timezone, weekly },
+      }).unwrap();
+      await refreshShopContext();
     } catch (error) {
       alert(
         error instanceof Error
@@ -226,11 +258,15 @@ const AssociationsModule = () => {
     if (!selectedShopId) return;
     setMembershipsSubmitting((prev) => ({ ...prev, [member.id]: true }));
     try {
-      await api.updateShopMember(selectedShopId, member.id, {
-        role: updates.role ?? member.role,
-        isActive: updates.isActive ?? member.isActive,
-      });
-      await loadShopContext(selectedShopId);
+      await updateShopMember({
+        shopId: selectedShopId,
+        memberId: member.id,
+        body: {
+          role: updates.role ?? member.role,
+          isActive: updates.isActive ?? member.isActive,
+        },
+      }).unwrap();
+      await refreshShopContext();
     } catch (error) {
       alert(
         error instanceof Error
@@ -247,11 +283,14 @@ const AssociationsModule = () => {
     if (!selectedShopId || !inviteForm.userId) return;
     setInviteSubmitting(true);
     try {
-      await api.createShopMember(selectedShopId, {
-        userId: inviteForm.userId,
-        role: inviteForm.role,
-      });
-      await loadShopContext(selectedShopId);
+      await createShopMember({
+        shopId: selectedShopId,
+        body: {
+          userId: inviteForm.userId,
+          role: inviteForm.role,
+        },
+      }).unwrap();
+      await refreshShopContext();
       setInviteForm({ userId: '', role: 'manager' });
     } catch (error) {
       alert(
@@ -288,7 +327,7 @@ const AssociationsModule = () => {
           ))}
         </select>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
       {loading ? (
         <p className="text-sm text-gray-500">Loading shop data…</p>
       ) : (

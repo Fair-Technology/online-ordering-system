@@ -1,10 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { api, type ApiShape } from '../../../config/api';
-
-type Shop = Awaited<ReturnType<ApiShape['listShops']>>[number];
-type Order = Awaited<ReturnType<ApiShape['listShopOrders']>>[number];
-type ManagedShop = Awaited<ReturnType<ApiShape['listManagedShops']>>[number];
+import { useListShopsQuery } from '../../../store/api/shopsApi';
+import { useListShopOrdersQuery } from '../../../store/api/ordersApi';
+import { useListManagedShopsQuery } from '../../../store/api/usersApi';
 
 const formatRelativeTime = (value: string) => {
   const timestamp = new Date(value).getTime();
@@ -60,89 +58,48 @@ const DashboardHome = () => {
     accounts[0]?.homeAccountId ||
     accounts[0]?.username ||
     '';
-  const [shops, setShops] = useState<Shop[]>([]);
-  const [shopsLoading, setShopsLoading] = useState(true);
-  const [shopsError, setShopsError] = useState<string | null>(null);
-  const [managedShops, setManagedShops] = useState<ManagedShop[]>([]);
-  const [managedLoading, setManagedLoading] = useState(true);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [ordersLoading, setOrdersLoading] = useState(false);
-  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const {
+    data: shops = [],
+    isLoading: shopsLoading,
+    isError: shopsError,
+  } = useListShopsQuery();
+  const {
+    data: managedShops = [],
+    isLoading: managedLoading,
+  } = useListManagedShopsQuery(ownerUserId ?? '', {
+    skip: !ownerUserId,
+  });
+  const primaryShopId =
+    managedShops[0]?.shopId || shops[0]?.id || '';
+  const {
+    data: orders = [],
+    isLoading: ordersLoading,
+    isError: ordersError,
+  } = useListShopOrdersQuery(
+    { shopId: primaryShopId, params: undefined },
+    { skip: !primaryShopId }
+  );
+  const shopsErrorMessage = shopsError ? 'Unable to load shops.' : null;
+  const ordersErrorMessage = ordersError ? 'Orders could not be loaded.' : null;
 
-  useEffect(() => {
-    const loadShops = async () => {
-      setShopsLoading(true);
-      setShopsError(null);
-      try {
-        const response = await api.listShops();
-        setShops(response);
-      } catch (error) {
-        setShopsError(
-          error instanceof Error ? error.message : 'Unable to load shops.'
-        );
-      } finally {
-        setShopsLoading(false);
-      }
-    };
-    loadShops();
-  }, []);
-
-  useEffect(() => {
-    const loadManaged = async () => {
-      if (!ownerUserId) {
-        setManagedShops([]);
-        setManagedLoading(false);
-        return;
-      }
-      setManagedLoading(true);
-      try {
-        const response = await api.listManagedShops(ownerUserId);
-        setManagedShops(response);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setManagedLoading(false);
-      }
-    };
-    loadManaged();
-  }, [ownerUserId]);
-
-  useEffect(() => {
-    const primaryShopId = managedShops[0]?.shopId || shops[0]?.id;
-    if (!primaryShopId) return;
-    const loadOrders = async () => {
-      setOrdersLoading(true);
-      setOrdersError(null);
-      try {
-        const response = await api.listShopOrders(primaryShopId);
-        setOrders(response);
-      } catch (error) {
-        setOrdersError(
-          error instanceof Error ? error.message : 'Unable to load orders.'
-        );
-      } finally {
-        setOrdersLoading(false);
-      }
-    };
-    loadOrders();
+  const linkedShops = useMemo(() => {
+    if (managedShops.length > 0) {
+      return managedShops.map((shop) => ({
+        shopId: shop.shopId,
+        name: shop.name,
+        address: '',
+        acceptingOrders: shop.acceptingOrders,
+        updatedAt: new Date().toISOString(),
+      }));
+    }
+    return shops.map((shop) => ({
+      shopId: shop.id,
+      name: shop.name,
+      address: shop.address ?? '',
+      acceptingOrders: shop.acceptingOrders,
+      updatedAt: shop.updatedAt,
+    }));
   }, [managedShops, shops]);
-
-  const linkedShops =
-    managedShops.length > 0
-      ? managedShops.map((shop) => ({
-          shopId: shop.shopId,
-          name: shop.name,
-          address: '',
-          acceptingOrders: shop.acceptingOrders,
-          updatedAt: new Date().toISOString(),
-        }))
-      : shops.map((shop) => ({
-          shopId: shop.id,
-          name: shop.name,
-          address: shop.address ?? '',
-          acceptingOrders: shop.acceptingOrders,
-          updatedAt: shop.updatedAt,
-        }));
 
   const activeShopCount =
     linkedShops.filter((shop) => shop.acceptingOrders).length ?? 0;
@@ -185,8 +142,11 @@ const DashboardHome = () => {
     },
   ];
 
-  const latestShops = linkedShops.slice(0, 5);
-  const latestOrders = orders.slice(0, 5);
+  const latestShops = useMemo(
+    () => linkedShops.slice(0, 5),
+    [linkedShops]
+  );
+  const latestOrders = useMemo(() => orders.slice(0, 5), [orders]);
 
   return (
     <section className="space-y-6">
@@ -217,7 +177,7 @@ const DashboardHome = () => {
           {(shopsLoading || managedLoading) && (
             <EmptyState message="Loading shops…" />
           )}
-          {shopsError && (
+          {shopsErrorMessage && (
             <EmptyState message="We couldn’t load shops right now." />
           )}
           {!shopsLoading && !managedLoading && latestShops.length === 0 && (
@@ -263,15 +223,15 @@ const DashboardHome = () => {
             </div>
           </div>
           {ordersLoading && <EmptyState message="Loading orders…" />}
-          {ordersError && (
+          {ordersErrorMessage && (
             <EmptyState message="Orders could not be loaded." />
           )}
           {!ordersLoading &&
-            !ordersError &&
+            !ordersErrorMessage &&
             latestOrders.length === 0 && (
               <EmptyState message="No orders found for the selected period." />
             )}
-          {!ordersLoading && !ordersError && latestOrders.length > 0 && (
+          {!ordersLoading && !ordersErrorMessage && latestOrders.length > 0 && (
             <ul className="divide-y divide-gray-100">
               {latestOrders.map((order) => (
                 <li key={order.id} className="py-3">

@@ -1,7 +1,7 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { api, type ApiShape } from '../../../config/api';
+import { skipToken } from '@reduxjs/toolkit/query';
 import {
   ProductFormState,
   createDefaultProductFormState,
@@ -11,11 +11,25 @@ import {
   StepIndicator,
   createId,
 } from '../../../components/products/productForm';
+import {
+  useListProductsQuery,
+  useCreateProductMutation,
+  useUpdateProductMutation,
+  useDeleteProductMutation,
+  useLazyGetProductQuery,
+} from '../../../store/api/productsApi';
+import {
+  useListCategoriesQuery,
+  useCreateCategoryMutation,
+} from '../../../store/api/categoriesApi';
+import { useListManagedShopsQuery } from '../../../store/api/usersApi';
+import type {
+  ProductResponse,
+  CreateProductRequest,
+} from '../../../store/api/backend-generated/apiClient';
 
-type ProductWorkspaceItem = Awaited<ReturnType<ApiShape['getProduct']>>;
-type ProductWorkspaceList = Awaited<ReturnType<ApiShape['listProducts']>>;
-type ProductWorkspaceSummary = ProductWorkspaceList[number];
-type ProductCreatePayload = Parameters<ApiShape['createProduct']>[0];
+type ProductWorkspaceItem = ProductResponse;
+type ProductCreatePayload = CreateProductRequest;
 
 type ProductWorkspaceView = 'products' | 'categories';
 
@@ -30,9 +44,7 @@ const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
     accounts[0]?.homeAccountId ||
     accounts[0]?.username ||
     '';
-  const [products, setProducts] = useState<ProductWorkspaceSummary[]>([]);
-  const [productsLoading, setProductsLoading] = useState(true);
-  const [productsError, setProductsError] = useState<string | null>(null);
+  const [categoryShopId, setCategoryShopId] = useState(shopContextId);
   const [editingProduct, setEditingProduct] = useState<ProductWorkspaceItem | null>(
     null
   );
@@ -54,44 +66,44 @@ const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
     null
   );
   const [isCategorySubmitting, setIsCategorySubmitting] = useState(false);
-  const [categoryShopId, setCategoryShopId] = useState(shopContextId);
 
-  const loadProducts = useCallback(async () => {
-    setProductsLoading(true);
-    setProductsError(null);
-    try {
-      const data = await api.listProducts({
+  const shouldFetchProducts = Boolean(categoryShopId || ownerUserId);
+  const productsArgs = shouldFetchProducts
+    ? {
         shopId: categoryShopId || undefined,
         ownerUserId: ownerUserId || undefined,
-      });
-      setProducts(data);
-    } catch (error) {
-      setProductsError(
-        error instanceof Error ? error.message : 'Unable to load products.'
-      );
-    } finally {
-      setProductsLoading(false);
-    }
-  }, [categoryShopId, ownerUserId]);
-
-  useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
-
-  useEffect(() => {
-    const loadManaged = async () => {
-      if (!ownerUserId) return;
-      try {
-        const list = await api.listManagedShops(ownerUserId);
-        setCategoryShopId((prev) =>
-          prev || shopContextId || list[0]?.shopId || ''
-        );
-      } catch (error) {
-        console.error(error);
       }
-    };
-    loadManaged();
-  }, [ownerUserId, shopContextId]);
+    : undefined;
+  const {
+    data: products = [],
+    isLoading: productsLoading,
+    error: productsError,
+    refetch: refetchProducts,
+  } = useListProductsQuery(productsArgs ?? skipToken, {
+    skip: !shouldFetchProducts,
+  });
+  const { data: managedShops = [] } = useListManagedShopsQuery(
+    ownerUserId ?? '',
+    { skip: !ownerUserId }
+  );
+  const [createProductMutation] = useCreateProductMutation();
+  const [updateProductMutation] = useUpdateProductMutation();
+  const [deleteProductMutation] = useDeleteProductMutation();
+  const [fetchProduct] = useLazyGetProductQuery();
+  const productsErrorMessage = productsError
+    ? 'Unable to load products.'
+    : null;
+
+  useEffect(() => {
+    if (categoryShopId) return;
+    if (shopContextId) {
+      setCategoryShopId(shopContextId);
+      return;
+    }
+    if (managedShops.length) {
+      setCategoryShopId(managedShops[0].shopId);
+    }
+  }, [categoryShopId, managedShops, shopContextId]);
 
   useEffect(() => {
     if (!shopContextId) return;
@@ -116,8 +128,8 @@ const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
     setCategoryModalError(null);
     setIsCategorySubmitting(true);
     try {
-      await api.createCategory({ name });
-      await loadCategories();
+      await createCategoryMutation({ name }).unwrap();
+      await refetchCategories();
       setCategoryModalState({ name: '' });
       setIsCategoryModalOpen(false);
     } catch (error) {
@@ -269,13 +281,16 @@ const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
 
       let productId = editingProduct?.id ?? '';
       if (productFormMode === 'create') {
-        const created = await api.createProduct(payload);
+        const created = await createProductMutation(payload).unwrap();
         productId = created.id;
       } else if (editingProduct) {
-        await api.updateProduct(editingProduct.id, payload);
+        await updateProductMutation({
+          productId: editingProduct.id,
+          body: payload,
+        }).unwrap();
         productId = editingProduct.id;
       }
-      await loadProducts();
+      await refetchProducts();
       closeProductModal();
       if (shopContextId && productFormMode === 'create' && productId) {
         navigate(`/owner/shops/${shopContextId}`);
@@ -293,7 +308,7 @@ const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
 
   const onEditProduct = async (productId: string) => {
     try {
-      const product = await api.getProduct(productId);
+      const product = await fetchProduct(productId).unwrap();
       setEditingProduct(product);
       setProductFormMode('edit');
       const mappedCategoryIds =
@@ -370,8 +385,8 @@ const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
       return;
     }
     try {
-      await api.deleteProduct(productId);
-      await loadProducts();
+      await deleteProductMutation(productId).unwrap();
+      await refetchProducts();
     } catch (error) {
       alert(
         error instanceof Error ? error.message : 'Unable to delete product.'
@@ -391,30 +406,16 @@ const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
     });
   };
 
-  const [categories, setCategories] = useState<
-    Awaited<ReturnType<ApiShape['listCategories']>>
-  >([]);
-  const [categoriesLoading, setCategoriesLoading] = useState(false);
-  const [categoriesError, setCategoriesError] = useState<string | null>(null);
-
-  const loadCategories = useCallback(async () => {
-    setCategoriesLoading(true);
-    setCategoriesError(null);
-    try {
-      const list = await api.listCategories();
-      setCategories(list);
-    } catch (error) {
-      setCategoriesError(
-        error instanceof Error ? error.message : 'Unable to load categories.'
-      );
-    } finally {
-      setCategoriesLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadCategories();
-  }, [loadCategories]);
+  const {
+    data: categories = [],
+    isLoading: categoriesLoading,
+    error: categoriesError,
+    refetch: refetchCategories,
+  } = useListCategoriesQuery();
+  const [createCategoryMutation] = useCreateCategoryMutation();
+  const categoriesErrorMessage = categoriesError
+    ? 'Unable to load categories.'
+    : null;
 
   useEffect(() => {
     setProductFormState((prev) => ({
@@ -607,8 +608,10 @@ const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
               <div className="mt-1 rounded-lg border border-gray-200 p-3">
                 {categoriesLoading ? (
                   <p className="text-sm text-gray-500">Loading categories…</p>
-                ) : categoriesError ? (
-                  <p className="text-sm text-red-600">{categoriesError}</p>
+                ) : categoriesErrorMessage ? (
+                  <p className="text-sm text-red-600">
+                    {categoriesErrorMessage}
+                  </p>
                 ) : filteredCategories.length === 0 ? (
                   <div className="text-sm text-gray-500 space-y-2">
                     <p>No categories yet. Create reusable labels such as Lunch or Drinks.</p>
@@ -955,8 +958,8 @@ const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
         </header>
         {productsLoading ? (
           <p className="text-sm text-gray-500">Loading products…</p>
-        ) : productsError ? (
-          <p className="text-sm text-red-600">{productsError}</p>
+        ) : productsErrorMessage ? (
+          <p className="text-sm text-red-600">{productsErrorMessage}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-100 text-sm">

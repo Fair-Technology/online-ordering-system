@@ -1,23 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { skipToken } from '@reduxjs/toolkit/query';
 import {
   ORDER_ACCEPTANCE_MODES,
   PAYMENT_POLICIES,
   SHOP_STATUSES,
   type OrderAcceptanceMode,
   type PaymentPolicy,
-  type ShopSettingsUpdateRequest,
   type ShopStatus,
-  type UpsertShopHoursRequest,
 } from '../../../types/apiTypes';
 import {
-  useShopHoursGetQuery,
-  useShopHoursUpsertMutation,
-  useShopsGetByIdQuery,
-  useShopsUpdateMutation,
-  useUsersGetShopsQuery,
-} from '../../../store/api/ownerApi';
+  useGetShopQuery,
+  useGetShopHoursQuery,
+  useUpdateShopMutation,
+  useUpsertShopHoursMutation,
+  type ShopResponse,
+  type ShopHoursResponse,
+} from '../../../store/api/shopsApi';
+import { useListManagedShopsQuery } from '../../../store/api/usersApi';
+import type { ShopHoursPayload } from '../../../store/api/backend-generated/apiClient';
 
 type Weekday =
   | 'monday'
@@ -40,6 +40,108 @@ const weekdays: { key: Weekday; label: string }[] = [
 
 const defaultHoursWindow = { open: '09:00', close: '17:00' };
 
+type FulfillmentDraft = {
+  pickupEnabled?: boolean;
+  deliveryEnabled?: boolean;
+  deliveryRadiusKm?: number;
+  deliveryFee?: number;
+};
+
+type ShopSettingsDraft = {
+  status?: ShopStatus;
+  acceptingOrders?: boolean;
+  paymentPolicy?: PaymentPolicy;
+  orderAcceptanceMode?: OrderAcceptanceMode;
+  allowGuestCheckout?: boolean;
+  fulfillmentOptions?: FulfillmentDraft;
+  defaultCurrency?: string;
+};
+
+type ShopHoursWindowDraft = {
+  open: string;
+  close: string;
+};
+
+type ShopHoursDraft = {
+  timezone: string;
+  weekly: Partial<Record<Weekday, ShopHoursWindowDraft[]>>;
+};
+
+const toUiStatus = (status: ShopResponse['status']): ShopStatus =>
+  status === 'open' ? 'open' : 'closed';
+
+const mapShopToDraft = (shop: ShopResponse): ShopSettingsDraft => ({
+  status: toUiStatus(shop.status),
+  acceptingOrders: shop.acceptingOrders,
+  paymentPolicy: shop.paymentPolicy as PaymentPolicy,
+  orderAcceptanceMode: shop.orderAcceptanceMode as OrderAcceptanceMode,
+  allowGuestCheckout: shop.allowGuestCheckout,
+  fulfillmentOptions: {
+    pickupEnabled: shop.fulfillmentOptions.pickupEnabled,
+    deliveryEnabled: shop.fulfillmentOptions.deliveryEnabled,
+    deliveryRadiusKm: shop.fulfillmentOptions.deliveryRadiusKm ?? 0,
+    deliveryFee: shop.fulfillmentOptions.deliveryFee?.amount ?? 0,
+  },
+  defaultCurrency: shop.defaultCurrency ?? 'USD',
+});
+
+const buildFulfillmentPayload = (
+  options?: FulfillmentDraft,
+  currency = 'USD'
+) => {
+  if (!options) return undefined;
+  const pickupEnabled = Boolean(options.pickupEnabled);
+  const deliveryEnabled = Boolean(options.deliveryEnabled);
+  return {
+    pickupEnabled,
+    deliveryEnabled,
+    deliveryRadiusKm:
+      deliveryEnabled && typeof options.deliveryRadiusKm === 'number'
+        ? options.deliveryRadiusKm
+        : undefined,
+    deliveryFee:
+      deliveryEnabled && typeof options.deliveryFee === 'number'
+        ? {
+            amount: Number(options.deliveryFee),
+            currency,
+          }
+        : undefined,
+  };
+};
+
+const mapHoursToDraft = (hours: ShopHoursResponse | null): ShopHoursDraft => {
+  if (!hours) {
+    return { timezone: 'UTC', weekly: {} };
+  }
+  const weekly: ShopHoursDraft['weekly'] = {};
+  (Object.keys(hours.weekly) as Weekday[]).forEach((day) => {
+    const windows = hours.weekly[day];
+    if (windows && windows.length) {
+      weekly[day] = windows.map((window) => ({
+        open: window.opensAt,
+        close: window.closesAt,
+      }));
+    }
+  });
+  return {
+    timezone: hours.timezone,
+    weekly,
+  };
+};
+
+const buildHoursPayload = (draft: ShopHoursDraft): ShopHoursPayload => ({
+  timezone: draft.timezone,
+  weekly: Object.fromEntries(
+    (Object.keys(draft.weekly) as Weekday[]).map((day) => [
+      day,
+      draft.weekly[day]?.map((window) => ({
+        opensAt: window.open,
+        closesAt: window.close,
+      })),
+    ])
+  ),
+});
+
 const SettingsPage = () => {
   const { accounts } = useMsal();
   const ownerUserId =
@@ -47,73 +149,87 @@ const SettingsPage = () => {
     accounts[0]?.homeAccountId ||
     accounts[0]?.username ||
     '';
-  const shopsQueryArg = ownerUserId ? { userId: ownerUserId } : skipToken;
-  const { data: userShops, isLoading: isLoadingShops } =
-    useUsersGetShopsQuery(shopsQueryArg);
+  const {
+    data: managedShops,
+    isLoading: isLoadingShops,
+    isError: managedShopsError,
+  } = useListManagedShopsQuery(ownerUserId ?? '', {
+    skip: !ownerUserId,
+  });
   const [selectedShopId, setSelectedShopId] = useState<string | undefined>();
-
-  const shopDetailsQueryArg = selectedShopId ?? skipToken;
-  const { data: shopDetails } = useShopsGetByIdQuery(shopDetailsQueryArg);
-
-  const shopHoursQueryArg = selectedShopId
-    ? { shopId: selectedShopId }
-    : skipToken;
-  const { data: shopHours } = useShopHoursGetQuery(shopHoursQueryArg);
-
-  const [updateSettings, updateSettingsMeta] = useShopsUpdateMutation();
-  const [upsertHours, upsertHoursMeta] = useShopHoursUpsertMutation();
-
-  const [settingsDraft, setSettingsDraft] = useState<ShopSettingsUpdateRequest>(
-    {},
-  );
-  const [hoursDraft, setHoursDraft] = useState<UpsertShopHoursRequest>({
+  const [settingsDraft, setSettingsDraft] = useState<ShopSettingsDraft>({});
+  const [hoursDraft, setHoursDraft] = useState<ShopHoursDraft>({
     timezone: 'UTC',
     weekly: {},
   });
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [hoursSaving, setHoursSaving] = useState(false);
+  const [hoursError, setHoursError] = useState<string | null>(null);
+  const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
+  const [hoursSuccess, setHoursSuccess] = useState<string | null>(null);
+  const {
+    data: shopDetails,
+    error: shopDetailsError,
+  } = useGetShopQuery(selectedShopId ?? '', {
+    skip: !selectedShopId,
+  });
+  const {
+    data: shopHours,
+    isFetching: hoursQueryLoading,
+    error: shopHoursError,
+  } = useGetShopHoursQuery(selectedShopId ?? '', {
+    skip: !selectedShopId,
+  });
+  const [updateShopMutation] = useUpdateShopMutation();
+  const [upsertHoursMutation] = useUpsertShopHoursMutation();
 
   useEffect(() => {
-    if (!selectedShopId && userShops?.length) {
-      setSelectedShopId(userShops[0].shopId);
+    if (!selectedShopId && managedShops?.length) {
+      setSelectedShopId(managedShops[0].shopId);
+    } else if (
+      selectedShopId &&
+      managedShops &&
+      !managedShops.find((shop) => shop.shopId === selectedShopId)
+    ) {
+      setSelectedShopId(managedShops[0]?.shopId);
     }
-  }, [selectedShopId, userShops]);
+  }, [managedShops, selectedShopId]);
 
   useEffect(() => {
-    if (!shopDetails) return;
-    setSettingsDraft({
-      status: shopDetails.status,
-      acceptingOrders: shopDetails.acceptingOrders,
-      paymentPolicy: shopDetails.paymentPolicy,
-      orderAcceptanceMode: shopDetails.orderAcceptanceMode,
-      allowGuestCheckout: shopDetails.allowGuestCheckout,
-      fulfillmentOptions: { ...shopDetails.fulfillmentOptions },
-      isActive: shopDetails.isActive,
-    });
+    if (shopDetails) {
+      setSettingsDraft(mapShopToDraft(shopDetails));
+      setSettingsError(null);
+    }
   }, [shopDetails]);
 
   useEffect(() => {
-    if (shopHours && 'weekly' in shopHours) {
-      setHoursDraft({
-        timezone: shopHours.timezone,
-        weekly: { ...shopHours.weekly },
-      });
-    } else {
-      setHoursDraft({
-        timezone: 'UTC',
-        weekly: {},
-      });
+    if (selectedShopId) {
+      setHoursDraft(mapHoursToDraft(shopHours ?? null));
     }
-  }, [shopHours]);
+  }, [selectedShopId, shopHours]);
 
+  const hoursLoading = hoursQueryLoading;
+  const resolvedUserShops = managedShops ?? [];
+  const shopsError = managedShopsError ? 'Unable to load shops.' : null;
+  const settingsQueryError = shopDetailsError
+    ? 'Unable to load shop details.'
+    : null;
+  const hoursQueryErrorMessage = shopHoursError
+    ? 'Unable to load shop hours.'
+    : null;
   const selectedShopName = useMemo(() => {
-    return userShops?.find((shop) => shop.shopId === selectedShopId)?.name;
-  }, [selectedShopId, userShops]);
-
+    return resolvedUserShops.find((shop) => shop.shopId === selectedShopId)
+      ?.name;
+  }, [selectedShopId, resolvedUserShops]);
   const noShopsAvailable =
-    !isLoadingShops && (!userShops || userShops.length === 0);
+    !isLoadingShops && resolvedUserShops.length === 0;
+  const disableSettings = !selectedShopId || settingsSaving;
+  const disableHours = !selectedShopId || hoursSaving || hoursLoading;
 
-  const handleSettingsChange = <K extends keyof ShopSettingsUpdateRequest>(
+  const handleSettingsChange = <K extends keyof ShopSettingsDraft>(
     field: K,
-    value: ShopSettingsUpdateRequest[K],
+    value: ShopSettingsDraft[K],
   ) => {
     setSettingsDraft((prev) => ({
       ...prev,
@@ -122,7 +238,7 @@ const SettingsPage = () => {
   };
 
   const handleFulfillmentChange = (
-    field: keyof NonNullable<ShopSettingsUpdateRequest['fulfillmentOptions']>,
+    field: keyof FulfillmentDraft,
     value: boolean | number | undefined,
   ) => {
     setSettingsDraft((prev) => ({
@@ -168,12 +284,55 @@ const SettingsPage = () => {
 
   const handleSettingsSubmit = async () => {
     if (!selectedShopId) return;
-    await updateSettings({ shopId: selectedShopId, body: settingsDraft });
+    setSettingsSaving(true);
+    setSettingsError(null);
+    setSettingsSuccess(null);
+    try {
+      const payload = {
+        status: settingsDraft.status,
+        acceptingOrders: settingsDraft.acceptingOrders,
+        paymentPolicy: settingsDraft.paymentPolicy,
+        orderAcceptanceMode: settingsDraft.orderAcceptanceMode,
+        allowGuestCheckout: settingsDraft.allowGuestCheckout,
+        fulfillmentOptions: buildFulfillmentPayload(
+          settingsDraft.fulfillmentOptions,
+          settingsDraft.defaultCurrency ?? 'USD'
+        ),
+        defaultCurrency: settingsDraft.defaultCurrency,
+      };
+      await updateShopMutation({ shopId: selectedShopId, body: payload }).unwrap();
+      setSettingsSuccess('Settings saved.');
+    } catch (error) {
+      setSettingsError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to update shop settings.'
+      );
+    } finally {
+      setSettingsSaving(false);
+    }
   };
 
   const handleHoursSubmit = async () => {
     if (!selectedShopId) return;
-    await upsertHours({ shopId: selectedShopId, body: hoursDraft });
+    setHoursSaving(true);
+    setHoursError(null);
+    setHoursSuccess(null);
+    try {
+      await upsertHoursMutation({
+        shopId: selectedShopId,
+        body: buildHoursPayload(hoursDraft),
+      }).unwrap();
+      setHoursSuccess('Hours updated.');
+    } catch (error) {
+      setHoursError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to update shop hours.'
+      );
+    } finally {
+      setHoursSaving(false);
+    }
   };
 
   return (
@@ -203,12 +362,15 @@ const SettingsPage = () => {
                 : 'Select a shop'}
           </option>
           {!isLoadingShops &&
-            userShops?.map((shop) => (
+            resolvedUserShops.map((shop) => (
               <option key={shop.shopId} value={shop.shopId}>
                 {shop.name}
               </option>
             ))}
         </select>
+        {shopsError && (
+          <p className="text-sm text-red-600">{shopsError}</p>
+        )}
         {selectedShopName && (
           <p className="text-xs text-gray-500">
             Editing configuration for {selectedShopName}.
@@ -232,6 +394,7 @@ const SettingsPage = () => {
                 onChange={(event) =>
                   handleSettingsChange('status', event.target.value as ShopStatus)
                 }
+                disabled={disableSettings}
               >
                 <option value="" disabled>
                   Select status
@@ -258,9 +421,10 @@ const SettingsPage = () => {
                 onClick={() =>
                   handleSettingsChange('acceptingOrders', !settingsDraft.acceptingOrders)
                 }
+                disabled={disableSettings}
                 className={`inline-flex h-6 w-11 items-center rounded-full transition ${
                   settingsDraft.acceptingOrders ? 'bg-blue-600' : 'bg-gray-300'
-                }`}
+                } disabled:opacity-50`}
               >
                 <span
                   className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
@@ -280,6 +444,7 @@ const SettingsPage = () => {
                 onChange={(event) =>
                   handleSettingsChange('paymentPolicy', event.target.value as PaymentPolicy)
                 }
+                disabled={disableSettings}
               >
                 <option value="" disabled>
                   Select payment policy
@@ -305,6 +470,7 @@ const SettingsPage = () => {
                     event.target.value as OrderAcceptanceMode,
                   )
                 }
+                disabled={disableSettings}
               >
                 <option value="" disabled>
                   Select acceptance mode
@@ -334,9 +500,10 @@ const SettingsPage = () => {
                     !settingsDraft.allowGuestCheckout,
                   )
                 }
+                disabled={disableSettings}
                 className={`inline-flex h-6 w-11 items-center rounded-full transition ${
                   settingsDraft.allowGuestCheckout ? 'bg-blue-600' : 'bg-gray-300'
-                }`}
+                } disabled:opacity-50`}
               >
                 <span
                   className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
@@ -350,21 +517,20 @@ const SettingsPage = () => {
             <button
               type="button"
               onClick={handleSettingsSubmit}
-              disabled={updateSettingsMeta.isLoading || !selectedShopId}
+              disabled={disableSettings}
               className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md shadow-sm hover:bg-blue-700 disabled:opacity-60"
             >
-              {updateSettingsMeta.isLoading ? 'Saving…' : 'Save configuration'}
+              {settingsSaving ? 'Saving…' : 'Save configuration'}
             </button>
           </div>
-          {updateSettingsMeta.isError && (
-            <p className="text-sm text-red-600">
-              Failed to update settings. Please retry.
-            </p>
+          {settingsQueryError && (
+            <p className="text-sm text-red-600">{settingsQueryError}</p>
           )}
-          {updateSettingsMeta.isSuccess && (
-            <p className="text-sm text-green-600">
-              Settings updated successfully.
-            </p>
+          {settingsError && (
+            <p className="text-sm text-red-600">{settingsError}</p>
+          )}
+          {settingsSuccess && (
+            <p className="text-sm text-green-600">{settingsSuccess}</p>
           )}
         </div>
 
@@ -388,11 +554,12 @@ const SettingsPage = () => {
                     !settingsDraft.fulfillmentOptions?.pickupEnabled,
                   )
                 }
+                disabled={disableSettings}
                 className={`inline-flex h-6 w-11 items-center rounded-full transition ${
                   settingsDraft.fulfillmentOptions?.pickupEnabled
                     ? 'bg-blue-600'
                     : 'bg-gray-300'
-                }`}
+                } disabled:opacity-50`}
               >
                 <span
                   className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
@@ -418,11 +585,12 @@ const SettingsPage = () => {
                     !settingsDraft.fulfillmentOptions?.deliveryEnabled,
                   )
                 }
+                disabled={disableSettings}
                 className={`inline-flex h-6 w-11 items-center rounded-full transition ${
                   settingsDraft.fulfillmentOptions?.deliveryEnabled
                     ? 'bg-blue-600'
                     : 'bg-gray-300'
-                }`}
+                } disabled:opacity-50`}
               >
                 <span
                   className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
@@ -448,6 +616,10 @@ const SettingsPage = () => {
                     event.target.value ? Number(event.target.value) : undefined,
                   )
                 }
+                disabled={
+                  disableSettings ||
+                  !settingsDraft.fulfillmentOptions?.deliveryEnabled
+                }
               />
             </div>
             <div>
@@ -464,6 +636,10 @@ const SettingsPage = () => {
                     'deliveryFee',
                     event.target.value ? Number(event.target.value) : undefined,
                   )
+                }
+                disabled={
+                  disableSettings ||
+                  !settingsDraft.fulfillmentOptions?.deliveryEnabled
                 }
               />
             </div>
@@ -494,9 +670,13 @@ const SettingsPage = () => {
                   timezone: event.target.value,
                 }))
               }
+              disabled={disableHours}
             />
           </div>
         </div>
+        {hoursLoading && (
+          <p className="text-xs text-gray-500">Loading hours…</p>
+        )}
 
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {weekdays.map((day) => {
@@ -515,9 +695,10 @@ const SettingsPage = () => {
                   <button
                     type="button"
                     onClick={() => toggleDay(day.key)}
+                    disabled={disableHours}
                     className={`text-xs font-medium ${
                       configured ? 'text-blue-600' : 'text-gray-500'
-                    }`}
+                    } disabled:opacity-50`}
                   >
                     {configured ? 'Disable' : 'Enable'}
                   </button>
@@ -535,6 +716,7 @@ const SettingsPage = () => {
                         onChange={(event) =>
                           updateHoursWindow(day.key, 'open', event.target.value)
                         }
+                        disabled={disableHours}
                       />
                     </div>
                     <div>
@@ -548,6 +730,7 @@ const SettingsPage = () => {
                         onChange={(event) =>
                           updateHoursWindow(day.key, 'close', event.target.value)
                         }
+                        disabled={disableHours}
                       />
                     </div>
                   </div>
@@ -565,21 +748,20 @@ const SettingsPage = () => {
           <button
             type="button"
             onClick={handleHoursSubmit}
-            disabled={upsertHoursMeta.isLoading || !selectedShopId}
+            disabled={disableHours}
             className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md shadow-sm hover:bg-blue-700 disabled:opacity-60"
           >
-            {upsertHoursMeta.isLoading ? 'Saving…' : 'Save hours'}
+            {hoursSaving ? 'Saving…' : 'Save hours'}
           </button>
         </div>
-        {upsertHoursMeta.isError && (
-          <p className="text-sm text-red-600">
-            Failed to save hours. Please try again.
-          </p>
+        {hoursQueryErrorMessage && (
+          <p className="text-sm text-red-600">{hoursQueryErrorMessage}</p>
         )}
-        {upsertHoursMeta.isSuccess && (
-          <p className="text-sm text-green-600">
-            Opening hours updated successfully.
-          </p>
+        {hoursError && (
+          <p className="text-sm text-red-600">{hoursError}</p>
+        )}
+        {hoursSuccess && (
+          <p className="text-sm text-green-600">{hoursSuccess}</p>
         )}
       </div>
     </section>
