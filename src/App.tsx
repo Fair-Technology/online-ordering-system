@@ -15,6 +15,7 @@ const App: React.FC = () => {
         <Route element={<ProtectedRoute />}>
           <Route path="/owner/*" element={<OwnerDashboard />} />
         </Route>
+        <Route path="/shops/slug/:slug" element={<ShopView />} />
         <Route path="/:shopId" element={<ShopView />} />
         <Route path="/*" element={<NotFound />} />
       </Routes>

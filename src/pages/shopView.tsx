@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { groupProductsByCategory } from '../utils/groupProductsByCategory';
 import HeroSection from '../components/HeroSection';
@@ -12,6 +12,8 @@ import {
 } from '../services/api';
 import NavBar from '../components/NavBar';
 import { Product } from '../types/Product';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { setActiveShop } from '../store/slices/shopSlice';
 
 const toLegacyProduct = (product: ProductDto): Product => ({
   id: product.id,
@@ -49,14 +51,34 @@ const toLegacyProduct = (product: ProductDto): Product => ({
 });
 
 const ShopView = () => {
-  const { shopId: shopSlug } = useParams<{ shopId: string }>();
-  const { data: shopDataBySlug } = useShopsGetBySlugQuery(shopSlug ?? '', {
-    skip: !shopSlug,
+  const { shopId: routeShopId, slug } = useParams<{
+    shopId?: string;
+    slug?: string;
+  }>();
+  const dispatch = useAppDispatch();
+  const storedShopId = useAppSelector((state) => state.shop.activeShopId);
+
+  const { data: shopDataBySlug } = useShopsGetBySlugQuery(slug ?? '', {
+    skip: !slug,
   });
-  const shopId = shopDataBySlug?.id ?? '';
+  const resolvedShopId =
+    routeShopId ?? shopDataBySlug?.id ?? storedShopId ?? '';
+
+  useEffect(() => {
+    if (routeShopId) {
+      dispatch(setActiveShop({ shopId: routeShopId }));
+      return;
+    }
+
+    if (shopDataBySlug?.id) {
+      dispatch(
+        setActiveShop({ shopId: shopDataBySlug.id, slug: shopDataBySlug.slug })
+      );
+    }
+  }, [dispatch, routeShopId, shopDataBySlug]);
   // use RTK Query hook (skip when no shopId)
-  const { data: shopData } = useShopsMenuQuery(shopId ?? '', {
-    skip: !shopId,
+  const { data: shopData } = useShopsMenuQuery(resolvedShopId ?? '', {
+    skip: !resolvedShopId,
   });
 
   const normalizedProducts = useMemo<Product[]>(
