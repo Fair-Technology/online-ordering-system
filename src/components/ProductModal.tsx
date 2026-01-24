@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import Button from './Button';
 import TickCheckbox from './TickCheckbox';
-import { useAppDispatch } from '../store';
-import { addItem } from '../store/cartSlice';
+import { useAppDispatch } from '../store/hooks';
+import { addItem } from '../store/slices/cartSlice';
 
 type VariantOption = {
   id: string;

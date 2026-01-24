@@ -1,7 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { skipToken } from '@reduxjs/toolkit/query';
 import {
   ProductFormState,
   createDefaultProductFormState,
@@ -12,26 +11,94 @@ import {
   createId,
 } from '../../../components/products/productForm';
 import {
-  useListProductsQuery,
-  useCreateProductMutation,
-  useUpdateProductMutation,
-  useDeleteProductMutation,
-  useLazyGetProductQuery,
-} from '../../../store/api/productsApi';
-import {
-  useListCategoriesQuery,
-  useCreateCategoryMutation,
-} from '../../../store/api/categoriesApi';
-import { useListManagedShopsQuery } from '../../../store/api/usersApi';
-import type {
-  ProductResponse,
-  CreateProductRequest,
-} from '../../../store/api/backend-generated/apiClient';
+  useProductsListByShopQuery,
+  useProductsCreateMutation,
+  useProductsUpdateMutation,
+  useProductsDeleteMutation,
+  useCategoriesListQuery,
+  useCategoriesCreateMutation,
+  useUsersListManagedShopsQuery,
+  type ProductDto,
+  type ProductCreateInput,
+} from '../../../services/api';
 
-type ProductWorkspaceItem = ProductResponse;
-type ProductCreatePayload = CreateProductRequest;
+type Money = { amount: number; currency: string };
+type ProductWorkspaceItem = {
+  id: string;
+  label: string;
+  description?: string;
+  isAvailable: boolean;
+  price: number;
+  categories?: string[];
+  categoryDetails?: { id: string; name: string }[];
+  variantGroups: Array<{
+    id: string;
+    label: string;
+    options: Array<{
+      id: string;
+      label: string;
+      priceDelta: Money;
+      isAvailable: boolean;
+    }>;
+  }>;
+  addonGroups: Array<{
+    id: string;
+    label: string;
+    required?: boolean;
+    maxSelectable?: number;
+    options: Array<{
+      id: string;
+      label: string;
+      priceDelta: Money;
+      isAvailable: boolean;
+    }>;
+  }>;
+};
+type ProductCreatePayload = ProductCreateInput;
 
 type ProductWorkspaceView = 'products' | 'categories';
+
+const DEFAULT_CURRENCY = 'USD';
+
+const toLegacyMoney = (amount: number, currency = DEFAULT_CURRENCY): Money => ({
+  amount,
+  currency,
+});
+
+const toLegacyProduct = (product: ProductDto): ProductWorkspaceItem => ({
+  id: product.id,
+  label: product.label,
+  description: product.description,
+  isAvailable: product.isAvailable,
+  price: product.price,
+  categories: product.categories.map((category) => category.name),
+  categoryDetails: product.categories.map((category) => ({
+    id: category.id,
+    name: category.name,
+  })),
+  variantGroups: product.variantTypes.map((group) => ({
+    id: group.id,
+    label: group.label,
+    options: group.options.map((option) => ({
+      id: option.id,
+      label: option.label,
+      priceDelta: toLegacyMoney(option.priceDelta),
+      isAvailable: option.isAvailable,
+    })),
+  })),
+  addonGroups: product.addons.map((group) => ({
+    id: group.id,
+    label: group.label,
+    required: false,
+    maxSelectable: undefined,
+    options: group.options.map((option) => ({
+      id: option.id,
+      label: option.label,
+      priceDelta: toLegacyMoney(option.priceDelta),
+      isAvailable: option.isAvailable,
+    })),
+  })),
+});
 
 const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
   const navigate = useNavigate();
@@ -67,29 +134,26 @@ const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
   );
   const [isCategorySubmitting, setIsCategorySubmitting] = useState(false);
 
-  const shouldFetchProducts = Boolean(categoryShopId || ownerUserId);
-  const productsArgs = shouldFetchProducts
-    ? {
-        shopId: categoryShopId || undefined,
-        ownerUserId: ownerUserId || undefined,
-      }
-    : undefined;
+  const shouldFetchProducts = Boolean(categoryShopId);
   const {
-    data: products = [],
+    data: productsRaw = [],
     isLoading: productsLoading,
     error: productsError,
     refetch: refetchProducts,
-  } = useListProductsQuery(productsArgs ?? skipToken, {
+  } = useProductsListByShopQuery(categoryShopId ?? '', {
     skip: !shouldFetchProducts,
   });
-  const { data: managedShops = [] } = useListManagedShopsQuery(
+  const { data: managedShops = [] } = useUsersListManagedShopsQuery(
     ownerUserId ?? '',
     { skip: !ownerUserId }
   );
-  const [createProductMutation] = useCreateProductMutation();
-  const [updateProductMutation] = useUpdateProductMutation();
-  const [deleteProductMutation] = useDeleteProductMutation();
-  const [fetchProduct] = useLazyGetProductQuery();
+  const [createProductMutation] = useProductsCreateMutation();
+  const [updateProductMutation] = useProductsUpdateMutation();
+  const [deleteProductMutation] = useProductsDeleteMutation();
+  const products = useMemo(
+    () => productsRaw.map(toLegacyProduct),
+    [productsRaw]
+  );
   const productsErrorMessage = productsError
     ? 'Unable to load products.'
     : null;
@@ -220,10 +284,7 @@ const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
             .map((category) => category.name)
         )
       );
-      const resolvedShopId =
-        productFormMode === 'create'
-          ? categoryShopId
-          : editingProduct?.shopId ?? '';
+      const resolvedShopId = categoryShopId || shopContextId || '';
       if (!resolvedShopId) {
         throw new Error('Select a shop before saving this product.');
       }
@@ -286,7 +347,7 @@ const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
       } else if (editingProduct) {
         await updateProductMutation({
           productId: editingProduct.id,
-          body: payload,
+          productUpdateInput: payload,
         }).unwrap();
         productId = editingProduct.id;
       }
@@ -308,7 +369,11 @@ const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
 
   const onEditProduct = async (productId: string) => {
     try {
-      const product = await fetchProduct(productId).unwrap();
+      const product = products.find((item) => item.id === productId);
+      if (!product) {
+        alert('Unable to load product.');
+        return;
+      }
       setEditingProduct(product);
       setProductFormMode('edit');
       const mappedCategoryIds =
@@ -347,7 +412,7 @@ const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
           ? product.addonGroups.map((group) => ({
               id: group.id,
               name: group.label,
-              required: group.required,
+              required: group.required ?? false,
               maxSelectable: group.maxSelectable,
               options: group.options.map((option) => ({
                 id: option.id,
@@ -411,8 +476,8 @@ const ProductWorkspace = ({ view }: { view: ProductWorkspaceView }) => {
     isLoading: categoriesLoading,
     error: categoriesError,
     refetch: refetchCategories,
-  } = useListCategoriesQuery();
-  const [createCategoryMutation] = useCreateCategoryMutation();
+  } = useCategoriesListQuery();
+  const [createCategoryMutation] = useCategoriesCreateMutation();
   const categoriesErrorMessage = categoriesError
     ? 'Unable to load categories.'
     : null;

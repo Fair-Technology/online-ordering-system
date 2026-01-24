@@ -1,22 +1,27 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  useListShopsQuery,
-  useGetShopQuery,
-  useGetShopHoursQuery,
-  useListShopMembersQuery,
-  useGetShopMenuQuery,
-  useUpdateShopMutation,
-  useUpsertShopHoursMutation,
-  useCreateShopMemberMutation,
-  useUpdateShopMemberMutation,
-} from '../../../store/api/shopsApi';
-import type {
-  Shop,
-  ShopHours,
-  ShopMember,
-} from '../../../store/api/backend-generated/apiClient';
+  useShopsListQuery,
+  useShopsGetQuery,
+  useShopHoursListQuery,
+  useShopMembersListQuery,
+  useShopsMenuQuery,
+  useShopsUpdateMutation,
+  useShopHoursCreateMutation,
+  useShopHoursUpdateMutation,
+  useShopMembersCreateMutation,
+  useShopMembersUpdateMutation,
+  type Shop,
+  type ShopHours,
+  type ShopMember,
+  type ShopHoursPayload,
+  type ShopInput,
+  type ShopMemberInviteInput,
+  type ShopMemberUpdateInput,
+  type ShopUpdateInput,
+} from '../../../services/api';
 
-type FulfillmentOptions = NonNullable<Shop['fulfillmentOptions']>;
+type FulfillmentOptions = NonNullable<ShopInput['fulfillmentOptions']>;
+type ShopDetailsResponse = Shop & Partial<ShopInput>;
 
 const weekdays: Array<keyof ShopHours['weekly']> = [
   'monday',
@@ -39,26 +44,27 @@ const AssociationsModule = () => {
     data: shops = [],
     isLoading: shopsLoading,
     error: shopsError,
-  } = useListShopsQuery();
+  } = useShopsListQuery();
   const [selectedShopId, setSelectedShopId] = useState('');
   const {
     data: shopDetails,
     isLoading: shopDetailsLoading,
     error: shopDetailsError,
     refetch: refetchShopDetails,
-  } = useGetShopQuery(selectedShopId ?? '', { skip: !selectedShopId });
+  } = useShopsGetQuery(selectedShopId ?? '', { skip: !selectedShopId });
   const {
-    data: shopHours,
+    data: shopHoursList,
     isLoading: shopHoursLoading,
     error: shopHoursError,
     refetch: refetchShopHours,
-  } = useGetShopHoursQuery(selectedShopId ?? '', { skip: !selectedShopId });
+  } = useShopHoursListQuery(selectedShopId ?? '', { skip: !selectedShopId });
+  const existingShopHours = shopHoursList?.[0] ?? null;
   const {
     data: members = [],
     isLoading: membersLoading,
     error: membersError,
     refetch: refetchMembers,
-  } = useListShopMembersQuery(selectedShopId ?? '', {
+  } = useShopMembersListQuery(selectedShopId ?? '', {
     skip: !selectedShopId,
   });
   const {
@@ -66,8 +72,9 @@ const AssociationsModule = () => {
     isLoading: menuLoading,
     error: menuError,
     refetch: refetchMenu,
-  } = useGetShopMenuQuery(selectedShopId ?? '', { skip: !selectedShopId });
+  } = useShopsMenuQuery(selectedShopId ?? '', { skip: !selectedShopId });
   const menu = menuData ?? null;
+  const shopDetailsResponse = shopDetails as ShopDetailsResponse | null;
   const [detailsSubmitting, setDetailsSubmitting] = useState(false);
   const [hoursSubmitting, setHoursSubmitting] = useState(false);
   const [inviteForm, setInviteForm] = useState({
@@ -78,10 +85,11 @@ const AssociationsModule = () => {
   const [membershipsSubmitting, setMembershipsSubmitting] = useState<
     Record<string, boolean>
   >({});
-  const [updateShop] = useUpdateShopMutation();
-  const [upsertShopHours] = useUpsertShopHoursMutation();
-  const [createShopMember] = useCreateShopMemberMutation();
-  const [updateShopMember] = useUpdateShopMemberMutation();
+  const [updateShop] = useShopsUpdateMutation();
+  const [createShopHours] = useShopHoursCreateMutation();
+  const [updateShopHours] = useShopHoursUpdateMutation();
+  const [createShopMember] = useShopMembersCreateMutation();
+  const [updateShopMember] = useShopMembersUpdateMutation();
 
   const extractErrorMessage = (err: unknown) => {
     if (!err) return null;
@@ -126,20 +134,19 @@ const AssociationsModule = () => {
     }
   }, [shops, selectedShopId]);
 
-  const fulfillmentForm = useMemo<FulfillmentOptions>(() => {
-    return (
-      shopDetails?.fulfillmentOptions ?? {
-        pickupEnabled: true,
-        deliveryEnabled: false,
-        deliveryRadiusKm: 0,
-        deliveryFee: { amount: 0, currency: 'USD' },
-        leadTimeMinutes: 15,
-      }
-    );
-  }, [shopDetails]);
+  const fulfillmentForm = useMemo<FulfillmentOptions>(() => ({
+    pickupEnabled: shopDetails?.fulfillment?.pickupEnabled ?? true,
+    deliveryEnabled: shopDetails?.fulfillment?.deliveryEnabled ?? false,
+    deliveryRadiusKm: shopDetails?.fulfillment?.deliveryRadiusKm,
+    deliveryFee:
+      typeof shopDetails?.fulfillment?.deliveryFee === 'number'
+        ? { amount: shopDetails.fulfillment.deliveryFee, currency: 'USD' }
+        : undefined,
+    leadTimeMinutes: undefined,
+  }), [shopDetails]);
 
   const hoursDraft = useMemo(() => {
-    if (!shopHours) {
+    if (!existingShopHours) {
       return {
         timezone: 'UTC',
         weekly: weekdays.reduce((acc, day) => {
@@ -148,29 +155,34 @@ const AssociationsModule = () => {
         }, {} as ShopHours['weekly']),
       };
     }
-    return shopHours;
-  }, [shopHours]);
+    return existingShopHours;
+  }, [existingShopHours]);
 
   const handleDetailsSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedShopId || !shopDetails) return;
     const formData = new FormData(event.currentTarget);
-    const payload = {
+    const payload: ShopUpdateInput = {
       name: formData.get('name') as string,
       legalName: formData.get('legalName') as string,
       address: formData.get('address') as string,
       timezone: formData.get('timezone') as string,
       status: formData.get('status') as Shop['status'],
       acceptingOrders: formData.get('acceptingOrders') === 'on',
-      paymentPolicy: formData.get('paymentPolicy') as Shop['paymentPolicy'],
+      paymentPolicy: formData.get(
+        'paymentPolicy'
+      ) as ShopInput['paymentPolicy'],
       orderAcceptanceMode: formData.get(
         'orderAcceptanceMode'
-      ) as Shop['orderAcceptanceMode'],
+      ) as ShopInput['orderAcceptanceMode'],
       allowGuestCheckout: formData.get('allowGuestCheckout') === 'on',
     };
     setDetailsSubmitting(true);
     try {
-      await updateShop({ shopId: selectedShopId, body: payload }).unwrap();
+      await updateShop({
+        shopId: selectedShopId,
+        shopUpdateInput: payload,
+      }).unwrap();
       await refreshShopContext();
     } catch (error) {
       alert(
@@ -187,7 +199,7 @@ const AssociationsModule = () => {
     event.preventDefault();
     if (!selectedShopId) return;
     const formData = new FormData(event.currentTarget);
-    const payload = {
+    const payload: ShopUpdateInput = {
       fulfillmentOptions: {
         pickupEnabled: formData.get('pickupEnabled') === 'on',
         deliveryEnabled: formData.get('deliveryEnabled') === 'on',
@@ -204,7 +216,10 @@ const AssociationsModule = () => {
     };
     setDetailsSubmitting(true);
     try {
-      await updateShop({ shopId: selectedShopId, body: payload }).unwrap();
+      await updateShop({
+        shopId: selectedShopId,
+        shopUpdateInput: payload,
+      }).unwrap();
       await refreshShopContext();
     } catch (error) {
       alert(
@@ -233,12 +248,21 @@ const AssociationsModule = () => {
         },
       ];
     });
+    const payload: ShopHoursPayload = {
+      shopId: selectedShopId,
+      timezone,
+      weekly,
+    };
     setHoursSubmitting(true);
     try {
-      await upsertShopHours({
-        shopId: selectedShopId,
-        body: { timezone, weekly },
-      }).unwrap();
+      if (existingShopHours?.id) {
+        await updateShopHours({
+          recordId: existingShopHours.id,
+          shopHoursPayload: payload,
+        }).unwrap();
+      } else {
+        await createShopHours(payload).unwrap();
+      }
       await refreshShopContext();
     } catch (error) {
       alert(
@@ -258,13 +282,14 @@ const AssociationsModule = () => {
     if (!selectedShopId) return;
     setMembershipsSubmitting((prev) => ({ ...prev, [member.id]: true }));
     try {
+      const shopMemberUpdateInput: ShopMemberUpdateInput = {
+        role: updates.role ?? member.role,
+        isActive: updates.isActive ?? member.isActive,
+      };
       await updateShopMember({
         shopId: selectedShopId,
         memberId: member.id,
-        body: {
-          role: updates.role ?? member.role,
-          isActive: updates.isActive ?? member.isActive,
-        },
+        shopMemberUpdateInput,
       }).unwrap();
       await refreshShopContext();
     } catch (error) {
@@ -283,12 +308,13 @@ const AssociationsModule = () => {
     if (!selectedShopId || !inviteForm.userId) return;
     setInviteSubmitting(true);
     try {
+      const shopMemberInviteInput: ShopMemberInviteInput = {
+        userId: inviteForm.userId,
+        role: inviteForm.role,
+      };
       await createShopMember({
         shopId: selectedShopId,
-        body: {
-          userId: inviteForm.userId,
-          role: inviteForm.role,
-        },
+        shopMemberInviteInput,
       }).unwrap();
       await refreshShopContext();
       setInviteForm({ userId: '', role: 'manager' });
@@ -358,7 +384,7 @@ const AssociationsModule = () => {
                   </label>
                   <input
                     name="legalName"
-                    defaultValue={shopDetails?.legalName}
+                    defaultValue={shopDetailsResponse?.legalName}
                     className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
                   />
                 </div>
@@ -408,7 +434,7 @@ const AssociationsModule = () => {
                     </label>
                     <select
                       name="paymentPolicy"
-                      defaultValue={shopDetails?.paymentPolicy}
+                      defaultValue={shopDetailsResponse?.paymentPolicy}
                       className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
                     >
                       <option value="pay_on_pickup">Pay on pickup</option>
@@ -421,7 +447,7 @@ const AssociationsModule = () => {
                     </label>
                     <select
                       name="orderAcceptanceMode"
-                      defaultValue={shopDetails?.orderAcceptanceMode}
+                      defaultValue={shopDetailsResponse?.orderAcceptanceMode}
                       className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
                     >
                       <option value="auto">Automatic</option>
@@ -441,7 +467,7 @@ const AssociationsModule = () => {
                   <input
                     type="checkbox"
                     name="allowGuestCheckout"
-                    defaultChecked={shopDetails?.allowGuestCheckout}
+                    defaultChecked={shopDetailsResponse?.allowGuestCheckout}
                   />
                   Allow guest checkout
                 </label>
@@ -718,15 +744,11 @@ const AssociationsModule = () => {
             {menu ? (
               <div className="grid gap-6 md:grid-cols-2">
                 {menu.categories.map((category) => {
-                  const productsInCategory = menu.products.filter((product) => {
-                    const matchesById =
-                      product.categoryDetails?.some(
-                        (detail) => detail.id === category.id
-                      ) ?? false;
-                    const matchesByName =
-                      product.categories?.includes(category.name) ?? false;
-                    return matchesById || matchesByName;
-                  });
+                  const productsInCategory = menu.products.filter((product) =>
+                    product.categories.some(
+                      (categoryRef) => categoryRef.id === category.id
+                    )
+                  );
                   return (
                     <div key={category.id} className="rounded-xl border border-gray-100 p-4">
                       <p className="text-sm font-medium text-gray-900">

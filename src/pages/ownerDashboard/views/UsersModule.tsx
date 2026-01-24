@@ -1,10 +1,10 @@
 import { FormEvent, useEffect, useState } from 'react';
 import {
-  useListUsersQuery,
-  useCreateUserMutation,
-  useDeleteUserMutation,
-  useListManagedShopsQuery,
-} from '../../../store/api/usersApi';
+  useUsersListQuery,
+  useUsersCreateMutation,
+  useUsersDeleteMutation,
+  useUsersListManagedShopsQuery,
+} from '../../../services/api';
 
 const UsersModule = () => {
   const {
@@ -12,15 +12,15 @@ const UsersModule = () => {
     isLoading: usersLoading,
     isError: usersError,
     refetch: refetchUsers,
-  } = useListUsersQuery();
+  } = useUsersListQuery();
   const [createUser, { isLoading: createSubmitting }] =
-    useCreateUserMutation();
-  const [deleteUser] = useDeleteUserMutation();
+    useUsersCreateMutation();
+  const [deleteUser] = useUsersDeleteMutation();
   const [selectedUserId, setSelectedUserId] = useState('');
   const {
     data: managedShopsData,
     isLoading: managedLoading,
-  } = useListManagedShopsQuery(selectedUserId, {
+  } = useUsersListManagedShopsQuery(selectedUserId, {
     skip: !selectedUserId,
   });
   const managedShops = managedShopsData ?? [];

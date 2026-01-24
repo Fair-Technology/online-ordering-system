@@ -3,7 +3,7 @@ import type {
   AccountInfo,
 } from '@azure/msal-browser';
 import { AppDispatch } from '../store';
-import { setAccessToken } from '../store/authSlice';
+import { setAccessToken } from '../store/slices/authSlice';
 import { apiScopes } from '../config/authConfig';
 
 export async function syncAccessTokenFromMsal(

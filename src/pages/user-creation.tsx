@@ -2,10 +2,7 @@ import { InteractionStatus } from '@azure/msal-browser';
 import { useMsal } from '@azure/msal-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  useCreateUserMutation,
-  useListUsersQuery,
-} from '../store/api/usersApi';
+import { useUsersCreateMutation, useUsersListQuery } from '../services/api';
 
 const UserCreation = () => {
   const { accounts, inProgress } = useMsal();
@@ -30,10 +27,11 @@ const UserCreation = () => {
     data: users = [],
     isLoading: isUsersLoading,
     isError: isUsersError,
-  } = useListUsersQuery(undefined, {
+  } = useUsersListQuery(undefined, {
     skip: !shouldQuery,
   });
-  const [createUser, { isLoading: isCreatingUser }] = useCreateUserMutation();
+  const [createUser, { isLoading: isCreatingUser }] =
+    useUsersCreateMutation();
 
   useEffect(() => {
     if (hasNavigatedRef.current || isMsalLoading) {

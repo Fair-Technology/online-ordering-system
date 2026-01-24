@@ -17,20 +17,19 @@ import {
   type PaymentPolicy,
   type ShopStatus,
 } from '../../../types/apiTypes';
-import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { syncAccessTokenFromMsal } from '../../../auth/syncAccessToken';
 import {
-  type ShopResponse,
-  useCreateShopMutation,
-  useDeleteShopMutation,
-  useLazyGetShopQuery,
-  useListShopsQuery,
-  useUpdateShopMutation,
-} from '../../../store/api/shopsApi';
-import {
-  type ManagedShopSummary,
-  useListManagedShopsQuery,
-} from '../../../store/api/usersApi';
+  useShopsCreateMutation,
+  useShopsDeleteMutation,
+  useShopsGetQuery,
+  useShopsListQuery,
+  useShopsUpdateMutation,
+  useUsersListManagedShopsQuery,
+  type ManagedShopView,
+  type Shop,
+  type ShopInput,
+} from '../../../services/api';
+import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 
 type FormFulfillmentOptions = {
   pickupEnabled: boolean;
@@ -52,8 +51,10 @@ type ShopFormState = {
   defaultCurrency: string;
 };
 
+type ShopResponse = Shop & Partial<ShopInput>;
+
 type ManagedShopDetail = ShopResponse & {
-  membershipRole: ManagedShopSummary['role'];
+  membershipRole: ManagedShopView['role'];
 };
 
 const statusStyles: Record<string, string> = {
@@ -135,25 +136,43 @@ const toUiStatus = (status: ShopResponse['status']): ShopStatus =>
 
 const mapSummaryToForm = (summary: ShopResponse): ShopFormState => ({
   name: summary.name,
-  slug: summary.slug,
+  slug:
+    typeof (summary as Partial<ShopInput>).slug === 'string'
+      ? ((summary as Partial<ShopInput>).slug ?? '')
+      : '',
   address: summary.address ?? '',
   status: toUiStatus(summary.status),
   acceptingOrders: summary.acceptingOrders,
-  paymentPolicy: summary.paymentPolicy as PaymentPolicy,
-  orderAcceptanceMode: summary.orderAcceptanceMode as OrderAcceptanceMode,
-  allowGuestCheckout: summary.allowGuestCheckout,
+  paymentPolicy:
+    (summary as Partial<ShopInput>).paymentPolicy ?? 'pay_on_pickup',
+  orderAcceptanceMode:
+    (summary as Partial<ShopInput>).orderAcceptanceMode ?? 'auto',
+  allowGuestCheckout:
+    (summary as Partial<ShopInput>).allowGuestCheckout ?? true,
   fulfillmentOptions: {
-    pickupEnabled: summary.fulfillmentOptions.pickupEnabled,
-    deliveryEnabled: summary.fulfillmentOptions.deliveryEnabled,
-    deliveryRadiusKm: summary.fulfillmentOptions.deliveryRadiusKm ?? 0,
-    deliveryFee: summary.fulfillmentOptions.deliveryFee?.amount ?? 0,
+    pickupEnabled:
+      summary.fulfillment?.pickupEnabled ??
+      (summary as Partial<ShopInput>).fulfillmentOptions?.pickupEnabled ??
+      true,
+    deliveryEnabled:
+      summary.fulfillment?.deliveryEnabled ??
+      (summary as Partial<ShopInput>).fulfillmentOptions?.deliveryEnabled ??
+      false,
+    deliveryRadiusKm:
+      summary.fulfillment?.deliveryRadiusKm ??
+      (summary as Partial<ShopInput>).fulfillmentOptions?.deliveryRadiusKm ??
+      0,
+    deliveryFee:
+      summary.fulfillment?.deliveryFee ??
+      (summary as Partial<ShopInput>).fulfillmentOptions?.deliveryFee?.amount ??
+      0,
   },
-  defaultCurrency: summary.defaultCurrency ?? 'USD',
+  defaultCurrency: (summary as Partial<ShopInput>).defaultCurrency ?? 'USD',
 });
 
 const buildFulfillmentPayload = (
   options: FormFulfillmentOptions,
-  currency: string
+  currency: string,
 ) => ({
   pickupEnabled: options.pickupEnabled,
   deliveryEnabled: options.deliveryEnabled,
@@ -186,7 +205,7 @@ const ShopsPage = () => {
     isLoading: isShopsLoading,
     isError: isShopsError,
     refetch: refetchShops,
-  } = useListShopsQuery(undefined, {
+  } = useShopsListQuery(undefined, {
     skip: !accessToken,
   });
   const skipManagedQuery = !ownerUserId || !accessToken;
@@ -195,16 +214,15 @@ const ShopsPage = () => {
     isLoading: isManagedLoading,
     isError: managedShopsError,
     refetch: refetchManagedShops,
-  } = useListManagedShopsQuery(ownerUserId ?? '', {
+  } = useUsersListManagedShopsQuery(ownerUserId ?? '', {
     skip: skipManagedQuery,
   });
-  const [fetchShop] = useLazyGetShopQuery();
   const [createShopMutation, { isLoading: isCreating }] =
-    useCreateShopMutation();
+    useShopsCreateMutation();
   const [updateShopMutation, { isLoading: isUpdating }] =
-    useUpdateShopMutation();
+    useShopsUpdateMutation();
   const [deleteShopMutation, { isLoading: isDeleting }] =
-    useDeleteShopMutation();
+    useShopsDeleteMutation();
 
   const refreshManagedShops = useCallback(async () => {
     const tasks: Promise<unknown>[] = [refetchShops()];
@@ -230,16 +248,7 @@ const ShopsPage = () => {
     });
   }, [instance, dispatch]);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [creationError, setCreationError] = useState<string | null>(null);
-  const [newShop, setNewShop] = useState<ShopFormState>(
-    createDefaultShopForm()
-  );
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-
   const [editingShopId, setEditingShopId] = useState<string | null>(null);
-  const [editingShopDetails, setEditingShopDetails] =
-    useState<ShopResponse | null>(null);
   const [editForm, setEditForm] = useState<ShopFormState | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -249,32 +258,27 @@ const ShopsPage = () => {
   const [deleteStep, setDeleteStep] = useState(1);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  const [searchTerm, setSearchTerm] = useState('');
+  const [creationError, setCreationError] = useState<string | null>(null);
+  const [newShop, setNewShop] = useState<ShopFormState>(
+    createDefaultShopForm(),
+  );
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  const { data: editingShopDetails, error: editingShopError } =
+    useShopsGetQuery(editingShopId ?? '', {
+      skip: !editingShopId,
+    });
+
   useEffect(() => {
     if (!editingShopId) {
-      setEditingShopDetails(null);
+      setEditError(null);
       return;
     }
-    let cancelled = false;
-    setEditError(null);
-    fetchShop(editingShopId)
-      .unwrap()
-      .then((shop) => {
-        if (!cancelled) {
-          setEditingShopDetails(shop);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          console.error('Unable to load shop details', error);
-          setEditError(
-            error instanceof Error ? error.message : 'Unable to load shop.'
-          );
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [editingShopId, fetchShop]);
+    if (editingShopError) {
+      setEditError('Unable to load shop.');
+    }
+  }, [editingShopError, editingShopId]);
 
   useEffect(() => {
     if (editingShopDetails) {
@@ -285,7 +289,7 @@ const ShopsPage = () => {
   }, [editingShopDetails]);
 
   const applyEditFormUpdate: Dispatch<SetStateAction<ShopFormState>> = (
-    update
+    update,
   ) => {
     setEditForm((prev) => {
       if (!prev) return prev;
@@ -296,16 +300,16 @@ const ShopsPage = () => {
   };
 
   const resolvedShops = useMemo<ManagedShopDetail[]>(() => {
-    const roleMap = new Map<string, ManagedShopSummary['role']>(
+    const roleMap = new Map<string, ManagedShopView['role']>(
       (managedMemberships ?? []).map((membership) => [
         membership.shopId,
         membership.role,
-      ])
+      ]),
     );
     return shopsList.map((shop) => ({
       ...shop,
       membershipRole:
-        roleMap.get(shop.id) ?? ('viewer' as ManagedShopSummary['role']),
+        roleMap.get(shop.id) ?? ('viewer' as ManagedShopView['role']),
     }));
   }, [managedMemberships, shopsList]);
   const filteredShops = useMemo(() => {
@@ -315,7 +319,7 @@ const ShopsPage = () => {
     return resolvedShops.filter(
       (shop) =>
         shop?.name?.toLowerCase().includes(lower) ||
-        shop.address?.toLowerCase().includes(lower)
+        shop.address?.toLowerCase().includes(lower),
     );
   }, [resolvedShops, searchTerm]);
 
@@ -388,7 +392,7 @@ const ShopsPage = () => {
         allowGuestCheckout: newShop.allowGuestCheckout,
         fulfillmentOptions: buildFulfillmentPayload(
           newShop.fulfillmentOptions,
-          newShop.defaultCurrency
+          newShop.defaultCurrency,
         ),
         defaultCurrency: newShop.defaultCurrency,
       };
@@ -399,7 +403,7 @@ const ShopsPage = () => {
       setCreationError(
         error instanceof Error
           ? error.message
-          : 'Unable to create shop. Please try again.'
+          : 'Unable to create shop. Please try again.',
       );
     }
   };
@@ -424,11 +428,14 @@ const ShopsPage = () => {
         allowGuestCheckout: editForm.allowGuestCheckout,
         fulfillmentOptions: buildFulfillmentPayload(
           editForm.fulfillmentOptions,
-          editForm.defaultCurrency
+          editForm.defaultCurrency,
         ),
         defaultCurrency: editForm.defaultCurrency,
       };
-      await updateShopMutation({ shopId: editingShopId, body: payload }).unwrap();
+      await updateShopMutation({
+        shopId: editingShopId,
+        shopUpdateInput: payload,
+      }).unwrap();
       setEditSuccess('Shop updated successfully.');
       await refreshManagedShops();
       closeEditModal();
@@ -436,7 +443,7 @@ const ShopsPage = () => {
       setEditError(
         error instanceof Error
           ? error.message
-          : 'Unable to update shop. Please try again.'
+          : 'Unable to update shop. Please try again.',
       );
     }
   };
@@ -444,7 +451,7 @@ const ShopsPage = () => {
   const handleFulfillmentChange = (
     setter: Dispatch<SetStateAction<ShopFormState>>,
     field: keyof FormFulfillmentOptions,
-    value: boolean | number
+    value: boolean | number,
   ) => {
     setter((prev) => ({
       ...prev,
@@ -471,7 +478,7 @@ const ShopsPage = () => {
       setDeleteError(
         error instanceof Error
           ? error.message
-          : 'Unable to delete shop. Please try again.'
+          : 'Unable to delete shop. Please try again.',
       );
     }
   };
@@ -479,7 +486,7 @@ const ShopsPage = () => {
   const renderBasicInfoFields = (
     form: ShopFormState,
     setForm: Dispatch<SetStateAction<ShopFormState>>,
-    disabled?: boolean
+    disabled?: boolean,
   ) => (
     <div className="grid gap-4">
       <div>
@@ -546,7 +553,7 @@ const ShopsPage = () => {
   const renderOperationalFields = (
     form: ShopFormState,
     setForm: Dispatch<SetStateAction<ShopFormState>>,
-    disabled?: boolean
+    disabled?: boolean,
   ) => (
     <div className="grid gap-4 md:grid-cols-2">
       <div>
@@ -640,7 +647,7 @@ const ShopsPage = () => {
   const renderFulfillmentFields = (
     form: ShopFormState,
     setForm: Dispatch<SetStateAction<ShopFormState>>,
-    disabled?: boolean
+    disabled?: boolean,
   ) => (
     <div className="space-y-4">
       <label className="flex items-center gap-2 text-sm text-gray-700">
@@ -667,7 +674,7 @@ const ShopsPage = () => {
             handleFulfillmentChange(
               setForm,
               'pickupEnabled',
-              event.target.checked
+              event.target.checked,
             )
           }
           disabled={disabled}
@@ -684,7 +691,7 @@ const ShopsPage = () => {
               handleFulfillmentChange(
                 setForm,
                 'deliveryEnabled',
-                event.target.checked
+                event.target.checked,
               )
             }
             disabled={disabled}
@@ -706,7 +713,7 @@ const ShopsPage = () => {
                   handleFulfillmentChange(
                     setForm,
                     'deliveryRadiusKm',
-                    Number(event.target.value)
+                    Number(event.target.value),
                   )
                 }
                 disabled={disabled}
@@ -727,7 +734,7 @@ const ShopsPage = () => {
                   handleFulfillmentChange(
                     setForm,
                     'deliveryFee',
-                    Number(event.target.value)
+                    Number(event.target.value),
                   )
                 }
                 disabled={disabled}
@@ -799,7 +806,7 @@ const ShopsPage = () => {
       <div className="grid gap-6 md:grid-cols-3">
         {SHOP_STATUSES.map((status) => {
           const count = resolvedShops.filter(
-            (shop) => toUiStatus(shop.status) === status
+            (shop) => toUiStatus(shop.status) === status,
           ).length;
           return (
             <div
@@ -837,18 +844,23 @@ const ShopsPage = () => {
             )}
             {aggregateError && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-sm text-red-600">
+                <td
+                  colSpan={6}
+                  className="px-4 py-6 text-center text-sm text-red-600"
+                >
                   {aggregateError}
                 </td>
               </tr>
             )}
-            {!aggregateLoading && !aggregateError && filteredShops.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-sm">
-                  No shops match the current filter.
-                </td>
-              </tr>
-            )}
+            {!aggregateLoading &&
+              !aggregateError &&
+              filteredShops.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-center text-sm">
+                    No shops match the current filter.
+                  </td>
+                </tr>
+              )}
             {!aggregateLoading &&
               !aggregateError &&
               filteredShops.map((shop) => (
@@ -874,7 +886,7 @@ const ShopsPage = () => {
                     </div>
                   </td>
                   <td className="px-4 py-4">
-                  <ShopStatusBadge status={toUiStatus(shop.status)} />
+                    <ShopStatusBadge status={toUiStatus(shop.status)} />
                   </td>
                   <td className="px-4 py-4">
                     <span
@@ -1034,8 +1046,8 @@ const ShopsPage = () => {
                 {deleteStep === 1
                   ? 'Yes, continue'
                   : isDeleting
-                  ? 'Deleting…'
-                  : 'Yes, delete shop'}
+                    ? 'Deleting…'
+                    : 'Yes, delete shop'}
               </button>
             </div>
           </div>

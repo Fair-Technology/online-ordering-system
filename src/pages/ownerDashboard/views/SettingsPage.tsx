@@ -9,15 +9,17 @@ import {
   type ShopStatus,
 } from '../../../types/apiTypes';
 import {
-  useGetShopQuery,
-  useGetShopHoursQuery,
-  useUpdateShopMutation,
-  useUpsertShopHoursMutation,
-  type ShopResponse,
-  type ShopHoursResponse,
-} from '../../../store/api/shopsApi';
-import { useListManagedShopsQuery } from '../../../store/api/usersApi';
-import type { ShopHoursPayload } from '../../../store/api/backend-generated/apiClient';
+  useShopsGetQuery,
+  useShopHoursCreateMutation,
+  useShopHoursListQuery,
+  useShopHoursUpdateMutation,
+  useShopsUpdateMutation,
+  useUsersListManagedShopsQuery,
+  type Shop,
+  type ShopHours,
+  type ShopHoursPayload,
+  type ShopInput,
+} from '../../../services/api';
 
 type Weekday =
   | 'monday'
@@ -67,22 +69,38 @@ type ShopHoursDraft = {
   weekly: Partial<Record<Weekday, ShopHoursWindowDraft[]>>;
 };
 
+type ShopResponse = Shop & Partial<ShopInput>;
+
 const toUiStatus = (status: ShopResponse['status']): ShopStatus =>
   status === 'open' ? 'open' : 'closed';
 
 const mapShopToDraft = (shop: ShopResponse): ShopSettingsDraft => ({
   status: toUiStatus(shop.status),
   acceptingOrders: shop.acceptingOrders,
-  paymentPolicy: shop.paymentPolicy as PaymentPolicy,
-  orderAcceptanceMode: shop.orderAcceptanceMode as OrderAcceptanceMode,
-  allowGuestCheckout: shop.allowGuestCheckout,
+  paymentPolicy:
+    (shop as Partial<ShopInput>).paymentPolicy ?? 'pay_on_pickup',
+  orderAcceptanceMode:
+    (shop as Partial<ShopInput>).orderAcceptanceMode ?? 'auto',
+  allowGuestCheckout: (shop as Partial<ShopInput>).allowGuestCheckout ?? true,
   fulfillmentOptions: {
-    pickupEnabled: shop.fulfillmentOptions.pickupEnabled,
-    deliveryEnabled: shop.fulfillmentOptions.deliveryEnabled,
-    deliveryRadiusKm: shop.fulfillmentOptions.deliveryRadiusKm ?? 0,
-    deliveryFee: shop.fulfillmentOptions.deliveryFee?.amount ?? 0,
+    pickupEnabled:
+      shop.fulfillment?.pickupEnabled ??
+      (shop as Partial<ShopInput>).fulfillmentOptions?.pickupEnabled ??
+      true,
+    deliveryEnabled:
+      shop.fulfillment?.deliveryEnabled ??
+      (shop as Partial<ShopInput>).fulfillmentOptions?.deliveryEnabled ??
+      false,
+    deliveryRadiusKm:
+      shop.fulfillment?.deliveryRadiusKm ??
+      (shop as Partial<ShopInput>).fulfillmentOptions?.deliveryRadiusKm ??
+      0,
+    deliveryFee:
+      shop.fulfillment?.deliveryFee ??
+      (shop as Partial<ShopInput>).fulfillmentOptions?.deliveryFee?.amount ??
+      0,
   },
-  defaultCurrency: shop.defaultCurrency ?? 'USD',
+  defaultCurrency: (shop as Partial<ShopInput>).defaultCurrency ?? 'USD',
 });
 
 const buildFulfillmentPayload = (
@@ -109,7 +127,7 @@ const buildFulfillmentPayload = (
   };
 };
 
-const mapHoursToDraft = (hours: ShopHoursResponse | null): ShopHoursDraft => {
+const mapHoursToDraft = (hours: ShopHours | null): ShopHoursDraft => {
   if (!hours) {
     return { timezone: 'UTC', weekly: {} };
   }
@@ -129,7 +147,9 @@ const mapHoursToDraft = (hours: ShopHoursResponse | null): ShopHoursDraft => {
   };
 };
 
-const buildHoursPayload = (draft: ShopHoursDraft): ShopHoursPayload => ({
+const buildHoursPayload = (
+  draft: ShopHoursDraft
+): Omit<ShopHoursPayload, 'shopId'> => ({
   timezone: draft.timezone,
   weekly: Object.fromEntries(
     (Object.keys(draft.weekly) as Weekday[]).map((day) => [
@@ -137,7 +157,7 @@ const buildHoursPayload = (draft: ShopHoursDraft): ShopHoursPayload => ({
       draft.weekly[day]?.map((window) => ({
         opensAt: window.open,
         closesAt: window.close,
-      })),
+      })) ?? [],
     ])
   ),
 });
@@ -153,7 +173,7 @@ const SettingsPage = () => {
     data: managedShops,
     isLoading: isLoadingShops,
     isError: managedShopsError,
-  } = useListManagedShopsQuery(ownerUserId ?? '', {
+  } = useUsersListManagedShopsQuery(ownerUserId ?? '', {
     skip: !ownerUserId,
   });
   const [selectedShopId, setSelectedShopId] = useState<string | undefined>();
@@ -171,18 +191,20 @@ const SettingsPage = () => {
   const {
     data: shopDetails,
     error: shopDetailsError,
-  } = useGetShopQuery(selectedShopId ?? '', {
+  } = useShopsGetQuery(selectedShopId ?? '', {
     skip: !selectedShopId,
   });
   const {
-    data: shopHours,
+    data: shopHoursList,
     isFetching: hoursQueryLoading,
     error: shopHoursError,
-  } = useGetShopHoursQuery(selectedShopId ?? '', {
+  } = useShopHoursListQuery(selectedShopId ?? '', {
     skip: !selectedShopId,
   });
-  const [updateShopMutation] = useUpdateShopMutation();
-  const [upsertHoursMutation] = useUpsertShopHoursMutation();
+  const [updateShopMutation] = useShopsUpdateMutation();
+  const [createShopHoursMutation] = useShopHoursCreateMutation();
+  const [updateShopHoursMutation] = useShopHoursUpdateMutation();
+  const existingShopHours = shopHoursList?.[0] ?? null;
 
   useEffect(() => {
     if (!selectedShopId && managedShops?.length) {
@@ -205,9 +227,9 @@ const SettingsPage = () => {
 
   useEffect(() => {
     if (selectedShopId) {
-      setHoursDraft(mapHoursToDraft(shopHours ?? null));
+      setHoursDraft(mapHoursToDraft(existingShopHours));
     }
-  }, [selectedShopId, shopHours]);
+  }, [selectedShopId, existingShopHours]);
 
   const hoursLoading = hoursQueryLoading;
   const resolvedUserShops = managedShops ?? [];
@@ -300,7 +322,10 @@ const SettingsPage = () => {
         ),
         defaultCurrency: settingsDraft.defaultCurrency,
       };
-      await updateShopMutation({ shopId: selectedShopId, body: payload }).unwrap();
+      await updateShopMutation({
+        shopId: selectedShopId,
+        shopUpdateInput: payload,
+      }).unwrap();
       setSettingsSuccess('Settings saved.');
     } catch (error) {
       setSettingsError(
@@ -319,10 +344,18 @@ const SettingsPage = () => {
     setHoursError(null);
     setHoursSuccess(null);
     try {
-      await upsertHoursMutation({
+      const payload = {
+        ...buildHoursPayload(hoursDraft),
         shopId: selectedShopId,
-        body: buildHoursPayload(hoursDraft),
-      }).unwrap();
+      };
+      if (existingShopHours?.id) {
+        await updateShopHoursMutation({
+          recordId: existingShopHours.id,
+          shopHoursPayload: payload,
+        }).unwrap();
+      } else {
+        await createShopHoursMutation(payload).unwrap();
+      }
       setHoursSuccess('Hours updated.');
     } catch (error) {
       setHoursError(

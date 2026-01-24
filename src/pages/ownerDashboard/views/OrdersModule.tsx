@@ -1,26 +1,21 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { skipToken } from '@reduxjs/toolkit/query';
 import {
-  useListShopsQuery,
-  useGetShopMenuQuery,
-} from '../../../store/api/shopsApi';
-import {
-  useListShopOrdersQuery,
-  useListOrdersQuery,
-  useCreateOrderMutation,
-  useUpdateOrderStatusMutation,
-} from '../../../store/api/ordersApi';
-import type {
-  ShopMenuResponse,
-  Order as OrderResponse,
-  CreateOrderRequest,
-} from '../../../store/api/backend-generated/apiClient';
+  useShopsListQuery,
+  useShopsMenuQuery,
+  useOrdersListByShopQuery,
+  useOrdersListAllQuery,
+  useOrdersCreateMutation,
+  useOrdersUpdateStatusMutation,
+  type ShopMenuDto,
+  type Order as OrderResponse,
+  type CreateOrderInput,
+} from '../../../services/api';
 
 type ShopOrder = OrderResponse;
 type OrderStatus = ShopOrder['status'];
-type ShopMenu = ShopMenuResponse;
+type ShopMenu = ShopMenuDto;
 type ShopMenuProduct = ShopMenu['products'][number];
-type NewOrderItem = CreateOrderRequest['items'][number];
+type NewOrderItem = CreateOrderInput['items'][number];
 const statusFlow: Record<OrderStatus, OrderStatus | null> = {
   placed: 'accepted',
   accepted: 'ready_for_pickup',
@@ -31,7 +26,7 @@ const statusFlow: Record<OrderStatus, OrderStatus | null> = {
 };
 
 const OrdersModule = () => {
-  const { data: shops = [], isLoading: shopsLoading } = useListShopsQuery();
+  const { data: shops = [], isLoading: shopsLoading } = useShopsListQuery();
   const [selectedShopId, setSelectedShopId] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState<OrderStatus | ''>(
     ''
@@ -55,24 +50,18 @@ const OrdersModule = () => {
     }
   }, [shops, selectedShopId]);
 
-  const shopOrdersArgs =
-    selectedShopId === ''
-      ? skipToken
-      : {
-          shopId: selectedShopId,
-          params: orderStatusFilter
-            ? { status: orderStatusFilter }
-            : undefined,
-        };
-
   const {
     data: shopOrders = [],
     isLoading: shopOrdersLoading,
     isError: shopOrdersError,
     refetch: refetchShopOrders,
-  } = useListShopOrdersQuery(shopOrdersArgs, {
-    skip: !selectedShopId,
-  });
+  } = useOrdersListByShopQuery(
+    {
+      shopId: selectedShopId,
+      status: orderStatusFilter || undefined,
+    },
+    { skip: !selectedShopId }
+  );
   const shopOrdersErrorMessage = shopOrdersError
     ? 'Unable to load orders.'
     : null;
@@ -80,7 +69,7 @@ const OrdersModule = () => {
   const {
     data: menuResponse,
     isLoading: menuLoading,
-  } = useGetShopMenuQuery(selectedShopId ?? '', {
+  } = useShopsMenuQuery(selectedShopId ?? '', {
     skip: !selectedShopId,
   });
   const menu = menuResponse ?? null;
@@ -89,13 +78,13 @@ const OrdersModule = () => {
     data: adminOrders = [],
     isLoading: adminLoading,
     refetch: refetchAdminOrders,
-  } = useListOrdersQuery({
+  } = useOrdersListAllQuery({
     shopId: adminFilters.shopId || undefined,
     userId: adminFilters.userId || undefined,
   });
   const [createOrder, { isLoading: creatingOrder }] =
-    useCreateOrderMutation();
-  const [updateOrderStatus] = useUpdateOrderStatusMutation();
+    useOrdersCreateMutation();
+  const [updateOrderStatus] = useOrdersUpdateStatusMutation();
 
   useEffect(() => {
     if (shopOrders.length) {
@@ -117,7 +106,7 @@ const OrdersModule = () => {
       await updateOrderStatus({
         shopId: selectedShopId,
         orderId: order.id,
-        body: { nextStatus },
+        updateOrderStatusInput: { nextStatus },
       }).unwrap();
       await refetchShopOrders();
     } catch (error) {
@@ -140,11 +129,11 @@ const OrdersModule = () => {
   const pendingProduct = newOrderForm.pendingEntryId
     ? productsById.get(newOrderForm.pendingEntryId)
     : undefined;
-  const pendingVariants = pendingProduct?.variantGroups.flatMap(
+  const pendingVariants = pendingProduct?.variantTypes.flatMap(
     (group) => group.options
   );
   const pendingAddons =
-    pendingProduct?.addonGroups.flatMap((group) =>
+    pendingProduct?.addons.flatMap((group) =>
       group.options.map((option) => ({
         ...option,
         groupLabel: group.label,
@@ -182,12 +171,12 @@ const OrdersModule = () => {
     try {
       await createOrder({
         shopId: selectedShopId,
-        body: {
-        userId: 'admin-ui',
-        customerName: newOrderForm.customerName,
-        customerPhone: newOrderForm.customerPhone,
-        customerNotes: newOrderForm.customerNotes,
-        items: newOrderForm.items,
+        createOrderInput: {
+          userId: 'admin-ui',
+          customerName: newOrderForm.customerName,
+          customerPhone: newOrderForm.customerPhone,
+          customerNotes: newOrderForm.customerNotes,
+          items: newOrderForm.items,
         },
       }).unwrap();
       setNewOrderForm({
@@ -463,8 +452,7 @@ const OrdersModule = () => {
                   <option value="">Select variant</option>
                   {pendingVariants?.map((variant) => (
                     <option key={variant.id} value={variant.id}>
-                      {variant.label} (+{variant.priceDelta.amount}{' '}
-                      {variant.priceDelta.currency})
+                      {variant.label} (+{variant.priceDelta} USD)
                     </option>
                   ))}
                 </select>
@@ -510,8 +498,7 @@ const OrdersModule = () => {
                           })
                         }
                       />
-                      {addon.groupLabel}: {addon.label} (+{' '}
-                      {addon.priceDelta.amount} {addon.priceDelta.currency})
+                      {addon.groupLabel}: {addon.label} (+ {addon.priceDelta} USD)
                     </label>
                   ))}
                 </div>

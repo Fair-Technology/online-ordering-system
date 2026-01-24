@@ -9,15 +9,14 @@ import {
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMsal } from '@azure/msal-react';
 import {
-  useGetShopQuery,
-} from '../../../store/api/shopsApi';
-import {
-  useListProductsQuery,
-  useCreateProductMutation,
-  useUpdateProductMutation,
-  useDeleteProductMutation,
-} from '../../../store/api/productsApi';
-import { useListCategoriesQuery } from '../../../store/api/categoriesApi';
+  useShopsGetQuery,
+  useProductsListByShopQuery,
+  useProductsCreateMutation,
+  useProductsUpdateMutation,
+  useProductsDeleteMutation,
+  useCategoriesListQuery,
+  type ProductDto,
+} from '../../../services/api';
 import {
   createDefaultProductFormState,
   ProductFormState,
@@ -28,11 +27,82 @@ import {
   createId,
 } from '../../../components/products/productForm';
 
-import type {
-  ProductResponse as ShopProductResponse,
-} from '../../../store/api/backend-generated/apiClient';
+type Money = { amount: number; currency: string };
+
+type ShopProductResponse = {
+  id: string;
+  label: string;
+  description?: string;
+  isAvailable: boolean;
+  price: number;
+  categories?: string[];
+  categoryDetails?: { id: string; name: string }[];
+  variantGroups: Array<{
+    id: string;
+    label: string;
+    options: Array<{
+      id: string;
+      label: string;
+      priceDelta: Money;
+      isAvailable: boolean;
+    }>;
+  }>;
+  addonGroups: Array<{
+    id: string;
+    label: string;
+    required?: boolean;
+    maxSelectable?: number;
+    options: Array<{
+      id: string;
+      label: string;
+      priceDelta: Money;
+      isAvailable: boolean;
+    }>;
+  }>;
+};
 
 const productSteps = ['Product basics', 'Variants', 'Add-ons & review'];
+const DEFAULT_CURRENCY = 'USD';
+
+const toLegacyMoney = (amount: number, currency = DEFAULT_CURRENCY): Money => ({
+  amount,
+  currency,
+});
+
+const toLegacyProduct = (product: ProductDto): ShopProductResponse => ({
+  id: product.id,
+  label: product.label,
+  description: product.description,
+  isAvailable: product.isAvailable,
+  price: product.price,
+  categories: product.categories.map((category) => category.name),
+  categoryDetails: product.categories.map((category) => ({
+    id: category.id,
+    name: category.name,
+  })),
+  variantGroups: product.variantTypes.map((group) => ({
+    id: group.id,
+    label: group.label,
+    options: group.options.map((option) => ({
+      id: option.id,
+      label: option.label,
+      priceDelta: toLegacyMoney(option.priceDelta),
+      isAvailable: option.isAvailable,
+    })),
+  })),
+  addonGroups: product.addons.map((group) => ({
+    id: group.id,
+    label: group.label,
+    required: false,
+    maxSelectable: undefined,
+    options: group.options.map((option) => ({
+      id: option.id,
+      label: option.label,
+      priceDelta: toLegacyMoney(option.priceDelta),
+      isAvailable: option.isAvailable,
+    })),
+  })),
+});
 
 const ShopProductsPage = () => {
   const { shopId } = useParams<{ shopId: string }>();
@@ -49,7 +119,7 @@ const ShopProductsPage = () => {
     isLoading: shopLoading,
     error: shopError,
     refetch: refetchShop,
-  } = useGetShopQuery(shopId ?? '', {
+  } = useShopsGetQuery(shopId ?? '', {
     skip: !shopId,
   });
   const {
@@ -57,19 +127,19 @@ const ShopProductsPage = () => {
     isLoading: shopProductsLoading,
     error: shopProductsError,
     refetch: refetchProducts,
-  } = useListProductsQuery(shopId ? { shopId } : undefined, {
+  } = useProductsListByShopQuery(shopId ?? '', {
     skip: !shopId,
   });
   const {
     data: categories = [],
     isLoading: categoriesLoading,
     error: categoriesError,
-  } = useListCategoriesQuery();
-  const [createProductMutation] = useCreateProductMutation();
-  const [updateProductMutation] = useUpdateProductMutation();
-  const [deleteProductMutation] = useDeleteProductMutation();
+  } = useCategoriesListQuery();
+  const [createProductMutation] = useProductsCreateMutation();
+  const [updateProductMutation] = useProductsUpdateMutation();
+  const [deleteProductMutation] = useProductsDeleteMutation();
   const shop = shopData ?? null;
-  const products = shopProductsData;
+  const products = shopProductsData.map(toLegacyProduct);
   const shopErrorMessage = shopError ? 'Unable to load shop products.' : null;
   const productsErrorMessage = shopProductsError
     ? 'Unable to load products.'
@@ -242,7 +312,7 @@ const ShopProductsPage = () => {
     try {
       await updateProductMutation({
         productId,
-        body: { isAvailable: next },
+        productUpdateInput: { isAvailable: next },
       }).unwrap();
       await Promise.all([refreshShop(), refreshProducts()]);
     } catch (err) {
@@ -293,7 +363,7 @@ const ShopProductsPage = () => {
           ? product.addonGroups.map((group) => ({
               id: group.id,
               name: group.label,
-              required: group.required,
+              required: group.required ?? false,
               maxSelectable: group.maxSelectable,
               options: group.options.map((option) => ({
                 id: option.id,
@@ -416,7 +486,7 @@ const ShopProductsPage = () => {
       if (productFormMode === 'edit' && editingProduct) {
         await updateProductMutation({
           productId: editingProduct.id,
-          body: payload,
+          productUpdateInput: payload,
         }).unwrap();
       } else {
         await createProductMutation(payload).unwrap();

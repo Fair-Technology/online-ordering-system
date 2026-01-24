@@ -2,8 +2,9 @@ import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ShoppingBag } from 'lucide-react';
 import { Icon } from './Icon';
-import { useGetShopQuery } from '../store/api/shopsApi';
-import { useAppDispatch, useAppSelector } from '../store';
+import { useParams } from 'react-router-dom';
+import { useShopsGetBySlugQuery } from '../services/api';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   loadCart,
   selectCartItems,
@@ -13,23 +14,17 @@ import {
   decrementItem,
   removeItem,
   clearCart,
-} from '../store/cartSlice';
+} from '../store/slices/cartSlice';
 
 const NavBar: React.FC = () => {
   const [shopName, setShopName] = useState('');
   const [open, setOpen] = useState(false);
 
-  // derive shopId from first path segment
-  // const parts =
-  //   typeof window !== 'undefined'
-  //     ? window.location.pathname.split('/').filter(Boolean)
-  //     : [];
-
-  const shopId = '5988777b-a0dc-4a52-b06e-8ed35e01830a';
-
-  const { data: shopData } = useGetShopQuery(shopId ?? '', {
-    skip: !shopId,
+  const { shopId: shopSlug } = useParams<{ shopId: string }>();
+  const { data: shopData } = useShopsGetBySlugQuery(shopSlug ?? '', {
+    skip: !shopSlug,
   });
+  const shopId = shopData?.id ?? '';
 
   const dispatch = useAppDispatch();
   const cartItems = useAppSelector(selectCartItems);
@@ -41,6 +36,7 @@ const NavBar: React.FC = () => {
   }, [shopData]);
 
   useEffect(() => {
+    if (!shopId) return;
     dispatch(loadCart({ shopId }));
   }, [dispatch, shopId]);
 

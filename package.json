@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "check": "tsc --noEmit -p tsconfig.json"
+    "check": "tsc --noEmit -p tsconfig.json",
+    "codegen:api": "cd openapi && npx @rtk-query/codegen-openapi rtk-query.config.cjs"
   },
   "dependencies": {
     "@azure/msal-browser": "^4.24.0",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
+    "@rtk-query/codegen-openapi": "^2.2.0",
     "@types/node": "^24.4.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",

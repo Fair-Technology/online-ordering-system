@@ -1,53 +1,61 @@
 import { useMemo } from 'react';
+import { useParams } from 'react-router-dom';
 import { groupProductsByCategory } from '../utils/groupProductsByCategory';
 import HeroSection from '../components/HeroSection';
 import CategoryFilterBar from '../components/CategoryFilterBar';
 import CustomerMenuList from '../features/customer/components/CustomerMenuList';
 import Footer from '../components/footer';
-import { useGetShopMenuQuery } from '../store/api/shopsApi';
+import {
+  useShopsGetBySlugQuery,
+  useShopsMenuQuery,
+  type ProductDto,
+} from '../services/api';
 import NavBar from '../components/NavBar';
 import { Product } from '../types/Product';
-import type { ProductResponse } from '../store/api/backend-generated/apiClient';
 
-const toLegacyProduct = (product: ProductResponse): Product => ({
+const toLegacyProduct = (product: ProductDto): Product => ({
   id: product.id,
   label: product.label,
-  imageURL: product.media?.[0]?.url ?? '',
+  imageURL: '',
   description: product.description ?? '',
   isAvailable: product.isAvailable,
   price: product.price,
-  categories: product.categoryDetails.map((category) => ({
+  categories: product.categories.map((category) => ({
     id: category.id,
     name: category.name,
   })),
-  variantTypes: product.variantGroups.map((group) => ({
+  variantTypes: product.variantTypes.map((group) => ({
     id: group.id,
     label: group.label,
     variants: group.options.map((option) => ({
       id: option.id,
       label: option.label,
       imageURL: '',
-      priceDelta: option.priceDelta.amount,
+      priceDelta: option.priceDelta,
       isAvailable: option.isAvailable,
     })),
   })),
-  addons: product.addonGroups.map((group) => ({
+  addons: product.addons.map((group) => ({
     id: group.id,
     label: group.label,
     options: group.options.map((option) => ({
       id: option.id,
       label: option.label,
       imageURL: '',
-      priceDelta: option.priceDelta.amount,
+      priceDelta: option.priceDelta,
       isAvailable: option.isAvailable,
     })),
   })),
 });
 
 const ShopView = () => {
-  const shopId = '5988777b-a0dc-4a52-b06e-8ed35e01830a'; // At the moment we are hardcoding the shopId
+  const { shopId: shopSlug } = useParams<{ shopId: string }>();
+  const { data: shopDataBySlug } = useShopsGetBySlugQuery(shopSlug ?? '', {
+    skip: !shopSlug,
+  });
+  const shopId = shopDataBySlug?.id ?? '';
   // use RTK Query hook (skip when no shopId)
-  const { data: shopData } = useGetShopMenuQuery(shopId ?? '', {
+  const { data: shopData } = useShopsMenuQuery(shopId ?? '', {
     skip: !shopId,
   });
 

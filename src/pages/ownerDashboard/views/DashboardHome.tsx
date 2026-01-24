@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { useListShopsQuery } from '../../../store/api/shopsApi';
-import { useListShopOrdersQuery } from '../../../store/api/ordersApi';
-import { useListManagedShopsQuery } from '../../../store/api/usersApi';
+import {
+  useShopsListQuery,
+  useOrdersListByShopQuery,
+  useUsersListManagedShopsQuery,
+} from '../../../services/api';
 
 const formatRelativeTime = (value: string) => {
   const timestamp = new Date(value).getTime();
@@ -62,11 +64,11 @@ const DashboardHome = () => {
     data: shops = [],
     isLoading: shopsLoading,
     isError: shopsError,
-  } = useListShopsQuery();
+  } = useShopsListQuery();
   const {
     data: managedShops = [],
     isLoading: managedLoading,
-  } = useListManagedShopsQuery(ownerUserId ?? '', {
+  } = useUsersListManagedShopsQuery(ownerUserId ?? '', {
     skip: !ownerUserId,
   });
   const primaryShopId =
@@ -75,8 +77,8 @@ const DashboardHome = () => {
     data: orders = [],
     isLoading: ordersLoading,
     isError: ordersError,
-  } = useListShopOrdersQuery(
-    { shopId: primaryShopId, params: undefined },
+  } = useOrdersListByShopQuery(
+    { shopId: primaryShopId, status: undefined },
     { skip: !primaryShopId }
   );
   const shopsErrorMessage = shopsError ? 'Unable to load shops.' : null;
