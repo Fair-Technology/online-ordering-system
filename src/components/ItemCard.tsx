@@ -21,6 +21,10 @@ type ItemCardProps = {
 
 const ItemCard: React.FC<ItemCardProps> = ({ product, onAddToCart }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const displayPrice =
+    typeof product.price === 'number' && Number.isFinite(product.price)
+      ? product.price
+      : 0;
 
   // derive shopId from URL so we can pass to modal (optional)
   const parts =
@@ -42,7 +46,7 @@ const ItemCard: React.FC<ItemCardProps> = ({ product, onAddToCart }) => {
             {product.label}
           </h3>
           <p className="text-gray-600 text-sm md:text-base">
-            ${product.price.toFixed(2)}
+            ${displayPrice.toFixed(2)}
           </p>
           <p className="text-gray-500 text-sm line-clamp-2">
             {product.description}
