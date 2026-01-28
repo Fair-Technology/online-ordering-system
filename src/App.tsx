@@ -1,33 +1,23 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import SuperAdmin from './SuperAdmin';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import OnlineOrderingSystem from './pages/onlineOrderingSystem';
+import ShopView from './pages/shopView';
+import OwnerDashboard from './pages/ownerDashboard/ownerDashboard';
+import NotFound from './pages/notFound';
+import ProtectedRoute from './routes/ProtectedRoute';
+import UserCreation from './pages/user-creation';
 
 const App: React.FC = () => {
   return (
     <Router>
-      <nav className="p-4 border-b border-gray-200 mb-6 flex justify-between bg-white shadow-sm">
-        <Link to="/" className="mr-4 text-blue-600 hover:text-blue-800 font-medium">
-          Customers
-        </Link>
-        <Link to="/restaurantOwner" className="text-blue-600 hover:text-blue-800 font-medium">
-          Restaurant Owner
-        </Link>
-        <Link to="/superAdmin" className="text-blue-600 hover:text-blue-800 font-medium">
-          Super Admin
-        </Link>
-      </nav>
       <Routes>
-        <Route path="/" element={
-          <div className="flex items-center justify-center min-h-screen bg-gray-50">
-            <h1 className="text-4xl font-bold text-gray-800">Customer View</h1>
-          </div>
-        } />
-        <Route path="/restaurantOwner" element={
-          <div className="flex items-center justify-center min-h-screen bg-gray-50">
-            <h1 className="text-4xl font-bold text-gray-800">Restaurant Admin</h1>
-          </div>
-        } />
-        <Route path="/superAdmin" element={<SuperAdmin />} />
+        <Route path="/" element={<OnlineOrderingSystem />} />
+        <Route path="/user-creation" element={<UserCreation />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/owner/*" element={<OwnerDashboard />} />
+        </Route>
+        <Route path="/shops/slug/:slug" element={<ShopView />} />
+        <Route path="/:shopId" element={<ShopView />} />
+        <Route path="/*" element={<NotFound />} />
       </Routes>
     </Router>
   );
