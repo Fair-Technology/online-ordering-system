@@ -61,6 +61,8 @@ const ShopView = () => {
   const { data: shopDataBySlug } = useShopsGetBySlugQuery(slug ?? '', {
     skip: !slug,
   });
+
+  console.log('shopId from route:', shopDataBySlug);
   const resolvedShopId =
     routeShopId ?? shopDataBySlug?.id ?? storedShopId ?? '';
 
@@ -71,9 +73,7 @@ const ShopView = () => {
     }
 
     if (shopDataBySlug?.id) {
-      dispatch(
-        setActiveShop({ shopId: shopDataBySlug.id, slug: shopDataBySlug.slug })
-      );
+      dispatch(setActiveShop({ shopId: shopDataBySlug.id }));
     }
   }, [dispatch, routeShopId, shopDataBySlug]);
   // use RTK Query hook (skip when no shopId)
@@ -87,7 +87,6 @@ const ShopView = () => {
   );
 
   const groupedItems = groupProductsByCategory(normalizedProducts);
-  console.log('Grouped items:', groupedItems);
 
   const handleAddToCart = (item: Product) => {
     console.log('Added to cart:', item);
