@@ -3,6 +3,7 @@ import Button from './Button';
 import TickCheckbox from './TickCheckbox';
 import { useAppDispatch } from '../store/hooks';
 import { addItem } from '../store/slices/cartSlice';
+import { formatDollars } from '../utils/money';
 
 type VariantOption = {
   id: string;
@@ -190,7 +191,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                         <span>{v.label}</span>
                         {v.priceDelta ? (
                           <span className="text-xs text-gray-500">
-                            +${v.priceDelta}
+                            +{formatDollars(v.priceDelta)}
                           </span>
                         ) : null}
                       </div>
@@ -211,7 +212,11 @@ const ProductModal: React.FC<ProductModalProps> = ({
                       checked={selectedAddonIds.has(opt.id)}
                       onChange={() => toggleAddon(opt.id)}
                       label={opt.label}
-                      hint={opt.priceDelta ? `+ $${opt.priceDelta}` : undefined}
+                      hint={
+                        opt.priceDelta
+                          ? `+ ${formatDollars(opt.priceDelta)}`
+                          : undefined
+                      }
                     />
                   ))}
                 </div>
@@ -238,10 +243,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
               <div className="ml-auto text-right">
                 <div className="text-sm text-gray-500">Unit</div>
                 <div className="text-xl font-semibold">
-                  ${unitPrice.toFixed(2)}
+                  {formatDollars(unitPrice)}
                 </div>
                 <div className="text-sm text-gray-500">
-                  Total ${(unitPrice * quantity).toFixed(2)}
+                  Total {formatDollars(unitPrice * quantity)}
                 </div>
               </div>
             </div>

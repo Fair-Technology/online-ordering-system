@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import Button from './Button';
 import ProductModal, { Product as ModalProduct } from './ProductModal';
+import { formatDollars } from '../utils/money';
 
 export type Product = ModalProduct;
 
@@ -46,7 +47,7 @@ const ItemCard: React.FC<ItemCardProps> = ({ product, onAddToCart }) => {
             {product.label}
           </h3>
           <p className="text-gray-600 text-sm md:text-base">
-            ${displayPrice.toFixed(2)}
+            {formatDollars(displayPrice)}
           </p>
           <p className="text-gray-500 text-sm line-clamp-2">
             {product.description}
