@@ -17,6 +17,7 @@ const TickCheckbox: React.FC<TickCheckboxProps> = ({
   hint,
   className = '',
 }) => {
+  console.log('TickCheckbox render', { id, checked, label });
   return (
     <label
       htmlFor={id}
