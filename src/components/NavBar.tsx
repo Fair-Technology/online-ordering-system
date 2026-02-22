@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { ShoppingBag } from 'lucide-react';
 import { Icon } from './Icon';
 import { useParams } from 'react-router-dom';
-import { useShopsGetBySlugQuery } from '../services/api';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   loadCart,
@@ -15,13 +14,15 @@ import {
   removeItem,
   clearCart,
 } from '../store/slices/cartSlice';
+import { useGetShopsSlugBySlugQuery } from '../services/api';
+import { formatDollars } from '../utils/money';
 
 const NavBar: React.FC = () => {
   const [shopName, setShopName] = useState('');
   const [open, setOpen] = useState(false);
 
   const { shopId: shopSlug } = useParams<{ shopId: string }>();
-  const { data: shopData } = useShopsGetBySlugQuery(shopSlug ?? '', {
+  const { data: shopData } = useGetShopsSlugBySlugQuery(shopSlug ?? '', {
     skip: !shopSlug,
   });
   const shopId = shopData?.id ?? '';
@@ -42,6 +43,7 @@ const NavBar: React.FC = () => {
 
   // ref for the cart button so we can position the portal dropdown
   const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
   const [dropdownPos, setDropdownPos] = useState<{
     left: number;
     top: number;
@@ -71,6 +73,26 @@ const NavBar: React.FC = () => {
     return () => {
       window.removeEventListener('resize', onResize);
       window.removeEventListener('scroll', onResize);
+    };
+  }, [open]);
+
+  // close cart when clicking outside button/dropdown
+  useEffect(() => {
+    if (!open) return;
+
+    function handleOutsidePointerDown(event: PointerEvent) {
+      const target = event.target as Node | null;
+      if (!target) return;
+
+      if (buttonRef.current?.contains(target)) return;
+      if (dropdownRef.current?.contains(target)) return;
+
+      setOpen(false);
+    }
+
+    document.addEventListener('pointerdown', handleOutsidePointerDown);
+    return () => {
+      document.removeEventListener('pointerdown', handleOutsidePointerDown);
     };
   }, [open]);
 
@@ -121,6 +143,7 @@ const NavBar: React.FC = () => {
             dropdownPos &&
             createPortal(
               <div
+                ref={dropdownRef}
                 role="dialog"
                 aria-label="Cart dropdown"
                 style={{
@@ -161,8 +184,8 @@ const NavBar: React.FC = () => {
                                 {it.name}
                               </div>
                               <div className="text-gray-500 text-xs">
-                                {it.quantity} × ${it.price.toFixed(2)} = $
-                                {(it.quantity * it.price).toFixed(2)}
+                                {it.quantity} × {formatDollars(it.price)} ={' '}
+                                {formatDollars(it.quantity * it.price)}
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-2">
@@ -203,7 +226,7 @@ const NavBar: React.FC = () => {
                       <div className="border-t pt-2 mt-2 flex items-center justify-between">
                         <div className="font-semibold">Total</div>
                         <div className="font-semibold">
-                          ${cartTotal.toFixed(2)}
+                          {formatDollars(cartTotal)}
                         </div>
                       </div>
 
