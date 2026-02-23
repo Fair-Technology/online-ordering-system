@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-
-type CategoryOption = { id: string; label: string };
+type CategoryOption = { id: string; label: string; count?: number };
 
 interface CategoryFilterBarProps {
   categories: CategoryOption[];
@@ -8,6 +7,7 @@ interface CategoryFilterBarProps {
 
 const CategoryFilterBar: React.FC<CategoryFilterBarProps> = ({ categories }) => {
   const [selected, setSelected] = useState(() => categories[0]?.id ?? '');
+  const [hovered, setHovered] = useState('');
 
   useEffect(() => {
     if (!categories.length) {
@@ -55,13 +55,32 @@ const CategoryFilterBar: React.FC<CategoryFilterBarProps> = ({ categories }) => 
           <button
             key={cat.id}
             onClick={() => handleClick(cat.id)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+            onMouseEnter={() => setHovered(cat.id)}
+            onMouseLeave={() => setHovered('')}
+            className="px-4 py-2 rounded-full text-sm font-semibold transition-colors"
+            style={
               selected === cat.id
-                ? 'bg-orange-500 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+                ? {
+                    backgroundColor: 'var(--brand-primary)',
+                    color: '#fff',
+                  }
+                : hovered === cat.id
+                  ? {
+                      backgroundColor: 'var(--brand-tertiary)',
+                      color: '#fff',
+                      border: '1px solid var(--brand-tertiary)',
+                    }
+                  : {
+                      backgroundColor: 'var(--brand-background)',
+                      color: 'var(--brand-secondary)',
+                      border: '1px solid var(--brand-tertiary)',
+                    }
+            }
           >
-            {cat.label}
+            <span>{cat.label}</span>
+            {typeof cat.count === 'number' ? (
+              <span className="ml-2 text-xs opacity-80">{cat.count}</span>
+            ) : null}
           </button>
         ))}
       </div>

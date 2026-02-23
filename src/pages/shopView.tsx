@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { CSSProperties, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import HeroSection from '../components/HeroSection';
 import CategoryFilterBar from '../components/CategoryFilterBar';
@@ -15,8 +15,12 @@ import { Product } from '../types/Product';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { setActiveShop } from '../store/slices/shopSlice';
 import { centsToDollars } from '../utils/money';
+import {
+  resolveShopBranding,
+  type ShopWithBranding,
+} from '../utils/branding';
 
-type CategoryOption = { id: string; label: string };
+type CategoryOption = { id: string; label: string; count: number };
 
 const toCategoryId = (value: string) =>
   value
@@ -86,10 +90,26 @@ const ShopView = () => {
   const { data: shopDataById } = useGetShopsByShopIdQuery(shopIdLookup, {
     skip: !shopIdLookup,
   });
+  const resolvedShopData = (shouldFetchBySlug
+    ? shopDataBySlug
+    : shopDataById) as ShopWithBranding | undefined;
 
   const resolvedShopId = (shouldFetchBySlug
     ? shopDataBySlug?.id
     : shopDataById?.id) ?? '';
+  const resolvedBranding = resolveShopBranding(resolvedShopData?.branding);
+  const shopName = resolvedShopData?.name ?? 'Online Ordering';
+
+  const brandStyle = useMemo(
+    () =>
+      ({
+        '--brand-primary': resolvedBranding.colors.primary,
+        '--brand-secondary': resolvedBranding.colors.secondary,
+        '--brand-tertiary': resolvedBranding.colors.tertiary,
+        '--brand-background': resolvedBranding.colors.background,
+      }) as CSSProperties,
+    [resolvedBranding]
+  );
 
   useEffect(() => {
     if (resolvedShopId) {
@@ -107,22 +127,24 @@ const ShopView = () => {
   );
 
   const categories = useMemo<CategoryOption[]>(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, { label: string; count: number }>();
 
     normalizedProducts.forEach((product) => {
-      product.categories.forEach((category) => {
-        const label = category.name?.trim();
-        if (!label) return;
-        const id = toCategoryId(label);
-        if (!map.has(id)) {
-          map.set(id, label);
-        }
-      });
+      const primaryCategory = product.categories[0]?.name?.trim();
+      if (!primaryCategory) return;
+      const id = toCategoryId(primaryCategory);
+      const existing = map.get(id);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        map.set(id, { label: primaryCategory, count: 1 });
+      }
     });
 
-    return Array.from(map.entries()).map(([id, label]) => ({
+    return Array.from(map.entries()).map(([id, value]) => ({
       id,
-      label,
+      label: value.label,
+      count: value.count,
     }));
   }, [normalizedProducts]);
 
@@ -145,26 +167,42 @@ const ShopView = () => {
     }, {});
   }, [categories]);
 
+  const categoryCounts = useMemo(() => {
+    return categories.reduce<Record<string, number>>((acc, category) => {
+      acc[category.id] = category.count;
+      return acc;
+    }, {});
+  }, [categories]);
+
   const handleAddToCart = (item: Product) => {
     console.log('Added to cart:', item);
   };
 
   return (
-    <>
+    <div className="bg-white" style={brandStyle}>
       <div className="sticky top-0 z-50 bg-white shadow-sm">
-        <NavBar />
+        <NavBar
+          shopName={shopName}
+          shopId={resolvedShopId}
+          logoUrl={resolvedBranding.logoUrl}
+          colors={resolvedBranding.colors}
+        />
       </div>
-      <HeroSection />
+      <HeroSection
+        heroImageUrl={resolvedBranding.heroImageUrl}
+        colors={resolvedBranding.colors}
+      />
       <CategoryFilterBar categories={categories} />
       <div className="w-full flex items-center justify-center flex-col mt-4">
         <CustomerMenuList
           groupedItems={groupedItems}
           categoryLabels={categoryLabels}
+          categoryCounts={categoryCounts}
           onAddToCart={handleAddToCart}
         />
       </div>
       <Footer />
-    </>
+    </div>
   );
 };
 

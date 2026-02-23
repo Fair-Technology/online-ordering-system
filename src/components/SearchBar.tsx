@@ -46,7 +46,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
 
       <button
         onClick={handleSearch}
-        className="bg-primary-500 hover:bg-primary-600 text-white font-semibold px-6 h-10 flex items-center justify-center rounded-full"
+        className="bg-[var(--brand-primary)] hover:bg-[var(--brand-secondary)] text-white font-semibold px-6 h-10 flex items-center justify-center rounded-full transition-colors"
       >
         Search
       </button>
