@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import Button from './Button';
 import ProductModal, { Product as ModalProduct } from './ProductModal';
+import { formatDollars } from '../utils/money';
 
 export type Product = ModalProduct;
 
@@ -35,27 +36,40 @@ const ItemCard: React.FC<ItemCardProps> = ({ product, onAddToCart }) => {
 
   return (
     <>
-      <div className="rounded-xl shadow-md bg-white overflow-hidden flex flex-col">
-        <img
-          src={product.imageURL || 'https://via.placeholder.com/320x180'}
-          alt={product.label}
-          className="w-full h-36 md:h-44 lg:h-48 object-cover"
-        />
-        <div className="p-4 flex flex-col justify-between flex-1 space-y-2">
-          <h3 className="text-lg font-bold text-secondary-500">
+      <div
+        className="rounded-xl shadow-md bg-white overflow-hidden flex flex-col cursor-pointer"
+        role="button"
+        tabIndex={0}
+        onClick={() => setIsModalOpen(true)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setIsModalOpen(true);
+          }
+        }}
+      >
+        <div className="w-full aspect-[4/3] overflow-hidden">
+          <img
+            src={product.imageURL || 'https://via.placeholder.com/320x180'}
+            alt={product.label}
+            className="w-full h-full object-cover"
+          />
+        </div>
+        <div className="p-3 sm:p-4 flex flex-col justify-between flex-1 space-y-2">
+          <h3 className="text-base sm:text-lg font-bold text-[var(--brand-secondary)] line-clamp-1">
             {product.label}
           </h3>
-          <p className="text-gray-600 text-sm md:text-base">
-            ${displayPrice.toFixed(2)}
+          <p className="text-gray-600 text-xs sm:text-sm md:text-base">
+            {formatDollars(displayPrice)}
           </p>
-          <p className="text-gray-500 text-sm line-clamp-2">
+          <p className="text-gray-500 text-xs sm:text-sm line-clamp-2">
             {product.description}
           </p>
 
           <div className="flex gap-2 mt-2">
             <Button
               variant="outline"
-              className="w-full"
+              className="w-full text-xs sm:text-sm"
               onClick={() => setIsModalOpen(true)}
             >
               View Details

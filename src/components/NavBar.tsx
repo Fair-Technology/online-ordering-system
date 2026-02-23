@@ -2,8 +2,6 @@ import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ShoppingBag } from 'lucide-react';
 import { Icon } from './Icon';
-import { useParams } from 'react-router-dom';
-import { useShopsGetBySlugQuery } from '../services/api';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   loadCart,
@@ -15,25 +13,23 @@ import {
   removeItem,
   clearCart,
 } from '../store/slices/cartSlice';
+import { formatDollars } from '../utils/money';
+import type { BrandColors } from '../utils/branding';
 
-const NavBar: React.FC = () => {
-  const [shopName, setShopName] = useState('');
+interface NavBarProps {
+  shopName: string;
+  shopId: string;
+  logoUrl: string;
+  colors: BrandColors;
+}
+
+const NavBar: React.FC<NavBarProps> = ({ shopName, shopId, logoUrl, colors }) => {
   const [open, setOpen] = useState(false);
-
-  const { shopId: shopSlug } = useParams<{ shopId: string }>();
-  const { data: shopData } = useShopsGetBySlugQuery(shopSlug ?? '', {
-    skip: !shopSlug,
-  });
-  const shopId = shopData?.id ?? '';
 
   const dispatch = useAppDispatch();
   const cartItems = useAppSelector(selectCartItems);
   const cartCount = useAppSelector(selectCartCount);
   const cartTotal = useAppSelector(selectCartTotal);
-
-  useEffect(() => {
-    if (shopData?.name) setShopName(shopData.name);
-  }, [shopData]);
 
   useEffect(() => {
     if (!shopId) return;
@@ -42,6 +38,7 @@ const NavBar: React.FC = () => {
 
   // ref for the cart button so we can position the portal dropdown
   const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
   const [dropdownPos, setDropdownPos] = useState<{
     left: number;
     top: number;
@@ -74,6 +71,26 @@ const NavBar: React.FC = () => {
     };
   }, [open]);
 
+  // close cart when clicking outside button/dropdown
+  useEffect(() => {
+    if (!open) return;
+
+    function handleOutsidePointerDown(event: PointerEvent) {
+      const target = event.target as Node | null;
+      if (!target) return;
+
+      if (buttonRef.current?.contains(target)) return;
+      if (dropdownRef.current?.contains(target)) return;
+
+      setOpen(false);
+    }
+
+    document.addEventListener('pointerdown', handleOutsidePointerDown);
+    return () => {
+      document.removeEventListener('pointerdown', handleOutsidePointerDown);
+    };
+  }, [open]);
+
   function handleCheckout() {
     // const payload = {
     //   shopId,
@@ -92,15 +109,18 @@ const NavBar: React.FC = () => {
   }
 
   return (
-    <header className="bg-gradient-to-r from-white to-primary-50 shadow-sm">
+    <header
+      className="shadow-sm"
+      style={{
+        backgroundImage: `linear-gradient(to right, #ffffff, ${colors.background})`,
+      }}
+    >
       <div className="max-w-7xl mx-auto px-6 flex justify-between items-center h-16">
         <div className="flex items-center gap-2">
-          <img
-            src="https://cdn-icons-png.flaticon.com/512/1046/1046784.png"
-            alt="Delicio"
-            className="h-8 w-8"
-          />
-          <span className="text-primary-600 font-bold text-xl">{shopName}</span>
+          <img src={logoUrl} alt={shopName} className="h-8 w-8 rounded object-cover" />
+          <span className="font-bold text-xl" style={{ color: colors.primary }}>
+            {shopName}
+          </span>
         </div>
 
         <div className="flex items-center gap-4 relative">
@@ -109,9 +129,13 @@ const NavBar: React.FC = () => {
             className="relative"
             onClick={() => setOpen((v) => !v)}
             aria-label="Cart"
+            style={{ color: colors.primary }}
           >
-            {Icon(ShoppingBag, { className: 'text-primary-600' })}
-            <span className="absolute -top-2 -right-2 bg-primary-500 text-white text-xs rounded-full px-1">
+            {Icon(ShoppingBag, { className: '' })}
+            <span
+              className="absolute -top-2 -right-2 text-white text-xs rounded-full px-1"
+              style={{ backgroundColor: colors.primary }}
+            >
               {cartCount}
             </span>
           </button>
@@ -121,6 +145,7 @@ const NavBar: React.FC = () => {
             dropdownPos &&
             createPortal(
               <div
+                ref={dropdownRef}
                 role="dialog"
                 aria-label="Cart dropdown"
                 style={{
@@ -161,8 +186,8 @@ const NavBar: React.FC = () => {
                                 {it.name}
                               </div>
                               <div className="text-gray-500 text-xs">
-                                {it.quantity} × ${it.price.toFixed(2)} = $
-                                {(it.quantity * it.price).toFixed(2)}
+                                {it.quantity} × {formatDollars(it.price)} ={' '}
+                                {formatDollars(it.quantity * it.price)}
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-2">
@@ -203,13 +228,13 @@ const NavBar: React.FC = () => {
                       <div className="border-t pt-2 mt-2 flex items-center justify-between">
                         <div className="font-semibold">Total</div>
                         <div className="font-semibold">
-                          ${cartTotal.toFixed(2)}
+                          {formatDollars(cartTotal)}
                         </div>
                       </div>
 
                       <div className="flex gap-2 mt-3">
                         <button
-                          className="flex-1 bg-primary-500 text-white px-3 py-2 rounded"
+                          className="flex-1 bg-[var(--brand-primary)] hover:bg-[var(--brand-secondary)] text-white px-3 py-2 rounded transition-colors"
                           onClick={handleCheckout}
                         >
                           Checkout
