@@ -148,7 +148,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
       <div className="relative bg-white rounded-lg shadow-lg w-full max-w-3xl max-h-[90vh] overflow-auto z-60 p-6">
         <div className="flex justify-between items-start mb-4">
           <h3 className="text-xl font-semibold">{product.label}</h3>
-          <button className="text-gray-600" onClick={onClose}>
+          <button
+            className="px-3 py-1.5 rounded-md border border-[var(--brand-secondary)] text-[var(--brand-secondary)] hover:bg-[var(--brand-secondary)] hover:text-white transition-colors"
+            onClick={onClose}
+          >
             Close
           </button>
         </div>
@@ -175,7 +178,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                       key={v.id}
                       className={`px-3 py-1 border rounded cursor-pointer text-sm ${
                         selectedVariantId === v.id
-                          ? 'border-primary-500 bg-primary-50'
+                          ? 'border-[var(--brand-primary)] bg-[var(--brand-background)]'
                           : 'bg-white'
                       }`}
                     >
@@ -252,10 +255,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
             </div>
 
             <div className="flex gap-2 mt-6">
-              <Button
-                className="flex-1 bg-primary-500 text-white"
-                onClick={handleAddToCart}
-              >
+              <Button className="flex-1" onClick={handleAddToCart}>
                 Add To Order
               </Button>
               <Button variant="outline" className="px-4" onClick={onClose}>
