@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Button from './Button';
 import TickCheckbox from './TickCheckbox';
 import { useAppDispatch } from '../store/hooks';
@@ -141,11 +142,12 @@ const ProductModal: React.FC<ProductModalProps> = ({
   }
 
   if (!isOpen) return null;
+  const canUseDom = typeof document !== 'undefined';
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+  const modalContent = (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black opacity-40" onClick={onClose} />
-      <div className="relative bg-white rounded-lg shadow-lg w-full max-w-3xl max-h-[90vh] overflow-auto z-60 p-6">
+      <div className="relative z-[1001] bg-white rounded-lg shadow-lg w-full max-w-3xl max-h-[90vh] overflow-auto p-6">
         <div className="flex justify-between items-start mb-4">
           <h3 className="text-xl font-semibold">{product.label}</h3>
           <button
@@ -267,6 +269,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
       </div>
     </div>
   );
+
+  return canUseDom ? createPortal(modalContent, document.body) : modalContent;
 };
 
 export default ProductModal;
