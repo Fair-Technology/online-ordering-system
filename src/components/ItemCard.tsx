@@ -26,10 +26,6 @@ const ItemCard: React.FC<ItemCardProps> = ({ product, onAddToCart }) => {
     typeof product.price === 'number' && Number.isFinite(product.price)
       ? product.price
       : 0;
-  const isDesktopOrTablet =
-    typeof window !== 'undefined'
-      ? window.matchMedia('(min-width: 640px)').matches
-      : false;
 
   // derive shopId from URL so we can pass to modal (optional)
   const parts =
@@ -41,35 +37,21 @@ const ItemCard: React.FC<ItemCardProps> = ({ product, onAddToCart }) => {
   return (
     <>
       <div
-        className={`rounded-xl shadow-md bg-white overflow-hidden flex flex-col ${isDesktopOrTablet ? 'cursor-pointer' : ''}`}
-        role={isDesktopOrTablet ? 'button' : undefined}
-        tabIndex={isDesktopOrTablet ? 0 : undefined}
-        onClick={
-          isDesktopOrTablet
-            ? () => {
-                setIsModalOpen(true);
-              }
-            : undefined
-        }
-        onKeyDown={
-          isDesktopOrTablet
-            ? (event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  setIsModalOpen(true);
-                }
-              }
-            : undefined
-        }
+        className="rounded-xl shadow-md bg-white overflow-hidden flex flex-col"
       >
-        <div className="w-full aspect-[4/3] overflow-hidden">
+        <button
+          type="button"
+          className="w-full aspect-[4/3] overflow-hidden cursor-pointer"
+          onClick={() => setIsModalOpen(true)}
+          aria-label={`View details for ${product.label}`}
+        >
           <img
             src={product.imageURL || 'https://via.placeholder.com/320x180'}
             alt={product.label}
             className="w-full h-full object-cover pointer-events-none select-none"
             draggable={false}
           />
-        </div>
+        </button>
         <div className="p-3 sm:p-4 flex flex-col justify-between flex-1 space-y-2">
           <h3 className="text-base sm:text-lg font-bold text-[var(--brand-secondary)] line-clamp-1">
             {product.label}
