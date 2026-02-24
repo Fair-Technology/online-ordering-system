@@ -151,7 +151,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
         <div className="flex justify-between items-start mb-4">
           <h3 className="text-xl font-semibold">{product.label}</h3>
           <button
-            className="px-3 py-1.5 rounded-md border border-[var(--brand-secondary)] text-[var(--brand-secondary)] hover:bg-[var(--brand-secondary)] hover:text-white transition-colors"
+            className="px-3 py-1.5 rounded-md border border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white transition-colors"
             onClick={onClose}
           >
             Close
@@ -260,7 +260,11 @@ const ProductModal: React.FC<ProductModalProps> = ({
               <Button className="flex-1" onClick={handleAddToCart}>
                 Add To Order
               </Button>
-              <Button variant="outline" className="px-4" onClick={onClose}>
+              <Button
+                variant="outline"
+                className="px-4 border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white"
+                onClick={onClose}
+              >
                 Cancel
               </Button>
             </div>

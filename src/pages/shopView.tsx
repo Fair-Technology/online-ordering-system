@@ -112,6 +112,17 @@ const ShopView = () => {
   );
 
   useEffect(() => {
+    const rootStyle = document.documentElement.style;
+    rootStyle.setProperty('--brand-primary', resolvedBranding.colors.primary);
+    rootStyle.setProperty('--brand-secondary', resolvedBranding.colors.secondary);
+    rootStyle.setProperty('--brand-tertiary', resolvedBranding.colors.tertiary);
+    rootStyle.setProperty(
+      '--brand-background',
+      resolvedBranding.colors.background
+    );
+  }, [resolvedBranding]);
+
+  useEffect(() => {
     if (resolvedShopId) {
       dispatch(setActiveShop({ shopId: resolvedShopId }));
     }
