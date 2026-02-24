@@ -8,6 +8,7 @@ interface CategoryFilterBarProps {
 const CategoryFilterBar: React.FC<CategoryFilterBarProps> = ({ categories }) => {
   const [selected, setSelected] = useState(() => categories[0]?.id ?? '');
   const [hovered, setHovered] = useState('');
+  const STICKY_OFFSET = 140;
 
   useEffect(() => {
     if (!categories.length) {
@@ -21,6 +22,7 @@ const CategoryFilterBar: React.FC<CategoryFilterBarProps> = ({ categories }) => 
 
   const handleClick = (categoryId: string) => {
     setSelected(categoryId);
+    setHovered('');
     document.getElementById(categoryId)?.scrollIntoView({
       behavior: 'smooth',
       block: 'start',
@@ -29,21 +31,51 @@ const CategoryFilterBar: React.FC<CategoryFilterBarProps> = ({ categories }) => 
 
   useEffect(() => {
     if (!categories.length) return;
+    const lastCategoryId = categories[categories.length - 1]?.id ?? '';
+    let ticking = false;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visibleSection = entries.find((entry) => entry.isIntersecting);
-        if (visibleSection) setSelected(visibleSection.target.id);
-      },
-      { threshold: 0.3 }
-    );
+    const updateSelectedByScroll = () => {
+      const anchorY = window.scrollY + STICKY_OFFSET + 8;
+      let activeId = categories[0].id;
 
-    categories.forEach((cat) => {
-      const el = document.getElementById(cat.id);
-      if (el) observer.observe(el);
-    });
+      for (const category of categories) {
+        const sectionEl = document.getElementById(category.id);
+        if (!sectionEl) continue;
+        if (sectionEl.offsetTop <= anchorY) {
+          activeId = category.id;
+        } else {
+          break;
+        }
+      }
 
-    return () => observer.disconnect();
+      // Ensure the last section gets selected near page bottom even if its top
+      // never crosses the anchor due to limited remaining scroll space.
+      const scrollBottom = window.scrollY + window.innerHeight;
+      const pageBottom = document.documentElement.scrollHeight;
+      if (pageBottom - scrollBottom <= 4) {
+        activeId = lastCategoryId || activeId;
+      }
+
+      setSelected((prev) => (prev === activeId ? prev : activeId));
+    };
+
+    const onScrollOrResize = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        updateSelectedByScroll();
+        ticking = false;
+      });
+    };
+
+    updateSelectedByScroll();
+    window.addEventListener('scroll', onScrollOrResize, { passive: true });
+    window.addEventListener('resize', onScrollOrResize);
+
+    return () => {
+      window.removeEventListener('scroll', onScrollOrResize);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
   }, [categories]);
 
   if (!categories.length) return null;
