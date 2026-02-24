@@ -1,5 +1,5 @@
 // ItemCard.tsx - Concise presentational card that derives shopId from URL and opens ProductModal
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Button from './Button';
 import ProductModal, { Product as ModalProduct } from './ProductModal';
 import { formatDollars } from '../utils/money';
@@ -33,6 +33,31 @@ const ItemCard: React.FC<ItemCardProps> = ({ product, onAddToCart }) => {
       ? window.location.pathname.split('/').filter(Boolean)
       : [];
   const shopId = parts[0];
+  const modalId = useMemo(
+    () => `${shopId ?? 'global'}:${product.id}`,
+    [product.id, shopId]
+  );
+
+  useEffect(() => {
+    const handleModalOpen = (event: Event) => {
+      const detail = (event as CustomEvent<string>).detail;
+      if (detail !== modalId) {
+        setIsModalOpen(false);
+      }
+    };
+
+    window.addEventListener('product-modal-open', handleModalOpen);
+    return () => {
+      window.removeEventListener('product-modal-open', handleModalOpen);
+    };
+  }, [modalId]);
+
+  const openModal = () => {
+    window.dispatchEvent(
+      new CustomEvent('product-modal-open', { detail: modalId })
+    );
+    setIsModalOpen(true);
+  };
 
   return (
     <>
@@ -42,7 +67,7 @@ const ItemCard: React.FC<ItemCardProps> = ({ product, onAddToCart }) => {
         <button
           type="button"
           className="w-full aspect-[4/3] overflow-hidden cursor-pointer"
-          onClick={() => setIsModalOpen(true)}
+          onClick={openModal}
           aria-label={`View details for ${product.label}`}
         >
           <img
@@ -67,7 +92,7 @@ const ItemCard: React.FC<ItemCardProps> = ({ product, onAddToCart }) => {
             <Button
               variant="outline"
               className="w-full text-xs sm:text-sm"
-              onClick={() => setIsModalOpen(true)}
+              onClick={openModal}
             >
               View Details
             </Button>
