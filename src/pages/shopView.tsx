@@ -84,10 +84,15 @@ const ShopView = () => {
     ? ''
     : routeShopId ?? storedShopId ?? '';
 
-  const { data: shopDataBySlug } = useGetShopsSlugBySlugQuery(slug ?? '', {
+  const {
+    data: shopDataBySlug,
+    isLoading: isSlugLoading,
+    isError: isSlugError,
+    error: slugError,
+  } = useGetShopsSlugBySlugQuery(slug ?? '', {
     skip: !shouldFetchBySlug,
   });
-  const { data: shopDataById } = useGetShopsByShopIdQuery(shopIdLookup, {
+  const { data: shopDataById, isLoading: isIdLoading } = useGetShopsByShopIdQuery(shopIdLookup, {
     skip: !shopIdLookup,
   });
   const resolvedShopData = (shouldFetchBySlug
@@ -188,6 +193,30 @@ const ShopView = () => {
   const handleAddToCart = (item: Product) => {
     console.log('Added to cart:', item);
   };
+
+  const isLoading = shouldFetchBySlug ? isSlugLoading : isIdLoading;
+
+  if (isLoading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-gray-200 border-t-[var(--brand-primary,#FF8C32)] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (
+    shouldFetchBySlug &&
+    isSlugError &&
+    slugError &&
+    'status' in slugError &&
+    slugError.status === 404
+  ) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center">
+        <h1 className="text-2xl font-semibold">Shop does not exist</h1>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white" style={brandStyle}>

@@ -107,3 +107,7 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# AI
+.claude
+CLAUDE.md
