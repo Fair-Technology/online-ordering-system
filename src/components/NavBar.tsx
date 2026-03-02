@@ -15,6 +15,7 @@ import {
 } from '../store/slices/cartSlice';
 import { formatDollars } from '../utils/money';
 import type { BrandColors } from '../utils/branding';
+import CheckoutModal from './CheckoutModal';
 
 interface NavBarProps {
   shopName: string;
@@ -25,6 +26,7 @@ interface NavBarProps {
 
 const NavBar: React.FC<NavBarProps> = ({ shopName, shopId, logoUrl, colors }) => {
   const [open, setOpen] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
   const dispatch = useAppDispatch();
   const cartItems = useAppSelector(selectCartItems);
@@ -92,23 +94,12 @@ const NavBar: React.FC<NavBarProps> = ({ shopName, shopId, logoUrl, colors }) =>
   }, [open]);
 
   function handleCheckout() {
-    // const payload = {
-    //   shopId,
-    //   createdAt: new Date().toISOString(),
-    //   itemCount: cartItems.reduce((s, it) => s + it.quantity, 0),
-    //   totalAmount: cartTotal,
-    //   items: cartItems.map((it) => ({
-    //     productId: it.id,
-    //     variantId: it.variantId,
-    //     addonOptionIds: it.addonOptionIds,
-    //     unitPrice: it.price,
-    //     quantity: it.quantity,
-    //   })),
-    // };
-    // TODO: call backend orders API, then dispatch(clearCart()) on success
+    setOpen(false);
+    setIsCheckoutOpen(true);
   }
 
   return (
+    <>
     <header
       className="shadow-sm"
       style={{
@@ -255,6 +246,20 @@ const NavBar: React.FC<NavBarProps> = ({ shopName, shopId, logoUrl, colors }) =>
         </div>
       </div>
     </header>
+
+    {isCheckoutOpen && (
+      <CheckoutModal
+        open={isCheckoutOpen}
+        onClose={() => setIsCheckoutOpen(false)}
+        shopId={shopId}
+        cartItems={cartItems}
+        onSuccess={() => {
+          dispatch(clearCart());
+          setIsCheckoutOpen(false);
+        }}
+      />
+    )}
+  </>
   );
 };
 
