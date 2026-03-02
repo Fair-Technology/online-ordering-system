@@ -1,11 +1,21 @@
 import { baseApi as api } from './baseApi';
-export const addTagTypes = ['Shops', 'Categories', 'Products'] as const;
+export const addTagTypes = [
+  'Shops',
+  'Categories',
+  'Products',
+  'Product Images',
+  'Orders',
+] as const;
 const injectedRtkApi = api
   .enhanceEndpoints({
     addTagTypes,
   })
   .injectEndpoints({
     endpoints: (build) => ({
+      getShops: build.query<GetShopsApiResponse, GetShopsApiArg>({
+        query: () => ({ url: `/shops` }),
+        providesTags: ['Shops'],
+      }),
       postShops: build.mutation<PostShopsApiResponse, PostShopsApiArg>({
         query: (queryArg) => ({
           url: `/shops`,
@@ -19,6 +29,10 @@ const injectedRtkApi = api
         GetShopsSlugBySlugApiArg
       >({
         query: (queryArg) => ({ url: `/shops/slug/${queryArg}` }),
+        providesTags: ['Shops'],
+      }),
+      getShopsMe: build.query<GetShopsMeApiResponse, GetShopsMeApiArg>({
+        query: () => ({ url: `/shops/me` }),
         providesTags: ['Shops'],
       }),
       getShopsByShopId: build.query<
@@ -149,10 +163,61 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ['Products'],
       }),
+      postShopsByShopIdProductsAndProductIdImagesUploadUrl: build.mutation<
+        PostShopsByShopIdProductsAndProductIdImagesUploadUrlApiResponse,
+        PostShopsByShopIdProductsAndProductIdImagesUploadUrlApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/shops/${queryArg.shopId}/products/${queryArg.productId}/images/upload-url`,
+          method: 'POST',
+          body: queryArg.generateImageUploadUrlRequest,
+        }),
+        invalidatesTags: ['Product Images'],
+      }),
+      postShopsByShopIdProductsAndProductIdImages: build.mutation<
+        PostShopsByShopIdProductsAndProductIdImagesApiResponse,
+        PostShopsByShopIdProductsAndProductIdImagesApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/shops/${queryArg.shopId}/products/${queryArg.productId}/images`,
+          method: 'POST',
+          body: queryArg.addProductImageRequest,
+        }),
+        invalidatesTags: ['Product Images'],
+      }),
+      postOrders: build.mutation<PostOrdersApiResponse, PostOrdersApiArg>({
+        query: (queryArg) => ({
+          url: `/orders`,
+          method: 'POST',
+          body: queryArg,
+        }),
+        invalidatesTags: ['Orders'],
+      }),
+      postWebhooksStripe: build.mutation<
+        PostWebhooksStripeApiResponse,
+        PostWebhooksStripeApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/webhooks/stripe`,
+          method: 'POST',
+          body: queryArg,
+        }),
+        invalidatesTags: ['Orders'],
+      }),
+      getOrdersByPaymentIntentByPaymentIntentId: build.query<
+        GetOrdersByPaymentIntentByPaymentIntentIdApiResponse,
+        GetOrdersByPaymentIntentByPaymentIntentIdApiArg
+      >({
+        query: (queryArg) => ({ url: `/orders/by-payment-intent/${queryArg}` }),
+        providesTags: ['Orders'],
+      }),
     }),
     overrideExisting: false,
   });
 export { injectedRtkApi as api };
+export type GetShopsApiResponse =
+  /** status 200 List of all shops retrieved successfully */ GetAllShopsResponse;
+export type GetShopsApiArg = void;
 export type PostShopsApiResponse =
   /** status 200 Shop created successfully */ ShopResponse;
 export type PostShopsApiArg = CreateShopRequest;
@@ -160,6 +225,9 @@ export type GetShopsSlugBySlugApiResponse =
   /** status 200 Shop retrieved successfully */ ShopResponse;
 export type GetShopsSlugBySlugApiArg =
   /** Shop slug (public identifier) */ string;
+export type GetShopsMeApiResponse =
+  /** status 200 Shops where the user is an active owner member */ GetAllShopsResponse;
+export type GetShopsMeApiArg = void;
 export type GetShopsByShopIdApiResponse =
   /** status 200 Shop retrieved successfully */ ShopResponse;
 export type GetShopsByShopIdApiArg = /** Shop ID */ string;
@@ -237,6 +305,51 @@ export type DeleteProductsByProductIdApiArg = {
   /** Shop ID (required for partition key) */
   shopId: string;
 };
+export type PostShopsByShopIdProductsAndProductIdImagesUploadUrlApiResponse =
+  /** status 200 Upload URL generated successfully */ GenerateImageUploadUrlResponse;
+export type PostShopsByShopIdProductsAndProductIdImagesUploadUrlApiArg = {
+  /** Shop ID */
+  shopId: string;
+  /** Product ID */
+  productId: string;
+  generateImageUploadUrlRequest: GenerateImageUploadUrlRequest;
+};
+export type PostShopsByShopIdProductsAndProductIdImagesApiResponse =
+  /** status 200 Product image added successfully */ ProductImageResponse;
+export type PostShopsByShopIdProductsAndProductIdImagesApiArg = {
+  /** Shop ID */
+  shopId: string;
+  /** Product ID */
+  productId: string;
+  addProductImageRequest: AddProductImageRequest;
+};
+export type PostOrdersApiResponse =
+  /** status 200 Order created and PaymentIntent initiated */ CheckoutResponse;
+export type PostOrdersApiArg = CheckoutRequest;
+export type PostWebhooksStripeApiResponse = /** status 200 Event received */ {
+  received?: boolean;
+};
+export type PostWebhooksStripeApiArg = object;
+export type GetOrdersByPaymentIntentByPaymentIntentIdApiResponse =
+  /** status 200 Order found */ OrderByPaymentIntentResponse;
+export type GetOrdersByPaymentIntentByPaymentIntentIdApiArg =
+  /** Stripe PaymentIntent ID (starts with pi_) */ string;
+export type ShopBranding = {
+  /** Logo URL (must start with https://) */
+  logoUrl?: string | null;
+  /** Hero image URL (must start with https://) */
+  heroImageUrl?: string | null;
+  colors: {
+    /** Primary brand color (hex) */
+    primary: string;
+    /** Secondary brand color (hex) */
+    secondary: string;
+    /** Tertiary brand color (hex) */
+    tertiary: string;
+    /** Background color (hex) */
+    background: string;
+  };
+} | null;
 export type ShopResponse = {
   /** Shop ID */
   id?: string;
@@ -250,21 +363,19 @@ export type ShopResponse = {
   createdAt?: string;
   /** Last update timestamp */
   updatedAt?: string;
+  /** Shop branding configuration, or null if not configured. */
+  branding?: ShopBranding;
+};
+export type GetAllShopsResponse = {
+  /** Array of shops */
+  shops: ShopResponse[];
+  /** Total number of shops */
+  total: number;
 };
 export type CreateShopRequest = {
-  /** Unique shop identifier */
-  slug: string;
-  /** Shop name */
+  /** Shop name (slug will be auto-generated from this) */
   name: string;
-  /** Whether shop is deleted */
-  isDeleted?: boolean;
-  /** Whether shop is accepting orders */
-  acceptingOrders?: boolean;
-  /** Whether shop is paused */
-  isPaused?: boolean;
-  /** Message when shop is paused */
-  pausedMessage?: string;
-  /** Shop currency */
+  /** Shop currency (ISO code) */
   currency: string;
   /** Shop timezone */
   timezone: string;
@@ -272,44 +383,71 @@ export type CreateShopRequest = {
   minOrderAmountCents: number;
   /** Payment policy */
   paymentPolicy: 'pay_online';
-  /** Order acceptance mode */
-  orderAcceptanceMode?: 'auto';
-  /** Allow guest checkout */
-  allowGuestCheckout: boolean;
-  address?: {
-    street?: string;
-    city?: string;
-    state?: string;
-    postcode?: string;
-    country?: string;
+  address: {
+    /** Street address */
+    street: string;
+    /** City */
+    city: string;
+    /** State or territory */
+    state: string;
+    /** Postal code */
+    postcode: string;
+    /** Country */
+    country: string;
   };
-  openingHours?: {
+  /** Message when shop is paused (optional) */
+  pausedMessage?: string;
+  /** Order acceptance mode (optional, defaults to auto) */
+  orderAcceptanceMode?: 'auto';
+  /** Shop opening hours for each day of the week. At least one day must have opening hours. */
+  openingHours: {
+    /** Monday opening hours */
     mon?: {
+      /** Opening time in 24-hour format (HH:MM) */
       open?: string;
+      /** Closing time in 24-hour format (HH:MM) */
       close?: string;
     }[];
+    /** Tuesday opening hours */
     tue?: {
+      /** Opening time in 24-hour format (HH:MM) */
       open?: string;
+      /** Closing time in 24-hour format (HH:MM) */
       close?: string;
     }[];
+    /** Wednesday opening hours */
     wed?: {
+      /** Opening time in 24-hour format (HH:MM) */
       open?: string;
+      /** Closing time in 24-hour format (HH:MM) */
       close?: string;
     }[];
+    /** Thursday opening hours */
     thu?: {
+      /** Opening time in 24-hour format (HH:MM) */
       open?: string;
+      /** Closing time in 24-hour format (HH:MM) */
       close?: string;
     }[];
+    /** Friday opening hours */
     fri?: {
+      /** Opening time in 24-hour format (HH:MM) */
       open?: string;
+      /** Closing time in 24-hour format (HH:MM) */
       close?: string;
     }[];
+    /** Saturday opening hours */
     sat?: {
+      /** Opening time in 24-hour format (HH:MM) */
       open?: string;
+      /** Closing time in 24-hour format (HH:MM) */
       close?: string;
     }[];
+    /** Sunday opening hours */
     sun?: {
+      /** Opening time in 24-hour format (HH:MM) */
       open?: string;
+      /** Closing time in 24-hour format (HH:MM) */
       close?: string;
     }[];
   };
@@ -324,6 +462,8 @@ export type CreateShopRequest = {
     role?: 'owner' | 'staff';
     isActive?: boolean;
   }[];
+  /** Shop branding configuration (optional). Set to null to disable branding. */
+  branding?: ShopBranding;
 };
 export type UpdateShopRequest = {
   /** Shop name */
@@ -351,6 +491,8 @@ export type UpdateShopRequest = {
     postcode?: string;
     country?: string;
   };
+  /** Shop branding configuration. Set to null to clear branding. */
+  branding?: ShopBranding;
 };
 export type DeleteResponse = {
   /** Whether deletion was successful */
@@ -363,8 +505,6 @@ export type CategoryResponse = {
   shopId?: string;
   /** Category name */
   name?: string;
-  /** Category slug */
-  slug?: string;
   /** Sort order for display */
   sortOrder?: number;
   /** Whether category is deleted */
@@ -378,16 +518,12 @@ export type CategoriesResponse = CategoryResponse[];
 export type CreateCategoryRequest = {
   /** Category name */
   name: string;
-  /** Unique category identifier within shop */
-  slug: string;
   /** Sort order for display */
   sortOrder?: number;
 };
 export type UpdateCategoryRequest = {
   /** Category name */
   name?: string;
-  /** Unique category identifier within shop */
-  slug?: string;
   /** Sort order for display */
   sortOrder?: number;
 };
@@ -410,8 +546,6 @@ export type ProductResponse = {
     id?: string;
     /** Category name */
     name?: string;
-    /** Category slug */
-    slug?: string;
     /** Category sort order */
     sortOrder?: number;
   }[];
@@ -520,9 +654,104 @@ export type UpdateProductRequest = {
   /** Whether product is available */
   isAvailable?: boolean;
 };
+export type GenerateImageUploadUrlResponse = {
+  /** Unique identifier for the image */
+  imageId: string;
+  /** Pre-signed URL for uploading the image to Azure Blob Storage */
+  uploadUrl: string;
+  /** Permanent URL of the blob (without SAS token) */
+  blobUrl: string;
+  /** Expiration time of the upload URL */
+  expiresAt: string;
+};
+export type GenerateImageUploadUrlRequest = {
+  /** MIME type of the image to upload */
+  contentType: 'image/jpeg' | 'image/png' | 'image/webp';
+  /** Optional filename for the image */
+  fileName?: string;
+  /** Optional maximum file size in bytes */
+  maxSizeBytes?: number;
+};
+export type ProductImageResponse = {
+  /** Image ID */
+  id: string;
+  /** Image URL */
+  url: string;
+  /** Alternative text for the image */
+  alt?: string;
+  /** Sort order for displaying images */
+  sortOrder: number;
+  /** Whether this is the primary product image */
+  isPrimary: boolean;
+};
+export type AddProductImageRequest = {
+  /** Image ID returned from the upload URL generation */
+  imageId: string;
+  /** Blob URL of the uploaded image */
+  url: string;
+  /** Alternative text for the image */
+  alt?: string;
+  /** Sort order for displaying images */
+  sortOrder?: number;
+};
+export type CheckoutResponse = {
+  /** Checkout session ID */
+  sessionId: string;
+  /** Stripe PaymentIntent client secret. Pass this to stripe.confirmPayment() on the frontend. */
+  clientSecret: string;
+  /** Server-computed order total in cents */
+  subtotalCents: number;
+  /** ISO currency code from the shop */
+  currency: string;
+};
+export type CheckoutItem = {
+  /** Product ID */
+  productId: string;
+  /** Quantity to order */
+  quantity: number;
+  /** ID of the selected variant option (e.g. size) */
+  selectedVariantOptionId?: string;
+  /** IDs of selected addon options */
+  selectedAddonOptionIds?: string[];
+};
+export type CheckoutRequest = {
+  /** ID of the shop to order from */
+  shopId: string;
+  /** Items to order */
+  items: CheckoutItem[];
+  /** Customer name */
+  customerName: string;
+  /** Customer email */
+  customerEmail: string;
+  /** Customer phone number */
+  customerPhone: string;
+  /** Optional notes for the order */
+  customerNotes?: string;
+};
+export type OrderItemResponse = {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPriceCents: number;
+  selectedVariantOptionId?: string | null;
+  selectedAddonOptionIds?: string[] | null;
+  lineTotalCents: number;
+};
+export type OrderByPaymentIntentResponse = {
+  orderId: string;
+  orderRef: string;
+  status: 'pending_payment' | 'paid' | 'failed' | 'cancelled' | 'refunded';
+  items: OrderItemResponse[];
+  subtotalCents: number;
+  currency: string;
+  customerName: string;
+  createdAt: string;
+};
 export const {
+  useGetShopsQuery,
   usePostShopsMutation,
   useGetShopsSlugBySlugQuery,
+  useGetShopsMeQuery,
   useGetShopsByShopIdQuery,
   usePatchShopsByShopIdMutation,
   useDeleteShopsByShopIdMutation,
@@ -536,4 +765,9 @@ export const {
   useGetProductsByProductIdQuery,
   usePatchProductsByProductIdMutation,
   useDeleteProductsByProductIdMutation,
+  usePostShopsByShopIdProductsAndProductIdImagesUploadUrlMutation,
+  usePostShopsByShopIdProductsAndProductIdImagesMutation,
+  usePostOrdersMutation,
+  usePostWebhooksStripeMutation,
+  useGetOrdersByPaymentIntentByPaymentIntentIdQuery,
 } = injectedRtkApi;

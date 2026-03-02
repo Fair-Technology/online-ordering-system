@@ -1,5 +1,5 @@
 import { CSSProperties, useEffect, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import HeroSection from '../components/HeroSection';
 import CategoryFilterBar from '../components/CategoryFilterBar';
 import CustomerMenuList from '../features/customer/components/CustomerMenuList';
@@ -73,6 +73,7 @@ const toLegacyProduct = (product: ProductResponse): Product => ({
 });
 
 const ShopView = () => {
+  const navigate = useNavigate();
   const { shopId: routeShopId, slug } = useParams<{
     shopId?: string;
     slug?: string;
@@ -223,9 +224,10 @@ const ShopView = () => {
       <div className="sticky top-0 z-50 bg-white shadow-sm">
         <NavBar
           shopName={shopName}
-          shopId={resolvedShopId}
+          shopId={slug ?? ''}
           logoUrl={resolvedBranding.logoUrl}
           colors={resolvedBranding.colors}
+          onCheckout={() => navigate(`/shops/${slug}/checkout`)}
         />
       </div>
       <HeroSection
