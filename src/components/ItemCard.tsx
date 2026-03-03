@@ -32,7 +32,7 @@ const ItemCard: React.FC<ItemCardProps> = ({ product, onAddToCart }) => {
     typeof window !== 'undefined'
       ? window.location.pathname.split('/').filter(Boolean)
       : [];
-  const shopId = parts[0];
+  const shopId = parts[1];
   const modalId = useMemo(
     () => `${shopId ?? 'global'}:${product.id}`,
     [product.id, shopId]

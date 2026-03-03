@@ -10,8 +10,10 @@ export interface CheckoutItemRequest {
 export interface CheckoutRequest {
   shopId: string;
   items: CheckoutItemRequest[];
-  customerEmail?: string;
-  customerName?: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  customerNotes?: string;
 }
 
 export interface CheckoutResponse {
