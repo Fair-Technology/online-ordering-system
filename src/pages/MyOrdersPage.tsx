@@ -5,7 +5,7 @@ import NavBar from '../components/NavBar';
 import Footer from '../components/footer';
 import { getGuestOrders } from '../utils/guestOrders';
 import { formatDollars } from '../utils/money';
-import { useGetShopsSlugBySlugQuery } from '../services/api';
+import { useGetShopBySlugQuery } from '../services/api';
 import { resolveShopBranding, type ShopWithBranding } from '../utils/branding';
 
 const statusColors: Record<string, string> = {
@@ -21,7 +21,7 @@ const MyOrdersPage: React.FC = () => {
   const navigate = useNavigate();
 
   // Shop branding — same pattern as CheckoutPage
-  const { data: shopData } = useGetShopsSlugBySlugQuery(slug ?? '', {
+  const { data: shopData } = useGetShopBySlugQuery(slug ?? '', {
     skip: !slug,
   });
   const resolvedShopData = shopData as ShopWithBranding | undefined;

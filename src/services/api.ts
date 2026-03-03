@@ -4,6 +4,7 @@ export const addTagTypes = [
   'Categories',
   'Products',
   'Product Images',
+  'Shop Logo',
   'Orders',
 ] as const;
 const injectedRtkApi = api
@@ -16,7 +17,7 @@ const injectedRtkApi = api
         query: () => ({ url: `/shops` }),
         providesTags: ['Shops'],
       }),
-      postShops: build.mutation<PostShopsApiResponse, PostShopsApiArg>({
+      createShop: build.mutation<CreateShopApiResponse, CreateShopApiArg>({
         query: (queryArg) => ({
           url: `/shops`,
           method: 'POST',
@@ -24,28 +25,21 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ['Shops'],
       }),
-      getShopsSlugBySlug: build.query<
-        GetShopsSlugBySlugApiResponse,
-        GetShopsSlugBySlugApiArg
-      >({
-        query: (queryArg) => ({ url: `/shops/slug/${queryArg}` }),
-        providesTags: ['Shops'],
-      }),
-      getShopsMe: build.query<GetShopsMeApiResponse, GetShopsMeApiArg>({
+      getShopBySlug: build.query<GetShopBySlugApiResponse, GetShopBySlugApiArg>(
+        {
+          query: (queryArg) => ({ url: `/shops/slug/${queryArg}` }),
+          providesTags: ['Shops'],
+        },
+      ),
+      getMyShops: build.query<GetMyShopsApiResponse, GetMyShopsApiArg>({
         query: () => ({ url: `/shops/me` }),
         providesTags: ['Shops'],
       }),
-      getShopsByShopId: build.query<
-        GetShopsByShopIdApiResponse,
-        GetShopsByShopIdApiArg
-      >({
+      getShopById: build.query<GetShopByIdApiResponse, GetShopByIdApiArg>({
         query: (queryArg) => ({ url: `/shops/${queryArg}` }),
         providesTags: ['Shops'],
       }),
-      patchShopsByShopId: build.mutation<
-        PatchShopsByShopIdApiResponse,
-        PatchShopsByShopIdApiArg
-      >({
+      updateShop: build.mutation<UpdateShopApiResponse, UpdateShopApiArg>({
         query: (queryArg) => ({
           url: `/shops/${queryArg.shopId}`,
           method: 'PATCH',
@@ -53,23 +47,20 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ['Shops'],
       }),
-      deleteShopsByShopId: build.mutation<
-        DeleteShopsByShopIdApiResponse,
-        DeleteShopsByShopIdApiArg
-      >({
+      deleteShop: build.mutation<DeleteShopApiResponse, DeleteShopApiArg>({
         query: (queryArg) => ({ url: `/shops/${queryArg}`, method: 'DELETE' }),
         invalidatesTags: ['Shops'],
       }),
-      getShopsByShopIdCategories: build.query<
-        GetShopsByShopIdCategoriesApiResponse,
-        GetShopsByShopIdCategoriesApiArg
+      getCategoriesByShop: build.query<
+        GetCategoriesByShopApiResponse,
+        GetCategoriesByShopApiArg
       >({
         query: (queryArg) => ({ url: `/shops/${queryArg}/categories` }),
         providesTags: ['Categories'],
       }),
-      postShopsByShopIdCategories: build.mutation<
-        PostShopsByShopIdCategoriesApiResponse,
-        PostShopsByShopIdCategoriesApiArg
+      createCategory: build.mutation<
+        CreateCategoryApiResponse,
+        CreateCategoryApiArg
       >({
         query: (queryArg) => ({
           url: `/shops/${queryArg.shopId}/categories`,
@@ -78,18 +69,18 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ['Categories'],
       }),
-      getShopsByShopIdCategoriesAndCategoryId: build.query<
-        GetShopsByShopIdCategoriesAndCategoryIdApiResponse,
-        GetShopsByShopIdCategoriesAndCategoryIdApiArg
+      getCategoryById: build.query<
+        GetCategoryByIdApiResponse,
+        GetCategoryByIdApiArg
       >({
         query: (queryArg) => ({
           url: `/shops/${queryArg.shopId}/categories/${queryArg.categoryId}`,
         }),
         providesTags: ['Categories'],
       }),
-      patchShopsByShopIdCategoriesAndCategoryId: build.mutation<
-        PatchShopsByShopIdCategoriesAndCategoryIdApiResponse,
-        PatchShopsByShopIdCategoriesAndCategoryIdApiArg
+      updateCategory: build.mutation<
+        UpdateCategoryApiResponse,
+        UpdateCategoryApiArg
       >({
         query: (queryArg) => ({
           url: `/shops/${queryArg.shopId}/categories/${queryArg.categoryId}`,
@@ -98,9 +89,9 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ['Categories'],
       }),
-      deleteShopsByShopIdCategoriesAndCategoryId: build.mutation<
-        DeleteShopsByShopIdCategoriesAndCategoryIdApiResponse,
-        DeleteShopsByShopIdCategoriesAndCategoryIdApiArg
+      deleteCategory: build.mutation<
+        DeleteCategoryApiResponse,
+        DeleteCategoryApiArg
       >({
         query: (queryArg) => ({
           url: `/shops/${queryArg.shopId}/categories/${queryArg.categoryId}`,
@@ -108,7 +99,10 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ['Categories'],
       }),
-      getProducts: build.query<GetProductsApiResponse, GetProductsApiArg>({
+      getProductsByShop: build.query<
+        GetProductsByShopApiResponse,
+        GetProductsByShopApiArg
+      >({
         query: (queryArg) => ({
           url: `/products`,
           params: {
@@ -117,19 +111,20 @@ const injectedRtkApi = api
         }),
         providesTags: ['Products'],
       }),
-      postProducts: build.mutation<PostProductsApiResponse, PostProductsApiArg>(
-        {
-          query: (queryArg) => ({
-            url: `/products`,
-            method: 'POST',
-            body: queryArg,
-          }),
-          invalidatesTags: ['Products'],
-        },
-      ),
-      getProductsByProductId: build.query<
-        GetProductsByProductIdApiResponse,
-        GetProductsByProductIdApiArg
+      createProduct: build.mutation<
+        CreateProductApiResponse,
+        CreateProductApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/products`,
+          method: 'POST',
+          body: queryArg,
+        }),
+        invalidatesTags: ['Products'],
+      }),
+      getProductById: build.query<
+        GetProductByIdApiResponse,
+        GetProductByIdApiArg
       >({
         query: (queryArg) => ({
           url: `/products/${queryArg.productId}`,
@@ -139,9 +134,9 @@ const injectedRtkApi = api
         }),
         providesTags: ['Products'],
       }),
-      patchProductsByProductId: build.mutation<
-        PatchProductsByProductIdApiResponse,
-        PatchProductsByProductIdApiArg
+      updateProduct: build.mutation<
+        UpdateProductApiResponse,
+        UpdateProductApiArg
       >({
         query: (queryArg) => ({
           url: `/products/${queryArg.productId}`,
@@ -150,9 +145,9 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ['Products'],
       }),
-      deleteProductsByProductId: build.mutation<
-        DeleteProductsByProductIdApiResponse,
-        DeleteProductsByProductIdApiArg
+      deleteProduct: build.mutation<
+        DeleteProductApiResponse,
+        DeleteProductApiArg
       >({
         query: (queryArg) => ({
           url: `/products/${queryArg.productId}`,
@@ -163,9 +158,9 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ['Products'],
       }),
-      postShopsByShopIdProductsAndProductIdImagesUploadUrl: build.mutation<
-        PostShopsByShopIdProductsAndProductIdImagesUploadUrlApiResponse,
-        PostShopsByShopIdProductsAndProductIdImagesUploadUrlApiArg
+      generateUploadUrl: build.mutation<
+        GenerateUploadUrlApiResponse,
+        GenerateUploadUrlApiArg
       >({
         query: (queryArg) => ({
           url: `/shops/${queryArg.shopId}/products/${queryArg.productId}/images/upload-url`,
@@ -174,9 +169,9 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ['Product Images'],
       }),
-      postShopsByShopIdProductsAndProductIdImages: build.mutation<
-        PostShopsByShopIdProductsAndProductIdImagesApiResponse,
-        PostShopsByShopIdProductsAndProductIdImagesApiArg
+      addProductImage: build.mutation<
+        AddProductImageApiResponse,
+        AddProductImageApiArg
       >({
         query: (queryArg) => ({
           url: `/shops/${queryArg.shopId}/products/${queryArg.productId}/images`,
@@ -185,7 +180,26 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ['Product Images'],
       }),
-      postOrders: build.mutation<PostOrdersApiResponse, PostOrdersApiArg>({
+      generateShopLogoUploadUrl: build.mutation<
+        GenerateShopLogoUploadUrlApiResponse,
+        GenerateShopLogoUploadUrlApiArg
+      >({
+        query: (queryArg) => ({
+          url: `/shops/${queryArg.shopId}/logo/upload-url`,
+          method: 'POST',
+          body: queryArg.generateShopLogoUploadUrlRequest,
+        }),
+        invalidatesTags: ['Shop Logo'],
+      }),
+      setShopLogo: build.mutation<SetShopLogoApiResponse, SetShopLogoApiArg>({
+        query: (queryArg) => ({
+          url: `/shops/${queryArg.shopId}/logo`,
+          method: 'POST',
+          body: queryArg.setShopLogoRequest,
+        }),
+        invalidatesTags: ['Shop Logo'],
+      }),
+      createOrder: build.mutation<CreateOrderApiResponse, CreateOrderApiArg>({
         query: (queryArg) => ({
           url: `/orders`,
           method: 'POST',
@@ -193,9 +207,9 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ['Orders'],
       }),
-      postWebhooksStripe: build.mutation<
-        PostWebhooksStripeApiResponse,
-        PostWebhooksStripeApiArg
+      stripeWebhook: build.mutation<
+        StripeWebhookApiResponse,
+        StripeWebhookApiArg
       >({
         query: (queryArg) => ({
           url: `/webhooks/stripe`,
@@ -204,9 +218,9 @@ const injectedRtkApi = api
         }),
         invalidatesTags: ['Orders'],
       }),
-      getOrdersByPaymentIntentByPaymentIntentId: build.query<
-        GetOrdersByPaymentIntentByPaymentIntentIdApiResponse,
-        GetOrdersByPaymentIntentByPaymentIntentIdApiArg
+      getOrderByPaymentIntent: build.query<
+        GetOrderByPaymentIntentApiResponse,
+        GetOrderByPaymentIntentApiArg
       >({
         query: (queryArg) => ({ url: `/orders/by-payment-intent/${queryArg}` }),
         providesTags: ['Orders'],
@@ -218,121 +232,134 @@ export { injectedRtkApi as api };
 export type GetShopsApiResponse =
   /** status 200 List of all shops retrieved successfully */ GetAllShopsResponse;
 export type GetShopsApiArg = void;
-export type PostShopsApiResponse =
+export type CreateShopApiResponse =
   /** status 200 Shop created successfully */ ShopResponse;
-export type PostShopsApiArg = CreateShopRequest;
-export type GetShopsSlugBySlugApiResponse =
+export type CreateShopApiArg = CreateShopRequest;
+export type GetShopBySlugApiResponse =
   /** status 200 Shop retrieved successfully */ ShopResponse;
-export type GetShopsSlugBySlugApiArg =
-  /** Shop slug (public identifier) */ string;
-export type GetShopsMeApiResponse =
+export type GetShopBySlugApiArg = /** Shop slug (public identifier) */ string;
+export type GetMyShopsApiResponse =
   /** status 200 Shops where the user is an active owner member */ GetAllShopsResponse;
-export type GetShopsMeApiArg = void;
-export type GetShopsByShopIdApiResponse =
+export type GetMyShopsApiArg = void;
+export type GetShopByIdApiResponse =
   /** status 200 Shop retrieved successfully */ ShopResponse;
-export type GetShopsByShopIdApiArg = /** Shop ID */ string;
-export type PatchShopsByShopIdApiResponse =
+export type GetShopByIdApiArg = /** Shop ID */ string;
+export type UpdateShopApiResponse =
   /** status 200 Shop updated successfully */ ShopResponse;
-export type PatchShopsByShopIdApiArg = {
+export type UpdateShopApiArg = {
   /** Shop ID */
   shopId: string;
   updateShopRequest: UpdateShopRequest;
 };
-export type DeleteShopsByShopIdApiResponse =
+export type DeleteShopApiResponse =
   /** status 200 Shop deleted successfully */ DeleteResponse;
-export type DeleteShopsByShopIdApiArg = /** Shop ID */ string;
-export type GetShopsByShopIdCategoriesApiResponse =
+export type DeleteShopApiArg = /** Shop ID */ string;
+export type GetCategoriesByShopApiResponse =
   /** status 200 Categories retrieved successfully */ CategoriesResponse;
-export type GetShopsByShopIdCategoriesApiArg = /** Shop ID */ string;
-export type PostShopsByShopIdCategoriesApiResponse =
+export type GetCategoriesByShopApiArg = /** Shop ID */ string;
+export type CreateCategoryApiResponse =
   /** status 200 Category created successfully */ CategoryResponse;
-export type PostShopsByShopIdCategoriesApiArg = {
+export type CreateCategoryApiArg = {
   /** Shop ID */
   shopId: string;
   createCategoryRequest: CreateCategoryRequest;
 };
-export type GetShopsByShopIdCategoriesAndCategoryIdApiResponse =
+export type GetCategoryByIdApiResponse =
   /** status 200 Category retrieved successfully */ CategoryResponse;
-export type GetShopsByShopIdCategoriesAndCategoryIdApiArg = {
+export type GetCategoryByIdApiArg = {
   /** Shop ID */
   shopId: string;
   /** Category ID */
   categoryId: string;
 };
-export type PatchShopsByShopIdCategoriesAndCategoryIdApiResponse =
+export type UpdateCategoryApiResponse =
   /** status 200 Category updated successfully */ CategoryResponse;
-export type PatchShopsByShopIdCategoriesAndCategoryIdApiArg = {
+export type UpdateCategoryApiArg = {
   /** Shop ID */
   shopId: string;
   /** Category ID */
   categoryId: string;
   updateCategoryRequest: UpdateCategoryRequest;
 };
-export type DeleteShopsByShopIdCategoriesAndCategoryIdApiResponse =
+export type DeleteCategoryApiResponse =
   /** status 200 Category deleted successfully */ CategoryResponse;
-export type DeleteShopsByShopIdCategoriesAndCategoryIdApiArg = {
+export type DeleteCategoryApiArg = {
   /** Shop ID */
   shopId: string;
   /** Category ID */
   categoryId: string;
 };
-export type GetProductsApiResponse =
+export type GetProductsByShopApiResponse =
   /** status 200 Products retrieved successfully */ ProductsResponse;
-export type GetProductsApiArg = /** Shop ID to filter products */ string;
-export type PostProductsApiResponse =
+export type GetProductsByShopApiArg = /** Shop ID to filter products */ string;
+export type CreateProductApiResponse =
   /** status 200 Product created successfully */ ProductResponse;
-export type PostProductsApiArg = CreateProductRequest;
-export type GetProductsByProductIdApiResponse =
+export type CreateProductApiArg = CreateProductRequest;
+export type GetProductByIdApiResponse =
   /** status 200 Product retrieved successfully */ ProductResponse;
-export type GetProductsByProductIdApiArg = {
+export type GetProductByIdApiArg = {
   /** Product ID */
   productId: string;
   /** Shop ID (required for partition key) */
   shopId: string;
 };
-export type PatchProductsByProductIdApiResponse =
+export type UpdateProductApiResponse =
   /** status 200 Product updated successfully */ ProductResponse;
-export type PatchProductsByProductIdApiArg = {
+export type UpdateProductApiArg = {
   /** Product ID */
   productId: string;
   updateProductRequest: UpdateProductRequest;
 };
-export type DeleteProductsByProductIdApiResponse =
+export type DeleteProductApiResponse =
   /** status 200 Product deleted successfully */ DeleteResponse;
-export type DeleteProductsByProductIdApiArg = {
+export type DeleteProductApiArg = {
   /** Product ID */
   productId: string;
   /** Shop ID (required for partition key) */
   shopId: string;
 };
-export type PostShopsByShopIdProductsAndProductIdImagesUploadUrlApiResponse =
+export type GenerateUploadUrlApiResponse =
   /** status 200 Upload URL generated successfully */ GenerateImageUploadUrlResponse;
-export type PostShopsByShopIdProductsAndProductIdImagesUploadUrlApiArg = {
+export type GenerateUploadUrlApiArg = {
   /** Shop ID */
   shopId: string;
   /** Product ID */
   productId: string;
   generateImageUploadUrlRequest: GenerateImageUploadUrlRequest;
 };
-export type PostShopsByShopIdProductsAndProductIdImagesApiResponse =
+export type AddProductImageApiResponse =
   /** status 200 Product image added successfully */ ProductImageResponse;
-export type PostShopsByShopIdProductsAndProductIdImagesApiArg = {
+export type AddProductImageApiArg = {
   /** Shop ID */
   shopId: string;
   /** Product ID */
   productId: string;
   addProductImageRequest: AddProductImageRequest;
 };
-export type PostOrdersApiResponse =
+export type GenerateShopLogoUploadUrlApiResponse =
+  /** status 200 Upload URL generated successfully */ GenerateShopLogoUploadUrlResponse;
+export type GenerateShopLogoUploadUrlApiArg = {
+  /** Shop ID */
+  shopId: string;
+  generateShopLogoUploadUrlRequest: GenerateShopLogoUploadUrlRequest;
+};
+export type SetShopLogoApiResponse =
+  /** status 200 Shop logo updated successfully */ ShopResponse;
+export type SetShopLogoApiArg = {
+  /** Shop ID */
+  shopId: string;
+  setShopLogoRequest: SetShopLogoRequest;
+};
+export type CreateOrderApiResponse =
   /** status 200 Order created and PaymentIntent initiated */ CheckoutResponse;
-export type PostOrdersApiArg = CheckoutRequest;
-export type PostWebhooksStripeApiResponse = /** status 200 Event received */ {
+export type CreateOrderApiArg = CheckoutRequest;
+export type StripeWebhookApiResponse = /** status 200 Event received */ {
   received?: boolean;
 };
-export type PostWebhooksStripeApiArg = object;
-export type GetOrdersByPaymentIntentByPaymentIntentIdApiResponse =
+export type StripeWebhookApiArg = object;
+export type GetOrderByPaymentIntentApiResponse =
   /** status 200 Order found */ OrderByPaymentIntentResponse;
-export type GetOrdersByPaymentIntentByPaymentIntentIdApiArg =
+export type GetOrderByPaymentIntentApiArg =
   /** Stripe PaymentIntent ID (starts with pi_) */ string;
 export type ShopBranding = {
   /** Logo URL (must start with https://) */
@@ -359,12 +386,63 @@ export type ShopResponse = {
   name?: string;
   /** Whether shop is deleted */
   isDeleted?: boolean;
+  /** Whether shop is accepting orders */
+  acceptingOrders?: boolean;
+  /** Whether shop is paused */
+  isPaused?: boolean;
+  /** Message shown when shop is paused */
+  pausedMessage?: string;
+  /** Shop currency (ISO code) */
+  currency?: string;
+  /** Shop timezone */
+  timezone?: string;
+  /** Minimum order amount in cents */
+  minOrderAmountCents?: number;
+  /** Shop address */
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    postcode?: string;
+    country?: string;
+  };
   /** Creation timestamp */
   createdAt?: string;
   /** Last update timestamp */
   updatedAt?: string;
   /** Shop branding configuration, or null if not configured. */
   branding?: ShopBranding;
+  /** Shop opening hours per day of the week. */
+  openingHours?: {
+    mon?: {
+      open?: string;
+      close?: string;
+    }[];
+    tue?: {
+      open?: string;
+      close?: string;
+    }[];
+    wed?: {
+      open?: string;
+      close?: string;
+    }[];
+    thu?: {
+      open?: string;
+      close?: string;
+    }[];
+    fri?: {
+      open?: string;
+      close?: string;
+    }[];
+    sat?: {
+      open?: string;
+      close?: string;
+    }[];
+    sun?: {
+      open?: string;
+      close?: string;
+    }[];
+  };
 };
 export type GetAllShopsResponse = {
   /** Array of shops */
@@ -493,6 +571,39 @@ export type UpdateShopRequest = {
   };
   /** Shop branding configuration. Set to null to clear branding. */
   branding?: ShopBranding;
+  /** Shop opening hours per day. At least one day must have opening hours. */
+  openingHours?: {
+    mon?: {
+      /** Opening time (HH:mm) */
+      open?: string;
+      /** Closing time (HH:mm) */
+      close?: string;
+    }[];
+    tue?: {
+      open?: string;
+      close?: string;
+    }[];
+    wed?: {
+      open?: string;
+      close?: string;
+    }[];
+    thu?: {
+      open?: string;
+      close?: string;
+    }[];
+    fri?: {
+      open?: string;
+      close?: string;
+    }[];
+    sat?: {
+      open?: string;
+      close?: string;
+    }[];
+    sun?: {
+      open?: string;
+      close?: string;
+    }[];
+  };
 };
 export type DeleteResponse = {
   /** Whether deletion was successful */
@@ -694,6 +805,26 @@ export type AddProductImageRequest = {
   /** Sort order for displaying images */
   sortOrder?: number;
 };
+export type GenerateShopLogoUploadUrlResponse = {
+  /** Unique identifier for the logo image */
+  imageId: string;
+  /** Pre-signed URL for uploading the logo to Azure Blob Storage */
+  uploadUrl: string;
+  /** Permanent URL of the logo blob (without SAS token) */
+  blobUrl: string;
+  /** Expiration time of the upload URL */
+  expiresAt: string;
+};
+export type GenerateShopLogoUploadUrlRequest = {
+  /** MIME type of the logo image to upload */
+  contentType: 'image/jpeg' | 'image/png' | 'image/webp';
+};
+export type SetShopLogoRequest = {
+  /** Image ID returned from the logo upload URL generation */
+  imageId: string;
+  /** Blob URL of the uploaded logo */
+  url: string;
+};
 export type CheckoutResponse = {
   /** Checkout session ID */
   sessionId: string;
@@ -749,25 +880,27 @@ export type OrderByPaymentIntentResponse = {
 };
 export const {
   useGetShopsQuery,
-  usePostShopsMutation,
-  useGetShopsSlugBySlugQuery,
-  useGetShopsMeQuery,
-  useGetShopsByShopIdQuery,
-  usePatchShopsByShopIdMutation,
-  useDeleteShopsByShopIdMutation,
-  useGetShopsByShopIdCategoriesQuery,
-  usePostShopsByShopIdCategoriesMutation,
-  useGetShopsByShopIdCategoriesAndCategoryIdQuery,
-  usePatchShopsByShopIdCategoriesAndCategoryIdMutation,
-  useDeleteShopsByShopIdCategoriesAndCategoryIdMutation,
-  useGetProductsQuery,
-  usePostProductsMutation,
-  useGetProductsByProductIdQuery,
-  usePatchProductsByProductIdMutation,
-  useDeleteProductsByProductIdMutation,
-  usePostShopsByShopIdProductsAndProductIdImagesUploadUrlMutation,
-  usePostShopsByShopIdProductsAndProductIdImagesMutation,
-  usePostOrdersMutation,
-  usePostWebhooksStripeMutation,
-  useGetOrdersByPaymentIntentByPaymentIntentIdQuery,
+  useCreateShopMutation,
+  useGetShopBySlugQuery,
+  useGetMyShopsQuery,
+  useGetShopByIdQuery,
+  useUpdateShopMutation,
+  useDeleteShopMutation,
+  useGetCategoriesByShopQuery,
+  useCreateCategoryMutation,
+  useGetCategoryByIdQuery,
+  useUpdateCategoryMutation,
+  useDeleteCategoryMutation,
+  useGetProductsByShopQuery,
+  useCreateProductMutation,
+  useGetProductByIdQuery,
+  useUpdateProductMutation,
+  useDeleteProductMutation,
+  useGenerateUploadUrlMutation,
+  useAddProductImageMutation,
+  useGenerateShopLogoUploadUrlMutation,
+  useSetShopLogoMutation,
+  useCreateOrderMutation,
+  useStripeWebhookMutation,
+  useGetOrderByPaymentIntentQuery,
 } = injectedRtkApi;

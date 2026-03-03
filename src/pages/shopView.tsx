@@ -5,9 +5,9 @@ import CategoryFilterBar from '../components/CategoryFilterBar';
 import CustomerMenuList from '../features/customer/components/CustomerMenuList';
 import Footer from '../components/footer';
 import {
-  useGetShopsSlugBySlugQuery,
-  useGetShopsByShopIdQuery,
-  useGetProductsQuery,
+  useGetShopBySlugQuery,
+  useGetShopByIdQuery,
+  useGetProductsByShopQuery,
   type ProductResponse,
 } from '../services/api';
 import NavBar from '../components/NavBar';
@@ -90,10 +90,10 @@ const ShopView = () => {
     isLoading: isSlugLoading,
     isError: isSlugError,
     error: slugError,
-  } = useGetShopsSlugBySlugQuery(slug ?? '', {
+  } = useGetShopBySlugQuery(slug ?? '', {
     skip: !shouldFetchBySlug,
   });
-  const { data: shopDataById, isLoading: isIdLoading } = useGetShopsByShopIdQuery(shopIdLookup, {
+  const { data: shopDataById, isLoading: isIdLoading } = useGetShopByIdQuery(shopIdLookup, {
     skip: !shopIdLookup,
   });
   const resolvedShopData = (shouldFetchBySlug
@@ -134,7 +134,7 @@ const ShopView = () => {
     }
   }, [dispatch, resolvedShopId]);
 
-  const { data: shopProducts = [] } = useGetProductsQuery(resolvedShopId, {
+  const { data: shopProducts = [] } = useGetProductsByShopQuery(resolvedShopId, {
     skip: !resolvedShopId,
   });
 

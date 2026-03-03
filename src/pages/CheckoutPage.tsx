@@ -21,13 +21,11 @@ import {
 } from '../store/slices/cartSlice';
 import { formatDollars } from '../utils/money';
 import {
-  useGetShopsSlugBySlugQuery,
-  useGetOrdersByPaymentIntentByPaymentIntentIdQuery,
-} from '../services/api';
-import {
-  useInitiateCheckoutMutation,
+  useGetShopBySlugQuery,
+  useGetOrderByPaymentIntentQuery,
+  useCreateOrderMutation,
   type CheckoutResponse,
-} from '../services/checkoutApi';
+} from '../services/api';
 import { resolveShopBranding, type ShopWithBranding } from '../utils/branding';
 import { saveGuestOrder } from '../utils/guestOrders';
 
@@ -121,7 +119,7 @@ const CheckoutPage: React.FC = () => {
   const cartTotal = useAppSelector(selectCartTotal);
 
   // Branding — same pattern as ShopView
-  const { data: shopData } = useGetShopsSlugBySlugQuery(slug ?? '', {
+  const { data: shopData } = useGetShopBySlugQuery(slug ?? '', {
     skip: !slug,
   });
   const resolvedShopData = shopData as ShopWithBranding | undefined;
@@ -170,13 +168,13 @@ const CheckoutPage: React.FC = () => {
   const [polling, setPolling] = useState(false);
 
   const [initiateCheckout, { isLoading: isInitiating, error: initiateError }] =
-    useInitiateCheckoutMutation();
+    useCreateOrderMutation();
 
   // Poll every 2 s after payment succeeds until the backend confirms the order.
   // The backend processes the Stripe webhook asynchronously, so the first call
   // may return 404. pollingInterval keeps retrying until isSuccess is true.
   const { data: orderData, isSuccess: isOrderSuccess } =
-    useGetOrdersByPaymentIntentByPaymentIntentIdQuery(paymentIntentId ?? '', {
+    useGetOrderByPaymentIntentQuery(paymentIntentId ?? '', {
       skip: !paymentIntentId,
       pollingInterval: polling ? 2000 : 0,
     });

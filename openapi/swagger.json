@@ -5,48 +5,35 @@
     "version": "1.0.0",
     "description": "REST API for managing shops and products in an online ordering system"
   },
-  "servers": [
-    {
-      "url": "/api",
-      "description": "API base"
-    }
-  ],
-  "security": [
-    {
-      "bearerAuth": []
-    }
-  ],
+  "servers": [{ "url": "/api", "description": "API base" }],
+  "security": [{ "bearerAuth": [] }],
   "paths": {
     "/shops": {
       "get": {
         "summary": "Get all shops",
+        "operationId": "getShops",
         "tags": ["Shops"],
         "responses": {
           "200": {
             "description": "List of all shops retrieved successfully",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetAllShopsResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/GetAllShopsResponse" }
               }
             }
           },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       },
       "post": {
         "summary": "Create a new shop",
+        "operationId": "createShop",
         "tags": ["Shops"],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateShopRequest"
-              }
+              "schema": { "$ref": "#/components/schemas/CreateShopRequest" }
             }
           }
         },
@@ -55,24 +42,19 @@
             "description": "Shop created successfully",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ShopResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/ShopResponse" }
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
     },
     "/shops/slug/{slug}": {
       "get": {
         "summary": "Get shop by slug",
+        "operationId": "getShopBySlug",
         "tags": ["Shops"],
         "security": [],
         "parameters": [
@@ -80,9 +62,7 @@
             "name": "slug",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Shop slug (public identifier)"
           }
         ],
@@ -91,57 +71,45 @@
             "description": "Shop retrieved successfully",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ShopResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/ShopResponse" }
               }
             }
           },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
     },
     "/shops/me": {
       "get": {
         "summary": "Get the authenticated user's shops",
+        "operationId": "getMyShops",
         "tags": ["Shops"],
         "responses": {
           "200": {
             "description": "Shops where the user is an active owner member",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetAllShopsResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/GetAllShopsResponse" }
               }
             }
           },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
     },
     "/shops/{shopId}": {
       "get": {
         "summary": "Get shop by ID",
+        "operationId": "getShopById",
         "tags": ["Shops"],
         "parameters": [
           {
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Shop ID"
           }
         ],
@@ -150,31 +118,24 @@
             "description": "Shop retrieved successfully",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ShopResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/ShopResponse" }
               }
             }
           },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       },
       "patch": {
         "summary": "Update shop",
+        "operationId": "updateShop",
         "tags": ["Shops"],
         "parameters": [
           {
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Shop ID"
           }
         ],
@@ -182,9 +143,7 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateShopRequest"
-              }
+              "schema": { "$ref": "#/components/schemas/UpdateShopRequest" }
             }
           }
         },
@@ -193,34 +152,25 @@
             "description": "Shop updated successfully",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ShopResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/ShopResponse" }
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       },
       "delete": {
         "summary": "Delete shop (soft delete)",
+        "operationId": "deleteShop",
         "tags": ["Shops"],
         "parameters": [
           {
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Shop ID"
           }
         ],
@@ -229,33 +179,26 @@
             "description": "Shop deleted successfully",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/DeleteResponse" }
               }
             }
           },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
     },
     "/shops/{shopId}/categories": {
       "get": {
         "summary": "Get categories by shop",
+        "operationId": "getCategoriesByShop",
         "tags": ["Categories"],
         "parameters": [
           {
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Shop ID"
           }
         ],
@@ -264,31 +207,24 @@
             "description": "Categories retrieved successfully",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CategoriesResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/CategoriesResponse" }
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       },
       "post": {
         "summary": "Create a new category",
+        "operationId": "createCategory",
         "tags": ["Categories"],
         "parameters": [
           {
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Shop ID"
           }
         ],
@@ -296,9 +232,7 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateCategoryRequest"
-              }
+              "schema": { "$ref": "#/components/schemas/CreateCategoryRequest" }
             }
           }
         },
@@ -307,42 +241,33 @@
             "description": "Category created successfully",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CategoryResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/CategoryResponse" }
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
     },
     "/shops/{shopId}/categories/{categoryId}": {
       "get": {
         "summary": "Get category by ID",
+        "operationId": "getCategoryById",
         "tags": ["Categories"],
         "parameters": [
           {
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Shop ID"
           },
           {
             "name": "categoryId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Category ID"
           }
         ],
@@ -351,40 +276,31 @@
             "description": "Category retrieved successfully",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CategoryResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/CategoryResponse" }
               }
             }
           },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       },
       "patch": {
         "summary": "Update category",
+        "operationId": "updateCategory",
         "tags": ["Categories"],
         "parameters": [
           {
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Shop ID"
           },
           {
             "name": "categoryId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Category ID"
           }
         ],
@@ -392,9 +308,7 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateCategoryRequest"
-              }
+              "schema": { "$ref": "#/components/schemas/UpdateCategoryRequest" }
             }
           }
         },
@@ -403,43 +317,32 @@
             "description": "Category updated successfully",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CategoryResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/CategoryResponse" }
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       },
       "delete": {
         "summary": "Delete category (soft delete)",
+        "operationId": "deleteCategory",
         "tags": ["Categories"],
         "parameters": [
           {
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Shop ID"
           },
           {
             "name": "categoryId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Category ID"
           }
         ],
@@ -448,24 +351,19 @@
             "description": "Category deleted successfully",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CategoryResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/CategoryResponse" }
               }
             }
           },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
     },
     "/products": {
       "get": {
         "summary": "Get products by shop",
+        "operationId": "getProductsByShop",
         "tags": ["Products"],
         "security": [],
         "parameters": [
@@ -473,9 +371,7 @@
             "name": "shopId",
             "in": "query",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Shop ID to filter products"
           }
         ],
@@ -484,30 +380,23 @@
             "description": "Products retrieved successfully",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProductsResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/ProductsResponse" }
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       },
       "post": {
         "summary": "Create a new product",
+        "operationId": "createProduct",
         "tags": ["Products"],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateProductRequest"
-              }
+              "schema": { "$ref": "#/components/schemas/CreateProductRequest" }
             }
           }
         },
@@ -516,42 +405,33 @@
             "description": "Product created successfully",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProductResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/ProductResponse" }
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
     },
     "/products/{productId}": {
       "get": {
         "summary": "Get product by ID",
+        "operationId": "getProductById",
         "tags": ["Products"],
         "parameters": [
           {
             "name": "productId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Product ID"
           },
           {
             "name": "shopId",
             "in": "query",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Shop ID (required for partition key)"
           }
         ],
@@ -560,34 +440,25 @@
             "description": "Product retrieved successfully",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProductResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/ProductResponse" }
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       },
       "patch": {
         "summary": "Update product",
+        "operationId": "updateProduct",
         "tags": ["Products"],
         "parameters": [
           {
             "name": "productId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Product ID"
           }
         ],
@@ -595,9 +466,7 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateProductRequest"
-              }
+              "schema": { "$ref": "#/components/schemas/UpdateProductRequest" }
             }
           }
         },
@@ -606,43 +475,32 @@
             "description": "Product updated successfully",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProductResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/ProductResponse" }
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       },
       "delete": {
         "summary": "Delete product (soft delete)",
+        "operationId": "deleteProduct",
         "tags": ["Products"],
         "parameters": [
           {
             "name": "productId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Product ID"
           },
           {
             "name": "shopId",
             "in": "query",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Shop ID (required for partition key)"
           }
         ],
@@ -651,27 +509,20 @@
             "description": "Product deleted successfully",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/DeleteResponse" }
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
     },
     "/shops/{shopId}/products/{productId}/images/upload-url": {
       "post": {
         "summary": "Generate upload URL for product image",
+        "operationId": "generateUploadUrl",
         "description": "Generates a short-lived SAS URL for uploading product images directly to Azure Blob Storage",
         "tags": ["Product Images"],
         "parameters": [
@@ -679,18 +530,14 @@
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Shop ID"
           },
           {
             "name": "productId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Product ID"
           }
         ],
@@ -715,24 +562,17 @@
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
     },
     "/shops/{shopId}/products/{productId}/images": {
       "post": {
         "summary": "Add product image metadata",
+        "operationId": "addProductImage",
         "description": "Confirms image upload and saves metadata to the product after successful blob storage upload",
         "tags": ["Product Images"],
         "parameters": [
@@ -740,18 +580,14 @@
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Shop ID"
           },
           {
             "name": "productId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string"
-            },
+            "schema": { "type": "string" },
             "description": "Product ID"
           }
         ],
@@ -776,33 +612,106 @@
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/shops/{shopId}/logo/upload-url": {
+      "post": {
+        "summary": "Generate upload URL for shop logo",
+        "operationId": "generateShopLogoUploadUrl",
+        "description": "Generates a short-lived SAS URL for uploading the shop logo directly to Azure Blob Storage",
+        "tags": ["Shop Logo"],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Shop ID"
           }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateShopLogoUploadUrlRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Upload URL generated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateShopLogoUploadUrlResponse"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/shops/{shopId}/logo": {
+      "post": {
+        "summary": "Set shop logo",
+        "operationId": "setShopLogo",
+        "description": "Registers the uploaded logo blob URL on the shop. Deletes the previous logo blob if one existed.",
+        "tags": ["Shop Logo"],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Shop ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SetShopLogoRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Shop logo updated successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ShopResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
     },
     "/orders": {
       "post": {
         "summary": "Create an order and initiate payment",
+        "operationId": "createOrder",
         "tags": ["Orders"],
         "description": "Server recalculates the total from product prices, selected variants, and addons stored in the database. The client-submitted amount is never trusted. Returns a Stripe clientSecret for the frontend to call stripe.confirmPayment().",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CheckoutRequest"
-              }
+              "schema": { "$ref": "#/components/schemas/CheckoutRequest" }
             }
           }
         },
@@ -811,38 +720,25 @@
             "description": "Order created and PaymentIntent initiated",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CheckoutResponse"
-                }
+                "schema": { "$ref": "#/components/schemas/CheckoutResponse" }
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
     },
     "/webhooks/stripe": {
       "post": {
         "summary": "Stripe webhook receiver",
+        "operationId": "stripeWebhook",
         "tags": ["Orders"],
         "description": "Receives Stripe events (payment_intent.succeeded, payment_intent.payment_failed) and updates the order status. Signature is verified using STRIPE_WEBHOOK_SECRET.",
         "requestBody": {
           "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
+          "content": { "application/json": { "schema": { "type": "object" } } }
         },
         "responses": {
           "200": {
@@ -852,27 +748,21 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "received": {
-                      "type": "boolean",
-                      "example": true
-                    }
+                    "received": { "type": "boolean", "example": true }
                   }
                 }
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
     },
     "/orders/by-payment-intent/{paymentIntentId}": {
       "get": {
         "summary": "Get order by Stripe payment intent ID",
+        "operationId": "getOrderByPaymentIntent",
         "tags": ["Orders"],
         "description": "Retrieves order details using the Stripe payment intent ID. The payment intent ID is available on the frontend from stripe.confirmPayment() result or by parsing the clientSecret (format: pi_xxx_secret_xxx). Returns 404 if the order has not yet been created (webhook not yet processed) — poll with back-off until a 200 is returned.",
         "security": [],
@@ -881,10 +771,7 @@
             "name": "paymentIntentId",
             "in": "path",
             "required": true,
-            "schema": {
-              "type": "string",
-              "example": "pi_3xxx"
-            },
+            "schema": { "type": "string", "example": "pi_3xxx" },
             "description": "Stripe PaymentIntent ID (starts with pi_)"
           }
         ],
@@ -899,12 +786,8 @@
               }
             }
           },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
     }
@@ -965,15 +848,10 @@
         "properties": {
           "shops": {
             "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ShopResponse"
-            },
+            "items": { "$ref": "#/components/schemas/ShopResponse" },
             "description": "Array of shops"
           },
-          "total": {
-            "type": "integer",
-            "description": "Total number of shops"
-          }
+          "total": { "type": "integer", "description": "Total number of shops" }
         },
         "required": ["shops", "total"]
       },
@@ -1059,43 +937,13 @@
             "type": "object",
             "description": "Shop opening hours for each day of the week. At least one day must have opening hours.",
             "example": {
-              "mon": [
-                {
-                  "open": "09:00",
-                  "close": "17:00"
-                }
-              ],
-              "tue": [
-                {
-                  "open": "09:00",
-                  "close": "17:00"
-                }
-              ],
+              "mon": [{ "open": "09:00", "close": "17:00" }],
+              "tue": [{ "open": "09:00", "close": "17:00" }],
               "wed": [],
-              "thu": [
-                {
-                  "open": "09:00",
-                  "close": "17:00"
-                }
-              ],
-              "fri": [
-                {
-                  "open": "09:00",
-                  "close": "22:00"
-                }
-              ],
-              "sat": [
-                {
-                  "open": "10:00",
-                  "close": "16:00"
-                }
-              ],
-              "sun": [
-                {
-                  "open": "11:00",
-                  "close": "15:00"
-                }
-              ]
+              "thu": [{ "open": "09:00", "close": "17:00" }],
+              "fri": [{ "open": "09:00", "close": "22:00" }],
+              "sat": [{ "open": "10:00", "close": "16:00" }],
+              "sun": [{ "open": "11:00", "close": "15:00" }]
             },
             "properties": {
               "mon": {
@@ -1266,20 +1114,10 @@
             "items": {
               "type": "object",
               "properties": {
-                "id": {
-                  "type": "string"
-                },
-                "start": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "end": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "reason": {
-                  "type": "string"
-                }
+                "id": { "type": "string" },
+                "start": { "type": "string", "format": "date-time" },
+                "end": { "type": "string", "format": "date-time" },
+                "reason": { "type": "string" }
               }
             }
           },
@@ -1288,16 +1126,9 @@
             "items": {
               "type": "object",
               "properties": {
-                "userId": {
-                  "type": "string"
-                },
-                "role": {
-                  "type": "string",
-                  "enum": ["owner", "staff"]
-                },
-                "isActive": {
-                  "type": "boolean"
-                }
+                "userId": { "type": "string" },
+                "role": { "type": "string", "enum": ["owner", "staff"] },
+                "isActive": { "type": "boolean" }
               }
             }
           },
@@ -1311,10 +1142,7 @@
       "UpdateShopRequest": {
         "type": "object",
         "properties": {
-          "name": {
-            "type": "string",
-            "description": "Shop name"
-          },
+          "name": { "type": "string", "description": "Shop name" },
           "acceptingOrders": {
             "type": "boolean",
             "description": "Whether shop is accepting orders"
@@ -1336,14 +1164,8 @@
             "type": "boolean",
             "description": "Allow guest checkout"
           },
-          "currency": {
-            "type": "string",
-            "description": "Shop currency"
-          },
-          "timezone": {
-            "type": "string",
-            "description": "Shop timezone"
-          },
+          "currency": { "type": "string", "description": "Shop currency" },
+          "timezone": { "type": "string", "description": "Shop timezone" },
           "minOrderAmountCents": {
             "type": "number",
             "description": "Minimum order amount in cents"
@@ -1351,48 +1173,147 @@
           "address": {
             "type": "object",
             "properties": {
-              "street": {
-                "type": "string"
-              },
-              "city": {
-                "type": "string"
-              },
-              "state": {
-                "type": "string"
-              },
-              "postcode": {
-                "type": "string"
-              },
-              "country": {
-                "type": "string"
-              }
+              "street": { "type": "string" },
+              "city": { "type": "string" },
+              "state": { "type": "string" },
+              "postcode": { "type": "string" },
+              "country": { "type": "string" }
             }
           },
           "branding": {
             "nullable": true,
             "description": "Shop branding configuration. Set to null to clear branding.",
             "$ref": "#/components/schemas/ShopBranding"
+          },
+          "openingHours": {
+            "type": "object",
+            "description": "Shop opening hours per day. At least one day must have opening hours.",
+            "properties": {
+              "mon": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": {
+                      "type": "string",
+                      "format": "time",
+                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
+                      "description": "Opening time (HH:mm)"
+                    },
+                    "close": {
+                      "type": "string",
+                      "format": "time",
+                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
+                      "description": "Closing time (HH:mm)"
+                    }
+                  }
+                }
+              },
+              "tue": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": { "type": "string" },
+                    "close": { "type": "string" }
+                  }
+                }
+              },
+              "wed": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": { "type": "string" },
+                    "close": { "type": "string" }
+                  }
+                }
+              },
+              "thu": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": { "type": "string" },
+                    "close": { "type": "string" }
+                  }
+                }
+              },
+              "fri": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": { "type": "string" },
+                    "close": { "type": "string" }
+                  }
+                }
+              },
+              "sat": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": { "type": "string" },
+                    "close": { "type": "string" }
+                  }
+                }
+              },
+              "sun": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": { "type": "string" },
+                    "close": { "type": "string" }
+                  }
+                }
+              }
+            }
           }
         }
       },
       "ShopResponse": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string",
-            "description": "Shop ID"
-          },
-          "slug": {
-            "type": "string",
-            "description": "Shop slug"
-          },
-          "name": {
-            "type": "string",
-            "description": "Shop name"
-          },
+          "id": { "type": "string", "description": "Shop ID" },
+          "slug": { "type": "string", "description": "Shop slug" },
+          "name": { "type": "string", "description": "Shop name" },
           "isDeleted": {
             "type": "boolean",
             "description": "Whether shop is deleted"
+          },
+          "acceptingOrders": {
+            "type": "boolean",
+            "description": "Whether shop is accepting orders"
+          },
+          "isPaused": {
+            "type": "boolean",
+            "description": "Whether shop is paused"
+          },
+          "pausedMessage": {
+            "type": "string",
+            "description": "Message shown when shop is paused"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Shop currency (ISO code)"
+          },
+          "timezone": { "type": "string", "description": "Shop timezone" },
+          "minOrderAmountCents": {
+            "type": "number",
+            "description": "Minimum order amount in cents"
+          },
+          "address": {
+            "type": "object",
+            "description": "Shop address",
+            "properties": {
+              "street": { "type": "string" },
+              "city": { "type": "string" },
+              "state": { "type": "string" },
+              "postcode": { "type": "string" },
+              "country": { "type": "string" }
+            }
           },
           "createdAt": {
             "type": "string",
@@ -1408,6 +1329,82 @@
             "nullable": true,
             "description": "Shop branding configuration, or null if not configured.",
             "$ref": "#/components/schemas/ShopBranding"
+          },
+          "openingHours": {
+            "type": "object",
+            "description": "Shop opening hours per day of the week.",
+            "properties": {
+              "mon": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": { "type": "string" },
+                    "close": { "type": "string" }
+                  }
+                }
+              },
+              "tue": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": { "type": "string" },
+                    "close": { "type": "string" }
+                  }
+                }
+              },
+              "wed": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": { "type": "string" },
+                    "close": { "type": "string" }
+                  }
+                }
+              },
+              "thu": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": { "type": "string" },
+                    "close": { "type": "string" }
+                  }
+                }
+              },
+              "fri": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": { "type": "string" },
+                    "close": { "type": "string" }
+                  }
+                }
+              },
+              "sat": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": { "type": "string" },
+                    "close": { "type": "string" }
+                  }
+                }
+              },
+              "sun": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": { "type": "string" },
+                    "close": { "type": "string" }
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -1415,10 +1412,7 @@
         "type": "object",
         "required": ["name"],
         "properties": {
-          "name": {
-            "type": "string",
-            "description": "Category name"
-          },
+          "name": { "type": "string", "description": "Category name" },
           "sortOrder": {
             "type": "number",
             "description": "Sort order for display"
@@ -1428,10 +1422,7 @@
       "UpdateCategoryRequest": {
         "type": "object",
         "properties": {
-          "name": {
-            "type": "string",
-            "description": "Category name"
-          },
+          "name": { "type": "string", "description": "Category name" },
           "sortOrder": {
             "type": "number",
             "description": "Sort order for display"
@@ -1441,18 +1432,9 @@
       "CategoryResponse": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string",
-            "description": "Category ID"
-          },
-          "shopId": {
-            "type": "string",
-            "description": "Shop ID"
-          },
-          "name": {
-            "type": "string",
-            "description": "Category name"
-          },
+          "id": { "type": "string", "description": "Category ID" },
+          "shopId": { "type": "string", "description": "Shop ID" },
+          "name": { "type": "string", "description": "Category name" },
           "sortOrder": {
             "type": "number",
             "description": "Sort order for display"
@@ -1475,9 +1457,7 @@
       },
       "CategoriesResponse": {
         "type": "array",
-        "items": {
-          "$ref": "#/components/schemas/CategoryResponse"
-        }
+        "items": { "$ref": "#/components/schemas/CategoryResponse" }
       },
       "CreateProductRequest": {
         "type": "object",
@@ -1487,10 +1467,7 @@
             "type": "string",
             "description": "Shop ID that owns this product"
           },
-          "name": {
-            "type": "string",
-            "description": "Product name"
-          },
+          "name": { "type": "string", "description": "Product name" },
           "description": {
             "type": "string",
             "description": "Product description"
@@ -1505,9 +1482,7 @@
           },
           "categoryIds": {
             "type": "array",
-            "items": {
-              "type": "string"
-            },
+            "items": { "type": "string" },
             "description": "Category IDs"
           },
           "images": {
@@ -1515,23 +1490,15 @@
             "items": {
               "type": "object",
               "properties": {
-                "id": {
-                  "type": "string"
-                },
-                "url": {
-                  "type": "string"
-                },
-                "isPrimary": {
-                  "type": "boolean"
-                }
+                "id": { "type": "string" },
+                "url": { "type": "string" },
+                "isPrimary": { "type": "boolean" }
               }
             }
           },
           "allergyInfo": {
             "type": "array",
-            "items": {
-              "type": "string"
-            },
+            "items": { "type": "string" },
             "description": "Allergy information"
           },
           "isAvailable": {
@@ -1547,10 +1514,7 @@
             "type": "string",
             "description": "Shop ID (required for partition key)"
           },
-          "name": {
-            "type": "string",
-            "description": "Product name"
-          },
+          "name": { "type": "string", "description": "Product name" },
           "description": {
             "type": "string",
             "description": "Product description"
@@ -1565,9 +1529,7 @@
           },
           "categoryIds": {
             "type": "array",
-            "items": {
-              "type": "string"
-            },
+            "items": { "type": "string" },
             "description": "Category IDs"
           },
           "images": {
@@ -1575,23 +1537,15 @@
             "items": {
               "type": "object",
               "properties": {
-                "id": {
-                  "type": "string"
-                },
-                "url": {
-                  "type": "string"
-                },
-                "isPrimary": {
-                  "type": "boolean"
-                }
+                "id": { "type": "string" },
+                "url": { "type": "string" },
+                "isPrimary": { "type": "boolean" }
               }
             }
           },
           "allergyInfo": {
             "type": "array",
-            "items": {
-              "type": "string"
-            },
+            "items": { "type": "string" },
             "description": "Allergy information"
           },
           "isAvailable": {
@@ -1603,18 +1557,9 @@
       "ProductResponse": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string",
-            "description": "Product ID"
-          },
-          "shopId": {
-            "type": "string",
-            "description": "Shop ID"
-          },
-          "name": {
-            "type": "string",
-            "description": "Product name"
-          },
+          "id": { "type": "string", "description": "Product ID" },
+          "shopId": { "type": "string", "description": "Shop ID" },
+          "name": { "type": "string", "description": "Product name" },
           "description": {
             "type": "string",
             "description": "Product description"
@@ -1632,14 +1577,8 @@
             "items": {
               "type": "object",
               "properties": {
-                "id": {
-                  "type": "string",
-                  "description": "Category ID"
-                },
-                "name": {
-                  "type": "string",
-                  "description": "Category name"
-                },
+                "id": { "type": "string", "description": "Category ID" },
+                "name": { "type": "string", "description": "Category name" },
                 "sortOrder": {
                   "type": "number",
                   "description": "Category sort order"
@@ -1653,14 +1592,8 @@
             "items": {
               "type": "object",
               "properties": {
-                "id": {
-                  "type": "string",
-                  "description": "Image ID"
-                },
-                "url": {
-                  "type": "string",
-                  "description": "Image URL"
-                },
+                "id": { "type": "string", "description": "Image ID" },
+                "url": { "type": "string", "description": "Image URL" },
                 "isPrimary": {
                   "type": "boolean",
                   "description": "Whether this is the primary image"
@@ -1671,9 +1604,7 @@
           },
           "allergyInfo": {
             "type": "array",
-            "items": {
-              "type": "string"
-            },
+            "items": { "type": "string" },
             "description": "Allergy information"
           },
           "variantGroups": {
@@ -1681,10 +1612,7 @@
             "items": {
               "type": "object",
               "properties": {
-                "id": {
-                  "type": "string",
-                  "description": "Variant group ID"
-                },
+                "id": { "type": "string", "description": "Variant group ID" },
                 "name": {
                   "type": "string",
                   "description": "Variant group name"
@@ -1694,10 +1622,7 @@
                   "items": {
                     "type": "object",
                     "properties": {
-                      "id": {
-                        "type": "string",
-                        "description": "Option ID"
-                      },
+                      "id": { "type": "string", "description": "Option ID" },
                       "name": {
                         "type": "string",
                         "description": "Option name"
@@ -1722,14 +1647,8 @@
             "items": {
               "type": "object",
               "properties": {
-                "id": {
-                  "type": "string",
-                  "description": "Addon group ID"
-                },
-                "name": {
-                  "type": "string",
-                  "description": "Addon group name"
-                },
+                "id": { "type": "string", "description": "Addon group ID" },
+                "name": { "type": "string", "description": "Addon group name" },
                 "minSelectable": {
                   "type": "number",
                   "description": "Minimum selectable options"
@@ -1743,10 +1662,7 @@
                   "items": {
                     "type": "object",
                     "properties": {
-                      "id": {
-                        "type": "string",
-                        "description": "Option ID"
-                      },
+                      "id": { "type": "string", "description": "Option ID" },
                       "name": {
                         "type": "string",
                         "description": "Option name"
@@ -1788,9 +1704,7 @@
       },
       "ProductsResponse": {
         "type": "array",
-        "items": {
-          "$ref": "#/components/schemas/ProductResponse"
-        }
+        "items": { "$ref": "#/components/schemas/ProductResponse" }
       },
       "DeleteResponse": {
         "type": "object",
@@ -1798,6 +1712,57 @@
           "success": {
             "type": "boolean",
             "description": "Whether deletion was successful"
+          }
+        }
+      },
+      "GenerateShopLogoUploadUrlRequest": {
+        "type": "object",
+        "required": ["contentType"],
+        "properties": {
+          "contentType": {
+            "type": "string",
+            "enum": ["image/jpeg", "image/png", "image/webp"],
+            "description": "MIME type of the logo image to upload",
+            "example": "image/jpeg"
+          }
+        }
+      },
+      "GenerateShopLogoUploadUrlResponse": {
+        "type": "object",
+        "required": ["imageId", "uploadUrl", "blobUrl", "expiresAt"],
+        "properties": {
+          "imageId": {
+            "type": "string",
+            "description": "Unique identifier for the logo image",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          },
+          "uploadUrl": {
+            "type": "string",
+            "description": "Pre-signed URL for uploading the logo to Azure Blob Storage"
+          },
+          "blobUrl": {
+            "type": "string",
+            "description": "Permanent URL of the logo blob (without SAS token)"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Expiration time of the upload URL"
+          }
+        }
+      },
+      "SetShopLogoRequest": {
+        "type": "object",
+        "required": ["imageId", "url"],
+        "properties": {
+          "imageId": {
+            "type": "string",
+            "description": "Image ID returned from the logo upload URL generation",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          },
+          "url": {
+            "type": "string",
+            "description": "Blob URL of the uploaded logo"
           }
         }
       },
@@ -1929,9 +1894,7 @@
           },
           "selectedAddonOptionIds": {
             "type": "array",
-            "items": {
-              "type": "string"
-            },
+            "items": { "type": "string" },
             "description": "IDs of selected addon options",
             "example": ["addon-cheese", "addon-bacon"]
           }
@@ -1954,9 +1917,7 @@
           },
           "items": {
             "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CheckoutItem"
-            },
+            "items": { "$ref": "#/components/schemas/CheckoutItem" },
             "description": "Items to order"
           },
           "customerName": {
@@ -2018,23 +1979,10 @@
           "lineTotalCents"
         ],
         "properties": {
-          "productId": {
-            "type": "string",
-            "example": "prod-uuid"
-          },
-          "productName": {
-            "type": "string",
-            "example": "Margherita Pizza"
-          },
-          "quantity": {
-            "type": "integer",
-            "minimum": 1,
-            "example": 2
-          },
-          "unitPriceCents": {
-            "type": "integer",
-            "example": 1800
-          },
+          "productId": { "type": "string", "example": "prod-uuid" },
+          "productName": { "type": "string", "example": "Margherita Pizza" },
+          "quantity": { "type": "integer", "minimum": 1, "example": 2 },
+          "unitPriceCents": { "type": "integer", "example": 1800 },
           "selectedVariantOptionId": {
             "type": "string",
             "nullable": true,
@@ -2042,16 +1990,11 @@
           },
           "selectedAddonOptionIds": {
             "type": "array",
-            "items": {
-              "type": "string"
-            },
+            "items": { "type": "string" },
             "nullable": true,
             "example": ["addon-extra-cheese"]
           },
-          "lineTotalCents": {
-            "type": "integer",
-            "example": 3600
-          }
+          "lineTotalCents": { "type": "integer", "example": 3600 }
         }
       },
       "OrderByPaymentIntentResponse": {
@@ -2072,10 +2015,7 @@
             "format": "uuid",
             "example": "order-uuid"
           },
-          "orderRef": {
-            "type": "string",
-            "example": "AB3-K7P"
-          },
+          "orderRef": { "type": "string", "example": "AB3-K7P" },
           "status": {
             "type": "string",
             "enum": [
@@ -2089,22 +2029,11 @@
           },
           "items": {
             "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/OrderItemResponse"
-            }
+            "items": { "$ref": "#/components/schemas/OrderItemResponse" }
           },
-          "subtotalCents": {
-            "type": "integer",
-            "example": 3600
-          },
-          "currency": {
-            "type": "string",
-            "example": "AUD"
-          },
-          "customerName": {
-            "type": "string",
-            "example": "Jane Smith"
-          },
+          "subtotalCents": { "type": "integer", "example": 3600 },
+          "currency": { "type": "string", "example": "AUD" },
+          "customerName": { "type": "string", "example": "Jane Smith" },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -2120,11 +2049,7 @@
           "application/json": {
             "schema": {
               "type": "object",
-              "properties": {
-                "error": {
-                  "type": "string"
-                }
-              }
+              "properties": { "error": { "type": "string" } }
             }
           }
         }
@@ -2135,11 +2060,7 @@
           "application/json": {
             "schema": {
               "type": "object",
-              "properties": {
-                "error": {
-                  "type": "string"
-                }
-              }
+              "properties": { "error": { "type": "string" } }
             }
           }
         }
@@ -2150,11 +2071,7 @@
           "application/json": {
             "schema": {
               "type": "object",
-              "properties": {
-                "error": {
-                  "type": "string"
-                }
-              }
+              "properties": { "error": { "type": "string" } }
             }
           }
         }
@@ -2165,11 +2082,7 @@
           "application/json": {
             "schema": {
               "type": "object",
-              "properties": {
-                "error": {
-                  "type": "string"
-                }
-              }
+              "properties": { "error": { "type": "string" } }
             }
           }
         }
