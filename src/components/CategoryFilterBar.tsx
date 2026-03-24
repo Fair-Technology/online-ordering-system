@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-type CategoryOption = { id: string; label: string; count?: number };
+import { ICON_MAP } from '../utils/iconMap';
+type CategoryOption = { id: string; label: string; count?: number; icon?: string };
 
 interface CategoryFilterBarProps {
   categories: CategoryOption[];
@@ -89,26 +90,28 @@ const CategoryFilterBar: React.FC<CategoryFilterBarProps> = ({ categories }) => 
             onClick={() => handleClick(cat.id)}
             onMouseEnter={() => setHovered(cat.id)}
             onMouseLeave={() => setHovered('')}
-            className="px-4 py-2 rounded-full text-sm font-semibold transition-colors"
+            className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200"
             style={
               selected === cat.id
                 ? {
                     backgroundColor: 'var(--brand-primary)',
                     color: '#fff',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                   }
                 : hovered === cat.id
                   ? {
-                      backgroundColor: 'var(--brand-tertiary)',
-                      color: '#fff',
-                      border: '1px solid var(--brand-tertiary)',
+                      backgroundColor: '#f3f4f6',
+                      color: '#111827',
+                      border: '1px solid #d1d5db',
                     }
                   : {
-                      backgroundColor: 'var(--brand-background)',
-                      color: 'var(--brand-secondary)',
-                      border: '1px solid var(--brand-tertiary)',
+                      backgroundColor: '#fff',
+                      color: '#6b7280',
+                      border: '1px solid #e5e7eb',
                     }
             }
           >
+            {cat.icon && (() => { const IC = ICON_MAP[cat.icon]; return IC ? <IC className="w-3.5 h-3.5" /> : null; })()}
             <span>{cat.label}</span>
             {typeof cat.count === 'number' ? (
               <span className="ml-2 text-xs opacity-80">{cat.count}</span>

@@ -55,7 +55,7 @@ const MyOrdersPage: React.FC = () => {
           shopName={shopName}
           shopId={slug ?? ''}
           logoUrl={resolvedBranding.logoUrl}
-          colors={resolvedBranding.colors}
+          onCheckout={() => navigate(`/shops/${slug}/checkout`)}
         />
       </div>
 
