@@ -1,3 +1,6 @@
+import type { SpecialInfoItem } from '../services/api';
+export type { SpecialInfoItem };
+
 export interface Product {
   id: string;
   label: string;
@@ -8,11 +11,13 @@ export interface Product {
   categories: Category[];
   variantTypes: VariantType[];
   addons: AddonGroup[];
+  specialInfo?: SpecialInfoItem[];
 }
 
 export interface Category {
   id: string;
   name: string;
+  icon?: string;
 }
 
 export interface VariantType {

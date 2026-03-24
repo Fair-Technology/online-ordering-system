@@ -15,13 +15,11 @@ import {
   clearCart,
 } from '../store/slices/cartSlice';
 import { formatDollars } from '../utils/money';
-import type { BrandColors } from '../utils/branding';
 
 interface NavBarProps {
   shopName: string;
   shopId: string;
   logoUrl: string;
-  colors: BrandColors;
   onCheckout?: () => void;
 }
 
@@ -29,7 +27,6 @@ const NavBar: React.FC<NavBarProps> = ({
   shopName,
   shopId,
   logoUrl,
-  colors,
   onCheckout,
 }) => {
   const [open, setOpen] = useState(false);
@@ -102,12 +99,7 @@ const NavBar: React.FC<NavBarProps> = ({
 
   return (
     <>
-      <header
-        className="shadow-sm"
-        style={{
-          backgroundImage: `linear-gradient(to right, #ffffff, ${colors.background})`,
-        }}
-      >
+      <header className="bg-white/80 backdrop-blur-md border-b border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center h-16">
           <button
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -117,23 +109,17 @@ const NavBar: React.FC<NavBarProps> = ({
             <img
               src={logoUrl}
               alt={shopName}
-              className="h-8 w-8 rounded object-cover"
+              className="h-8 w-8 rounded object-cover ring-2 ring-[var(--brand-primary)]"
             />
-            <span
-              className="font-bold text-xl"
-              style={{ color: colors.primary }}
-            >
-              {shopName}
-            </span>
+            <span className="font-bold text-xl text-gray-900">{shopName}</span>
           </button>
 
           <div className="flex items-center gap-4 relative">
             <div className="relative group">
               <button
-                className="relative"
+                className="relative text-gray-700"
                 onClick={() => navigate(`/shops/${shopId}/my-orders`)}
                 aria-label="My Orders"
-                style={{ color: colors.primary }}
               >
                 {Icon(Receipt, { className: 'w-5 h-5' })}
               </button>
@@ -144,16 +130,12 @@ const NavBar: React.FC<NavBarProps> = ({
             <div className="relative group">
               <button
                 ref={buttonRef}
-                className="relative"
+                className="relative text-gray-700"
                 onClick={() => setOpen((v) => !v)}
                 aria-label="Cart"
-                style={{ color: colors.primary }}
               >
                 {Icon(ShoppingBag, { className: '' })}
-                <span
-                  className="absolute -top-2 -right-2 text-white text-xs rounded-full px-1"
-                  style={{ backgroundColor: colors.primary }}
-                >
+                <span className="absolute -top-2 -right-2 text-white text-xs rounded-full px-1 bg-gray-900">
                   {cartCount}
                 </span>
               </button>
@@ -178,8 +160,8 @@ const NavBar: React.FC<NavBarProps> = ({
                     zIndex: 9999,
                   }}
                 >
-                  <div className="bg-white shadow-lg rounded-md p-3">
-                    <h4 className="font-semibold mb-2">Your Order</h4>
+                  <div className="bg-white/95 backdrop-blur-sm shadow-2xl rounded-2xl border border-gray-100 p-4">
+                    <h4 className="font-semibold mb-3 text-gray-900">Your Order</h4>
                     {cartItems.length === 0 ? (
                       <div className="text-sm text-gray-500">No items yet</div>
                     ) : (
@@ -188,9 +170,9 @@ const NavBar: React.FC<NavBarProps> = ({
                           {cartItems.map((it) => (
                             <div
                               key={it.key}
-                              className="flex items-center gap-3 text-sm py-2 px-1 rounded hover:bg-gray-50"
+                              className="flex items-center gap-3 text-sm py-2 px-2 rounded-xl hover:bg-gray-50 transition-colors"
                             >
-                              <div className="w-14 h-14 bg-gray-100 rounded flex items-center justify-center overflow-hidden">
+                              <div className="w-14 h-14 bg-gray-100 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0">
                                 {it.imageUrl ? (
                                   <img
                                     src={it.imageUrl}
@@ -215,18 +197,18 @@ const NavBar: React.FC<NavBarProps> = ({
                               <div className="flex flex-col items-end gap-2">
                                 <div className="flex items-center gap-1">
                                   <button
-                                    className="px-2 py-1 text-xs bg-gray-100 rounded"
+                                    className="w-7 h-7 flex items-center justify-center text-sm bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
                                     onClick={() =>
                                       dispatch(decrementItem({ key: it.key }))
                                     }
                                   >
                                     -
                                   </button>
-                                  <div className="text-xs px-2">
+                                  <div className="text-xs px-2 font-medium">
                                     {it.quantity}
                                   </div>
                                   <button
-                                    className="px-2 py-1 text-xs bg-gray-100 rounded"
+                                    className="w-7 h-7 flex items-center justify-center text-sm bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
                                     onClick={() =>
                                       dispatch(incrementItem({ key: it.key }))
                                     }
@@ -256,7 +238,7 @@ const NavBar: React.FC<NavBarProps> = ({
 
                         <div className="flex gap-2 mt-3">
                           <button
-                            className="flex-1 bg-[var(--brand-primary)] hover:bg-[var(--brand-secondary)] text-white px-3 py-2 rounded transition-colors"
+                            className="flex-1 bg-gray-900 hover:bg-[var(--brand-primary)] text-white px-4 py-2 rounded-full font-semibold shadow-sm hover:shadow-md transition-all duration-200"
                             onClick={() => {
                               setOpen(false);
                               onCheckout?.();
@@ -265,7 +247,7 @@ const NavBar: React.FC<NavBarProps> = ({
                             Checkout
                           </button>
                           <button
-                            className="px-3 py-2 border rounded"
+                            className="px-4 py-2 border border-gray-200 rounded-full text-sm text-gray-600 hover:bg-gray-50 transition-colors"
                             onClick={() => dispatch(clearCart())}
                           >
                             Clear
@@ -280,7 +262,6 @@ const NavBar: React.FC<NavBarProps> = ({
           </div>
         </div>
       </header>
-
     </>
   );
 };

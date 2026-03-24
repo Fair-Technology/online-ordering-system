@@ -1,4 +1,5 @@
 import React, { CSSProperties, useEffect, useMemo, useState } from 'react';
+import { CheckoutPageSkeleton } from '../components/Skeletons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import {
@@ -80,15 +81,13 @@ const PaymentStep: React.FC<PaymentStepProps> = ({
 
       {/* Loading skeleton shown until Stripe iframe is ready */}
       {!elementReady && (
-        <div className="space-y-3 animate-pulse">
-          <div className="h-10 bg-gray-100 rounded-lg" />
+        <div className="space-y-3">
+          <div className="skeleton h-11 rounded-xl" />
           <div className="grid grid-cols-2 gap-3">
-            <div className="h-10 bg-gray-100 rounded-lg" />
-            <div className="h-10 bg-gray-100 rounded-lg" />
+            <div className="skeleton h-11 rounded-xl" />
+            <div className="skeleton h-11 rounded-xl" />
           </div>
-          <p className="text-xs text-center text-gray-400">
-            Loading payment form…
-          </p>
+          <p className="text-xs text-center text-gray-400">Loading payment form…</p>
         </div>
       )}
 
@@ -119,7 +118,7 @@ const CheckoutPage: React.FC = () => {
   const cartTotal = useAppSelector(selectCartTotal);
 
   // Branding — same pattern as ShopView
-  const { data: shopData } = useGetShopBySlugQuery(slug ?? '', {
+  const { data: shopData, isLoading: isShopLoading } = useGetShopBySlugQuery(slug ?? '', {
     skip: !slug,
   });
   const resolvedShopData = shopData as ShopWithBranding | undefined;
@@ -238,15 +237,16 @@ const CheckoutPage: React.FC = () => {
       timeStyle: 'short',
     });
 
+  if (isShopLoading) return <CheckoutPageSkeleton />;
+
   return (
-    <div className="bg-white min-h-screen flex flex-col" style={brandStyle}>
+    <div className="bg-gray-50/60 min-h-screen flex flex-col" style={brandStyle}>
       {/* Sticky NavBar */}
-      <div className="sticky top-0 z-50 bg-white shadow-sm">
+      <div className="sticky top-0 z-50">
         <NavBar
           shopName={shopName}
           shopId={slug ?? ''}
           logoUrl={resolvedBranding.logoUrl}
-          colors={resolvedBranding.colors}
         />
       </div>
 

@@ -5,8 +5,17 @@
     "version": "1.0.0",
     "description": "REST API for managing shops and products in an online ordering system"
   },
-  "servers": [{ "url": "/api", "description": "API base" }],
-  "security": [{ "bearerAuth": [] }],
+  "servers": [
+    {
+      "url": "/api",
+      "description": "API base"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
   "paths": {
     "/shops": {
       "get": {
@@ -18,11 +27,15 @@
             "description": "List of all shops retrieved successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/GetAllShopsResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/GetAllShopsResponse"
+                }
               }
             }
           },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       },
       "post": {
@@ -33,7 +46,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateShopRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/CreateShopRequest"
+              }
             }
           }
         },
@@ -42,12 +57,18 @@
             "description": "Shop created successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ShopResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ShopResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     },
@@ -62,7 +83,9 @@
             "name": "slug",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Shop slug (public identifier)"
           }
         ],
@@ -71,12 +94,18 @@
             "description": "Shop retrieved successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ShopResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ShopResponse"
+                }
               }
             }
           },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     },
@@ -90,12 +119,18 @@
             "description": "Shops where the user is an active owner member",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/GetAllShopsResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/GetAllShopsResponse"
+                }
               }
             }
           },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     },
@@ -109,7 +144,9 @@
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Shop ID"
           }
         ],
@@ -118,12 +155,18 @@
             "description": "Shop retrieved successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ShopResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ShopResponse"
+                }
               }
             }
           },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       },
       "patch": {
@@ -135,7 +178,9 @@
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Shop ID"
           }
         ],
@@ -143,7 +188,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdateShopRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/UpdateShopRequest"
+              }
             }
           }
         },
@@ -152,13 +199,21 @@
             "description": "Shop updated successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ShopResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ShopResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       },
       "delete": {
@@ -170,7 +225,9 @@
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Shop ID"
           }
         ],
@@ -179,12 +236,18 @@
             "description": "Shop deleted successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DeleteResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponse"
+                }
               }
             }
           },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     },
@@ -198,7 +261,9 @@
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Shop ID"
           }
         ],
@@ -207,12 +272,18 @@
             "description": "Categories retrieved successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CategoriesResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CategoriesResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       },
       "post": {
@@ -224,7 +295,9 @@
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Shop ID"
           }
         ],
@@ -232,7 +305,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateCategoryRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/CreateCategoryRequest"
+              }
             }
           }
         },
@@ -241,12 +316,18 @@
             "description": "Category created successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CategoryResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     },
@@ -260,14 +341,18 @@
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Shop ID"
           },
           {
             "name": "categoryId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Category ID"
           }
         ],
@@ -276,12 +361,18 @@
             "description": "Category retrieved successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CategoryResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryResponse"
+                }
               }
             }
           },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       },
       "patch": {
@@ -293,14 +384,18 @@
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Shop ID"
           },
           {
             "name": "categoryId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Category ID"
           }
         ],
@@ -308,7 +403,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdateCategoryRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCategoryRequest"
+              }
             }
           }
         },
@@ -317,13 +414,21 @@
             "description": "Category updated successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CategoryResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       },
       "delete": {
@@ -335,14 +440,18 @@
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Shop ID"
           },
           {
             "name": "categoryId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Category ID"
           }
         ],
@@ -351,12 +460,18 @@
             "description": "Category deleted successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CategoryResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryResponse"
+                }
               }
             }
           },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     },
@@ -371,7 +486,9 @@
             "name": "shopId",
             "in": "query",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Shop ID to filter products"
           }
         ],
@@ -380,12 +497,18 @@
             "description": "Products retrieved successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ProductsResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ProductsResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       },
       "post": {
@@ -396,7 +519,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateProductRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductRequest"
+              }
             }
           }
         },
@@ -405,12 +530,18 @@
             "description": "Product created successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ProductResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     },
@@ -424,14 +555,18 @@
             "name": "productId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Product ID"
           },
           {
             "name": "shopId",
             "in": "query",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Shop ID (required for partition key)"
           }
         ],
@@ -440,13 +575,21 @@
             "description": "Product retrieved successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ProductResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       },
       "patch": {
@@ -458,7 +601,9 @@
             "name": "productId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Product ID"
           }
         ],
@@ -466,7 +611,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdateProductRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductRequest"
+              }
             }
           }
         },
@@ -475,13 +622,21 @@
             "description": "Product updated successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ProductResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       },
       "delete": {
@@ -493,14 +648,18 @@
             "name": "productId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Product ID"
           },
           {
             "name": "shopId",
             "in": "query",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Shop ID (required for partition key)"
           }
         ],
@@ -509,13 +668,21 @@
             "description": "Product deleted successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DeleteResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     },
@@ -530,14 +697,18 @@
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Shop ID"
           },
           {
             "name": "productId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Product ID"
           }
         ],
@@ -562,10 +733,18 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     },
@@ -580,14 +759,18 @@
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Shop ID"
           },
           {
             "name": "productId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Product ID"
           }
         ],
@@ -612,10 +795,18 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     },
@@ -630,7 +821,9 @@
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Shop ID"
           }
         ],
@@ -655,10 +848,18 @@
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     },
@@ -673,7 +874,9 @@
             "name": "shopId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Shop ID"
           }
         ],
@@ -681,7 +884,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/SetShopLogoRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/SetShopLogoRequest"
+              }
             }
           }
         },
@@ -690,14 +895,65 @@
             "description": "Shop logo updated successfully",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ShopResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ShopResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/shops/{shopId}/catalog": {
+      "get": {
+        "summary": "Get customer-facing catalog for a shop",
+        "operationId": "getCatalog",
+        "description": "Returns categories with their currently purchasable products. Products are filtered by isAvailable and the product schedule evaluated against the shop timezone. No authentication required.",
+        "tags": ["Catalog"],
+        "security": [],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Shop ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Catalog retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     },
@@ -711,7 +967,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CheckoutRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutRequest"
+              }
             }
           }
         },
@@ -720,13 +978,21 @@
             "description": "Order created and PaymentIntent initiated",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CheckoutResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     },
@@ -738,7 +1004,13 @@
         "description": "Receives Stripe events (payment_intent.succeeded, payment_intent.payment_failed) and updates the order status. Signature is verified using STRIPE_WEBHOOK_SECRET.",
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "type": "object" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
         },
         "responses": {
           "200": {
@@ -748,15 +1020,84 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "received": { "type": "boolean", "example": true }
+                    "received": {
+                      "type": "boolean",
+                      "example": true
+                    }
                   }
                 }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/BadRequest" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
+      }
+    },
+    "/shops/{shopId}/orders": {
+      "get": {
+        "summary": "List orders for a shop",
+        "operationId": "getOrdersByShop",
+        "tags": ["Orders"],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Shop ID"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "1-based page number (default: 1)"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Number of orders per page (default: 20, max: 100)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Orders retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrdersPageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/orders/by-payment-intent/{paymentIntentId}": {
@@ -771,7 +1112,10 @@
             "name": "paymentIntentId",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "example": "pi_3xxx" },
+            "schema": {
+              "type": "string",
+              "example": "pi_3xxx"
+            },
             "description": "Stripe PaymentIntent ID (starts with pi_)"
           }
         ],
@@ -786,14 +1130,284 @@
               }
             }
           },
-          "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalError" }
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
         }
       }
     }
   },
   "components": {
     "schemas": {
+      "OpeningTimeSlot": {
+        "type": "object",
+        "properties": {
+          "open": {
+            "type": "string",
+            "format": "time",
+            "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
+            "description": "Opening time (HH:mm, 24-hour)",
+            "example": "09:00"
+          },
+          "close": {
+            "type": "string",
+            "format": "time",
+            "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
+            "description": "Closing time (HH:mm, 24-hour)",
+            "example": "17:00"
+          }
+        }
+      },
+      "Address": {
+        "type": "object",
+        "properties": {
+          "street": {
+            "type": "string",
+            "description": "Street address",
+            "example": "123 Main Street"
+          },
+          "city": {
+            "type": "string",
+            "description": "City",
+            "example": "Belconnen"
+          },
+          "state": {
+            "type": "string",
+            "description": "State or territory",
+            "example": "ACT"
+          },
+          "postcode": {
+            "type": "string",
+            "description": "Postal code",
+            "example": "2617"
+          },
+          "country": {
+            "type": "string",
+            "description": "Country",
+            "example": "Australia"
+          }
+        }
+      },
+      "ShopClosure": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "ShopMember": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["owner", "staff"]
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ProductImageRef": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Image ID"
+          },
+          "url": {
+            "type": "string",
+            "description": "Image URL"
+          },
+          "isPrimary": {
+            "type": "boolean",
+            "description": "Whether this is the primary image"
+          }
+        }
+      },
+      "SpecialInfoItem": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Label text"
+          },
+          "icon": {
+            "type": "string",
+            "description": "Lucide icon name"
+          }
+        }
+      },
+      "VariantOption": {
+        "type": "object",
+        "required": ["id", "name", "priceDelta", "isAvailable"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Option ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Option name",
+            "example": "Large"
+          },
+          "priceDelta": {
+            "type": "integer",
+            "description": "Price delta in cents",
+            "example": 200
+          },
+          "isAvailable": {
+            "type": "boolean",
+            "description": "Whether option is available",
+            "example": true
+          }
+        }
+      },
+      "VariantGroup": {
+        "type": "object",
+        "required": ["id", "name", "options"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Variant group ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Variant group name",
+            "example": "Size"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VariantOption"
+            }
+          }
+        }
+      },
+      "AddonOption": {
+        "type": "object",
+        "required": ["id", "name", "priceDelta", "isAvailable"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Option ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Option name",
+            "example": "Extra cheese"
+          },
+          "priceDelta": {
+            "type": "integer",
+            "description": "Price delta in cents",
+            "example": 150
+          },
+          "isAvailable": {
+            "type": "boolean",
+            "description": "Whether option is available",
+            "example": true
+          }
+        }
+      },
+      "AddonGroup": {
+        "type": "object",
+        "required": ["id", "name", "minSelectable", "maxSelectable", "options"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Addon group ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Addon group name",
+            "example": "Extras"
+          },
+          "minSelectable": {
+            "type": "integer",
+            "description": "Minimum selectable options",
+            "example": 0
+          },
+          "maxSelectable": {
+            "type": "integer",
+            "description": "Maximum selectable options",
+            "example": 3
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddonOption"
+            }
+          }
+        }
+      },
+      "ProductCategory": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Category ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Category name"
+          },
+          "sortOrder": {
+            "type": "number",
+            "description": "Category sort order"
+          },
+          "icon": {
+            "type": "string",
+            "description": "Lucide icon name"
+          }
+        }
+      },
+      "CatalogImageRef": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "alt": {
+            "type": "string",
+            "nullable": true
+          },
+          "sortOrder": {
+            "type": "integer"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        }
+      },
       "ShopBranding": {
         "type": "object",
         "nullable": true,
@@ -848,16 +1462,21 @@
         "properties": {
           "shops": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/ShopResponse" },
+            "items": {
+              "$ref": "#/components/schemas/ShopResponse"
+            },
             "description": "Array of shops"
           },
-          "total": { "type": "integer", "description": "Total number of shops" }
+          "total": {
+            "type": "integer",
+            "description": "Total number of shops"
+          }
         },
         "required": ["shops", "total"]
       },
       "CreateShopRequest": {
         "type": "object",
-        "description": "Create a new shop. The following fields are automatically set: isDeleted=false, isPaused=false, acceptingOrders=true, allowGuestCheckout=true. The slug is auto-generated from the shop name. At least one day must have opening hours. If a shop with the same name already exists, an error will be returned.",
+        "description": "Create a new shop. The following fields are automatically set: isDeleted=false, isPaused=false, allowGuestCheckout=true. The slug is auto-generated from the shop name. At least one day must have opening hours. If a shop with the same name already exists, an error will be returned.",
         "required": [
           "name",
           "currency",
@@ -894,35 +1513,7 @@
             "description": "Payment policy"
           },
           "address": {
-            "type": "object",
-            "required": ["street", "city", "state", "postcode", "country"],
-            "properties": {
-              "street": {
-                "type": "string",
-                "description": "Street address",
-                "example": "123 Main Street"
-              },
-              "city": {
-                "type": "string",
-                "description": "City",
-                "example": "Belconnen"
-              },
-              "state": {
-                "type": "string",
-                "description": "State or territory",
-                "example": "ACT"
-              },
-              "postcode": {
-                "type": "string",
-                "description": "Postal code",
-                "example": "2617"
-              },
-              "country": {
-                "type": "string",
-                "description": "Country",
-                "example": "Australia"
-              }
-            }
+            "$ref": "#/components/schemas/Address"
           },
           "pausedMessage": {
             "type": "string",
@@ -937,174 +1528,92 @@
             "type": "object",
             "description": "Shop opening hours for each day of the week. At least one day must have opening hours.",
             "example": {
-              "mon": [{ "open": "09:00", "close": "17:00" }],
-              "tue": [{ "open": "09:00", "close": "17:00" }],
+              "mon": [
+                {
+                  "open": "09:00",
+                  "close": "17:00"
+                }
+              ],
+              "tue": [
+                {
+                  "open": "09:00",
+                  "close": "17:00"
+                }
+              ],
               "wed": [],
-              "thu": [{ "open": "09:00", "close": "17:00" }],
-              "fri": [{ "open": "09:00", "close": "22:00" }],
-              "sat": [{ "open": "10:00", "close": "16:00" }],
-              "sun": [{ "open": "11:00", "close": "15:00" }]
+              "thu": [
+                {
+                  "open": "09:00",
+                  "close": "17:00"
+                }
+              ],
+              "fri": [
+                {
+                  "open": "09:00",
+                  "close": "22:00"
+                }
+              ],
+              "sat": [
+                {
+                  "open": "10:00",
+                  "close": "16:00"
+                }
+              ],
+              "sun": [
+                {
+                  "open": "11:00",
+                  "close": "15:00"
+                }
+              ]
             },
             "properties": {
               "mon": {
                 "type": "array",
                 "description": "Monday opening hours",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": {
-                      "type": "string",
-                      "format": "time",
-                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-                      "description": "Opening time in 24-hour format (HH:MM)",
-                      "example": "09:00"
-                    },
-                    "close": {
-                      "type": "string",
-                      "format": "time",
-                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-                      "description": "Closing time in 24-hour format (HH:MM)",
-                      "example": "17:00"
-                    }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "tue": {
                 "type": "array",
                 "description": "Tuesday opening hours",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": {
-                      "type": "string",
-                      "format": "time",
-                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-                      "description": "Opening time in 24-hour format (HH:MM)",
-                      "example": "09:00"
-                    },
-                    "close": {
-                      "type": "string",
-                      "format": "time",
-                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-                      "description": "Closing time in 24-hour format (HH:MM)",
-                      "example": "17:00"
-                    }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "wed": {
                 "type": "array",
                 "description": "Wednesday opening hours",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": {
-                      "type": "string",
-                      "format": "time",
-                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-                      "description": "Opening time in 24-hour format (HH:MM)",
-                      "example": "09:00"
-                    },
-                    "close": {
-                      "type": "string",
-                      "format": "time",
-                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-                      "description": "Closing time in 24-hour format (HH:MM)",
-                      "example": "17:00"
-                    }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "thu": {
                 "type": "array",
                 "description": "Thursday opening hours",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": {
-                      "type": "string",
-                      "format": "time",
-                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-                      "description": "Opening time in 24-hour format (HH:MM)",
-                      "example": "09:00"
-                    },
-                    "close": {
-                      "type": "string",
-                      "format": "time",
-                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-                      "description": "Closing time in 24-hour format (HH:MM)",
-                      "example": "17:00"
-                    }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "fri": {
                 "type": "array",
                 "description": "Friday opening hours",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": {
-                      "type": "string",
-                      "format": "time",
-                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-                      "description": "Opening time in 24-hour format (HH:MM)",
-                      "example": "09:00"
-                    },
-                    "close": {
-                      "type": "string",
-                      "format": "time",
-                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-                      "description": "Closing time in 24-hour format (HH:MM)",
-                      "example": "17:00"
-                    }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "sat": {
                 "type": "array",
                 "description": "Saturday opening hours",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": {
-                      "type": "string",
-                      "format": "time",
-                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-                      "description": "Opening time in 24-hour format (HH:MM)",
-                      "example": "10:00"
-                    },
-                    "close": {
-                      "type": "string",
-                      "format": "time",
-                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-                      "description": "Closing time in 24-hour format (HH:MM)",
-                      "example": "16:00"
-                    }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "sun": {
                 "type": "array",
                 "description": "Sunday opening hours",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": {
-                      "type": "string",
-                      "format": "time",
-                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-                      "description": "Opening time in 24-hour format (HH:MM)",
-                      "example": "10:00"
-                    },
-                    "close": {
-                      "type": "string",
-                      "format": "time",
-                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-                      "description": "Closing time in 24-hour format (HH:MM)",
-                      "example": "15:00"
-                    }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               }
             }
@@ -1112,24 +1621,13 @@
           "closures": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "id": { "type": "string" },
-                "start": { "type": "string", "format": "date-time" },
-                "end": { "type": "string", "format": "date-time" },
-                "reason": { "type": "string" }
-              }
+              "$ref": "#/components/schemas/ShopClosure"
             }
           },
           "members": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "userId": { "type": "string" },
-                "role": { "type": "string", "enum": ["owner", "staff"] },
-                "isActive": { "type": "boolean" }
-              }
+              "$ref": "#/components/schemas/ShopMember"
             }
           },
           "branding": {
@@ -1142,10 +1640,9 @@
       "UpdateShopRequest": {
         "type": "object",
         "properties": {
-          "name": { "type": "string", "description": "Shop name" },
-          "acceptingOrders": {
-            "type": "boolean",
-            "description": "Whether shop is accepting orders"
+          "name": {
+            "type": "string",
+            "description": "Shop name"
           },
           "isPaused": {
             "type": "boolean",
@@ -1164,21 +1661,20 @@
             "type": "boolean",
             "description": "Allow guest checkout"
           },
-          "currency": { "type": "string", "description": "Shop currency" },
-          "timezone": { "type": "string", "description": "Shop timezone" },
+          "currency": {
+            "type": "string",
+            "description": "Shop currency"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Shop timezone"
+          },
           "minOrderAmountCents": {
             "type": "number",
             "description": "Minimum order amount in cents"
           },
           "address": {
-            "type": "object",
-            "properties": {
-              "street": { "type": "string" },
-              "city": { "type": "string" },
-              "state": { "type": "string" },
-              "postcode": { "type": "string" },
-              "country": { "type": "string" }
-            }
+            "$ref": "#/components/schemas/Address"
           },
           "branding": {
             "nullable": true,
@@ -1192,81 +1688,43 @@
               "mon": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": {
-                      "type": "string",
-                      "format": "time",
-                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-                      "description": "Opening time (HH:mm)"
-                    },
-                    "close": {
-                      "type": "string",
-                      "format": "time",
-                      "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-                      "description": "Closing time (HH:mm)"
-                    }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "tue": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": { "type": "string" },
-                    "close": { "type": "string" }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "wed": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": { "type": "string" },
-                    "close": { "type": "string" }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "thu": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": { "type": "string" },
-                    "close": { "type": "string" }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "fri": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": { "type": "string" },
-                    "close": { "type": "string" }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "sat": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": { "type": "string" },
-                    "close": { "type": "string" }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "sun": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": { "type": "string" },
-                    "close": { "type": "string" }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               }
             }
@@ -1276,16 +1734,21 @@
       "ShopResponse": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "description": "Shop ID" },
-          "slug": { "type": "string", "description": "Shop slug" },
-          "name": { "type": "string", "description": "Shop name" },
+          "id": {
+            "type": "string",
+            "description": "Shop ID"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Shop slug"
+          },
+          "name": {
+            "type": "string",
+            "description": "Shop name"
+          },
           "isDeleted": {
             "type": "boolean",
             "description": "Whether shop is deleted"
-          },
-          "acceptingOrders": {
-            "type": "boolean",
-            "description": "Whether shop is accepting orders"
           },
           "isPaused": {
             "type": "boolean",
@@ -1299,21 +1762,16 @@
             "type": "string",
             "description": "Shop currency (ISO code)"
           },
-          "timezone": { "type": "string", "description": "Shop timezone" },
+          "timezone": {
+            "type": "string",
+            "description": "Shop timezone"
+          },
           "minOrderAmountCents": {
             "type": "number",
             "description": "Minimum order amount in cents"
           },
           "address": {
-            "type": "object",
-            "description": "Shop address",
-            "properties": {
-              "street": { "type": "string" },
-              "city": { "type": "string" },
-              "state": { "type": "string" },
-              "postcode": { "type": "string" },
-              "country": { "type": "string" }
-            }
+            "$ref": "#/components/schemas/Address"
           },
           "createdAt": {
             "type": "string",
@@ -1337,71 +1795,43 @@
               "mon": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": { "type": "string" },
-                    "close": { "type": "string" }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "tue": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": { "type": "string" },
-                    "close": { "type": "string" }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "wed": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": { "type": "string" },
-                    "close": { "type": "string" }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "thu": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": { "type": "string" },
-                    "close": { "type": "string" }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "fri": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": { "type": "string" },
-                    "close": { "type": "string" }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "sat": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": { "type": "string" },
-                    "close": { "type": "string" }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               },
               "sun": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "open": { "type": "string" },
-                    "close": { "type": "string" }
-                  }
+                  "$ref": "#/components/schemas/OpeningTimeSlot"
                 }
               }
             }
@@ -1412,32 +1842,59 @@
         "type": "object",
         "required": ["name"],
         "properties": {
-          "name": { "type": "string", "description": "Category name" },
+          "name": {
+            "type": "string",
+            "description": "Category name"
+          },
           "sortOrder": {
             "type": "number",
             "description": "Sort order for display"
+          },
+          "icon": {
+            "type": "string",
+            "description": "Lucide icon name"
           }
         }
       },
       "UpdateCategoryRequest": {
         "type": "object",
         "properties": {
-          "name": { "type": "string", "description": "Category name" },
+          "name": {
+            "type": "string",
+            "description": "Category name"
+          },
           "sortOrder": {
             "type": "number",
             "description": "Sort order for display"
+          },
+          "icon": {
+            "type": "string",
+            "description": "Lucide icon name"
           }
         }
       },
       "CategoryResponse": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "description": "Category ID" },
-          "shopId": { "type": "string", "description": "Shop ID" },
-          "name": { "type": "string", "description": "Category name" },
+          "id": {
+            "type": "string",
+            "description": "Category ID"
+          },
+          "shopId": {
+            "type": "string",
+            "description": "Shop ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Category name"
+          },
           "sortOrder": {
             "type": "number",
             "description": "Sort order for display"
+          },
+          "icon": {
+            "type": "string",
+            "description": "Lucide icon name"
           },
           "isDeleted": {
             "type": "boolean",
@@ -1457,7 +1914,48 @@
       },
       "CategoriesResponse": {
         "type": "array",
-        "items": { "$ref": "#/components/schemas/CategoryResponse" }
+        "items": {
+          "$ref": "#/components/schemas/CategoryResponse"
+        }
+      },
+      "ProductSchedule": {
+        "type": "object",
+        "required": ["startDate"],
+        "properties": {
+          "startDate": {
+            "type": "string",
+            "description": "Inclusive start date (YYYY-MM-DD)",
+            "example": "2026-03-18"
+          },
+          "endDate": {
+            "type": "string",
+            "nullable": true,
+            "description": "Inclusive end date (YYYY-MM-DD); null = run indefinitely",
+            "example": "2026-03-20"
+          },
+          "startTime": {
+            "type": "string",
+            "nullable": true,
+            "description": "Daily window open (HH:mm, 24-hour); absent = 00:00 (all day)",
+            "example": "12:00"
+          },
+          "endTime": {
+            "type": "string",
+            "nullable": true,
+            "description": "Daily window close (HH:mm, 24-hour); absent = 23:59 (all day)",
+            "example": "16:00"
+          },
+          "daysOfWeek": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 6
+            },
+            "description": "0=Sun 1=Mon … 6=Sat; absent/empty = every day",
+            "example": [2, 3]
+          }
+        }
       },
       "CreateProductRequest": {
         "type": "object",
@@ -1467,7 +1965,10 @@
             "type": "string",
             "description": "Shop ID that owns this product"
           },
-          "name": { "type": "string", "description": "Product name" },
+          "name": {
+            "type": "string",
+            "description": "Product name"
+          },
           "description": {
             "type": "string",
             "description": "Product description"
@@ -1476,34 +1977,38 @@
             "type": "number",
             "description": "Product price in cents"
           },
-          "sortOrder": {
-            "type": "number",
-            "description": "Sort order for display"
-          },
           "categoryIds": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "Category IDs"
           },
           "images": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "id": { "type": "string" },
-                "url": { "type": "string" },
-                "isPrimary": { "type": "boolean" }
-              }
+              "$ref": "#/components/schemas/ProductImageRef"
             }
           },
-          "allergyInfo": {
+          "specialInfo": {
             "type": "array",
-            "items": { "type": "string" },
-            "description": "Allergy information"
+            "items": {
+              "$ref": "#/components/schemas/SpecialInfoItem"
+            },
+            "description": "Special info items (dietary labels, badges, etc.)"
           },
           "isAvailable": {
             "type": "boolean",
             "description": "Whether product is available"
+          },
+          "schedule": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductSchedule"
+              }
+            ],
+            "description": "Optional availability schedule; null = no time restriction"
           }
         }
       },
@@ -1514,7 +2019,10 @@
             "type": "string",
             "description": "Shop ID (required for partition key)"
           },
-          "name": { "type": "string", "description": "Product name" },
+          "name": {
+            "type": "string",
+            "description": "Product name"
+          },
           "description": {
             "type": "string",
             "description": "Product description"
@@ -1523,50 +2031,73 @@
             "type": "number",
             "description": "Product price in cents"
           },
-          "sortOrder": {
-            "type": "number",
-            "description": "Sort order for display"
-          },
           "categoryIds": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "Category IDs"
           },
           "images": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "id": { "type": "string" },
-                "url": { "type": "string" },
-                "isPrimary": { "type": "boolean" }
-              }
+              "$ref": "#/components/schemas/ProductImageRef"
             }
           },
-          "allergyInfo": {
+          "specialInfo": {
             "type": "array",
-            "items": { "type": "string" },
-            "description": "Allergy information"
+            "items": {
+              "$ref": "#/components/schemas/SpecialInfoItem"
+            },
+            "description": "Special info items (dietary labels, badges, etc.)"
           },
           "isAvailable": {
             "type": "boolean",
             "description": "Whether product is available"
+          },
+          "variantGroups": {
+            "type": "array",
+            "description": "Variant groups (single-select per group, e.g. Size)",
+            "items": {
+              "$ref": "#/components/schemas/VariantGroup"
+            }
+          },
+          "addonGroups": {
+            "type": "array",
+            "description": "Addon groups (multi-select per group, e.g. Extras)",
+            "items": {
+              "$ref": "#/components/schemas/AddonGroup"
+            }
+          },
+          "schedule": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductSchedule"
+              }
+            ],
+            "description": "Optional availability schedule; null = no time restriction"
           }
         }
       },
       "ProductResponse": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "description": "Product ID" },
-          "shopId": { "type": "string", "description": "Shop ID" },
-          "name": { "type": "string", "description": "Product name" },
+          "id": {
+            "type": "string",
+            "description": "Product ID"
+          },
+          "shopId": {
+            "type": "string",
+            "description": "Shop ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Product name"
+          },
           "description": {
             "type": "string",
             "description": "Product description"
-          },
-          "sortOrder": {
-            "type": "number",
-            "description": "Sort order for display"
           },
           "price": {
             "type": "number",
@@ -1575,110 +2106,35 @@
           "categories": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "id": { "type": "string", "description": "Category ID" },
-                "name": { "type": "string", "description": "Category name" },
-                "sortOrder": {
-                  "type": "number",
-                  "description": "Category sort order"
-                }
-              }
+              "$ref": "#/components/schemas/ProductCategory"
             },
             "description": "Product categories with full details"
           },
           "images": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "id": { "type": "string", "description": "Image ID" },
-                "url": { "type": "string", "description": "Image URL" },
-                "isPrimary": {
-                  "type": "boolean",
-                  "description": "Whether this is the primary image"
-                }
-              }
+              "$ref": "#/components/schemas/ProductImageRef"
             },
             "description": "Product images"
           },
-          "allergyInfo": {
+          "specialInfo": {
             "type": "array",
-            "items": { "type": "string" },
-            "description": "Allergy information"
+            "items": {
+              "$ref": "#/components/schemas/SpecialInfoItem"
+            },
+            "description": "Special info items (dietary labels, badges, etc.)"
           },
           "variantGroups": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "id": { "type": "string", "description": "Variant group ID" },
-                "name": {
-                  "type": "string",
-                  "description": "Variant group name"
-                },
-                "options": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": { "type": "string", "description": "Option ID" },
-                      "name": {
-                        "type": "string",
-                        "description": "Option name"
-                      },
-                      "priceDelta": {
-                        "type": "number",
-                        "description": "Price difference in cents"
-                      },
-                      "isAvailable": {
-                        "type": "boolean",
-                        "description": "Whether option is available"
-                      }
-                    }
-                  }
-                }
-              }
+              "$ref": "#/components/schemas/VariantGroup"
             },
             "description": "Product variant groups (optional)"
           },
           "addonGroups": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "id": { "type": "string", "description": "Addon group ID" },
-                "name": { "type": "string", "description": "Addon group name" },
-                "minSelectable": {
-                  "type": "number",
-                  "description": "Minimum selectable options"
-                },
-                "maxSelectable": {
-                  "type": "number",
-                  "description": "Maximum selectable options"
-                },
-                "options": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": { "type": "string", "description": "Option ID" },
-                      "name": {
-                        "type": "string",
-                        "description": "Option name"
-                      },
-                      "priceDelta": {
-                        "type": "number",
-                        "description": "Price difference in cents"
-                      },
-                      "isAvailable": {
-                        "type": "boolean",
-                        "description": "Whether option is available"
-                      }
-                    }
-                  }
-                }
-              }
+              "$ref": "#/components/schemas/AddonGroup"
             },
             "description": "Product addon groups (optional)"
           },
@@ -1689,6 +2145,20 @@
           "isDeleted": {
             "type": "boolean",
             "description": "Whether product is deleted"
+          },
+          "schedule": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductSchedule"
+              }
+            ],
+            "description": "Optional availability schedule; null = no time restriction"
+          },
+          "taxRateId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Tax rate ID from the shop's taxRates list, or null"
           },
           "createdAt": {
             "type": "string",
@@ -1704,7 +2174,9 @@
       },
       "ProductsResponse": {
         "type": "array",
-        "items": { "$ref": "#/components/schemas/ProductResponse" }
+        "items": {
+          "$ref": "#/components/schemas/ProductResponse"
+        }
       },
       "DeleteResponse": {
         "type": "object",
@@ -1872,6 +2344,120 @@
         },
         "required": ["id", "url", "sortOrder", "isPrimary"]
       },
+      "CatalogProductDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Product ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Product name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Product description"
+          },
+          "price": {
+            "type": "number",
+            "description": "Base price in cents"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogImageRef"
+            }
+          },
+          "variants": {
+            "type": "array",
+            "description": "Variant groups",
+            "items": {
+              "$ref": "#/components/schemas/VariantGroup"
+            }
+          },
+          "addons": {
+            "type": "array",
+            "description": "Addon groups",
+            "items": {
+              "$ref": "#/components/schemas/AddonGroup"
+            }
+          },
+          "isAvailable": {
+            "type": "boolean"
+          },
+          "taxRateId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Tax rate ID or null"
+          },
+          "specialInfo": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "icon": {
+                  "type": "string"
+                }
+              },
+              "required": ["name", "icon"]
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CatalogCategoryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Category ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Category name"
+          },
+          "sortOrder": {
+            "type": "number",
+            "description": "Display sort order"
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true,
+            "description": "Lucide icon name"
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogProductDto"
+            }
+          }
+        }
+      },
+      "CatalogResponse": {
+        "type": "object",
+        "properties": {
+          "categories": {
+            "type": "array",
+            "description": "Categories with their visible, in-schedule products",
+            "items": {
+              "$ref": "#/components/schemas/CatalogCategoryDto"
+            }
+          }
+        },
+        "required": ["categories"]
+      },
       "CheckoutItem": {
         "type": "object",
         "required": ["productId", "quantity"],
@@ -1894,7 +2480,9 @@
           },
           "selectedAddonOptionIds": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "IDs of selected addon options",
             "example": ["addon-cheese", "addon-bacon"]
           }
@@ -1917,7 +2505,9 @@
           },
           "items": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/CheckoutItem" },
+            "items": {
+              "$ref": "#/components/schemas/CheckoutItem"
+            },
             "description": "Items to order"
           },
           "customerName": {
@@ -1969,6 +2559,104 @@
           }
         }
       },
+      "OrdersPageResponse": {
+        "type": "object",
+        "required": ["orders", "total", "page", "pageSize"],
+        "properties": {
+          "orders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderResponse"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "example": 142
+          },
+          "page": {
+            "type": "integer",
+            "example": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "example": 20
+          }
+        }
+      },
+      "OrderResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "orderRef",
+          "status",
+          "items",
+          "subtotalCents",
+          "currency",
+          "customerName",
+          "customerEmail",
+          "customerPhone",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "order-uuid"
+          },
+          "orderRef": {
+            "type": "string",
+            "example": "AB3-K7P"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending_payment",
+              "paid",
+              "failed",
+              "cancelled",
+              "refunded"
+            ],
+            "example": "paid"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItemResponse"
+            }
+          },
+          "subtotalCents": {
+            "type": "integer",
+            "example": 3600
+          },
+          "currency": {
+            "type": "string",
+            "example": "AUD"
+          },
+          "customerName": {
+            "type": "string",
+            "example": "Jane Smith"
+          },
+          "customerEmail": {
+            "type": "string",
+            "format": "email",
+            "example": "jane@example.com"
+          },
+          "customerPhone": {
+            "type": "string",
+            "example": "+61400000000"
+          },
+          "customerNotes": {
+            "type": "string",
+            "nullable": true,
+            "example": "No onions please"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-03-02T10:00:00.000Z"
+          }
+        }
+      },
       "OrderItemResponse": {
         "type": "object",
         "required": [
@@ -1979,22 +2667,53 @@
           "lineTotalCents"
         ],
         "properties": {
-          "productId": { "type": "string", "example": "prod-uuid" },
-          "productName": { "type": "string", "example": "Margherita Pizza" },
-          "quantity": { "type": "integer", "minimum": 1, "example": 2 },
-          "unitPriceCents": { "type": "integer", "example": 1800 },
+          "productId": {
+            "type": "string",
+            "example": "prod-uuid"
+          },
+          "productName": {
+            "type": "string",
+            "example": "Margherita Pizza"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 2
+          },
+          "unitPriceCents": {
+            "type": "integer",
+            "example": 1800
+          },
           "selectedVariantOptionId": {
             "type": "string",
             "nullable": true,
             "example": "opt-large"
           },
+          "selectedVariantOptionName": {
+            "type": "string",
+            "nullable": true,
+            "example": "Large"
+          },
           "selectedAddonOptionIds": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "nullable": true,
             "example": ["addon-extra-cheese"]
           },
-          "lineTotalCents": { "type": "integer", "example": 3600 }
+          "selectedAddonOptionNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "example": ["Extra cheese"]
+          },
+          "lineTotalCents": {
+            "type": "integer",
+            "example": 3600
+          }
         }
       },
       "OrderByPaymentIntentResponse": {
@@ -2015,7 +2734,10 @@
             "format": "uuid",
             "example": "order-uuid"
           },
-          "orderRef": { "type": "string", "example": "AB3-K7P" },
+          "orderRef": {
+            "type": "string",
+            "example": "AB3-K7P"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -2029,11 +2751,22 @@
           },
           "items": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/OrderItemResponse" }
+            "items": {
+              "$ref": "#/components/schemas/OrderItemResponse"
+            }
           },
-          "subtotalCents": { "type": "integer", "example": 3600 },
-          "currency": { "type": "string", "example": "AUD" },
-          "customerName": { "type": "string", "example": "Jane Smith" },
+          "subtotalCents": {
+            "type": "integer",
+            "example": 3600
+          },
+          "currency": {
+            "type": "string",
+            "example": "AUD"
+          },
+          "customerName": {
+            "type": "string",
+            "example": "Jane Smith"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -2048,8 +2781,7 @@
         "content": {
           "application/json": {
             "schema": {
-              "type": "object",
-              "properties": { "error": { "type": "string" } }
+              "$ref": "#/components/schemas/ErrorResponse"
             }
           }
         }
@@ -2059,8 +2791,7 @@
         "content": {
           "application/json": {
             "schema": {
-              "type": "object",
-              "properties": { "error": { "type": "string" } }
+              "$ref": "#/components/schemas/ErrorResponse"
             }
           }
         }
@@ -2070,8 +2801,7 @@
         "content": {
           "application/json": {
             "schema": {
-              "type": "object",
-              "properties": { "error": { "type": "string" } }
+              "$ref": "#/components/schemas/ErrorResponse"
             }
           }
         }
@@ -2081,8 +2811,7 @@
         "content": {
           "application/json": {
             "schema": {
-              "type": "object",
-              "properties": { "error": { "type": "string" } }
+              "$ref": "#/components/schemas/ErrorResponse"
             }
           }
         }

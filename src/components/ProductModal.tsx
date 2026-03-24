@@ -5,6 +5,8 @@ import TickCheckbox from './TickCheckbox';
 import { useAppDispatch } from '../store/hooks';
 import { addItem } from '../store/slices/cartSlice';
 import { formatDollars } from '../utils/money';
+import { ICON_MAP } from '../utils/iconMap';
+import { SPECIAL_INFO_COLORS, DEFAULT_BADGE } from '../utils/badgeColors';
 
 type VariantOption = {
   id: string;
@@ -29,6 +31,7 @@ export type Product = {
   price: number;
   variantTypes?: VariantGroup[];
   addons?: AddonGroup[];
+  specialInfo?: { icon?: string; name?: string }[];
 };
 
 interface ProductModalProps {
@@ -148,14 +151,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black opacity-40" onClick={onClose} />
       <div className="relative z-[1001] bg-white rounded-lg shadow-lg w-full max-w-3xl max-h-[90vh] overflow-auto p-6">
-        <div className="flex justify-between items-start mb-4">
+        <div className="mb-4">
           <h3 className="text-xl font-semibold">{product.label}</h3>
-          <button
-            className="px-3 py-1.5 rounded-md border border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white transition-colors"
-            onClick={onClose}
-          >
-            Close
-          </button>
         </div>
 
         <div className="flex flex-col md:flex-row gap-6">
@@ -170,6 +167,25 @@ const ProductModal: React.FC<ProductModalProps> = ({
           <div className="flex-1">
             <p className="text-sm text-gray-600 mb-4">{product.description}</p>
 
+            {product.specialInfo && product.specialInfo.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {product.specialInfo.map((item, i) => {
+                  const IC = item.icon ? ICON_MAP[item.icon] : null;
+                  return (
+                    <span
+                      key={i}
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs ${
+                        item.icon ? (SPECIAL_INFO_COLORS[item.icon] ?? DEFAULT_BADGE) : DEFAULT_BADGE
+                      }`}
+                    >
+                      {IC && <IC className="h-3.5 w-3.5" />}
+                      {item.name}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Variant groups */}
             {product.variantTypes?.map((group) => (
               <div key={group.id} className="mb-3">
@@ -180,7 +196,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                       key={v.id}
                       className={`px-3 py-1 border rounded cursor-pointer text-sm ${
                         selectedVariantId === v.id
-                          ? 'border-[var(--brand-primary)] bg-[var(--brand-background)]'
+                          ? 'border-gray-900 bg-gray-50'
                           : 'bg-white'
                       }`}
                     >
@@ -262,7 +278,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
               </Button>
               <Button
                 variant="outline"
-                className="px-4 border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white"
+                className="px-4"
                 onClick={onClose}
               >
                 Cancel

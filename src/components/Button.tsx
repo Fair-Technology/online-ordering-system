@@ -13,14 +13,14 @@ const Button: React.FC<ButtonProps> = ({
   onClick,
   className,
 }) => {
-  const base = 'px-4 py-2 rounded-md font-semibold transition-colors';
+  const base = 'px-4 py-2 rounded-full font-semibold transition-all duration-200 active:scale-95';
   const styles = {
     primary:
-      'bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-secondary)]',
+      'bg-gray-900 text-white shadow-sm hover:bg-[var(--brand-primary)] hover:shadow-md',
     secondary:
-      'bg-[var(--brand-secondary)] text-white hover:bg-[var(--brand-tertiary)]',
+      'bg-gray-700 text-white shadow-sm hover:bg-gray-900',
     outline:
-      'border border-[var(--brand-secondary)] text-[var(--brand-secondary)] hover:bg-[var(--brand-secondary)] hover:text-white',
+      'border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300',
   };
   return (
     <button

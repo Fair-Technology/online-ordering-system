@@ -1,4 +1,5 @@
 import { CSSProperties, useEffect, useMemo } from 'react';
+import { ShopPageSkeleton } from '../components/Skeletons';
 import { useParams, useNavigate } from 'react-router-dom';
 import HeroSection from '../components/HeroSection';
 import CategoryFilterBar from '../components/CategoryFilterBar';
@@ -7,8 +8,9 @@ import Footer from '../components/footer';
 import {
   useGetShopBySlugQuery,
   useGetShopByIdQuery,
-  useGetProductsByShopQuery,
-  type ProductResponse,
+  useGetCatalogQuery,
+  type CatalogCategoryDto,
+  type CatalogProductDto,
 } from '../services/api';
 import NavBar from '../components/NavBar';
 import { Product } from '../types/Product';
@@ -20,7 +22,7 @@ import {
   type ShopWithBranding,
 } from '../utils/branding';
 
-type CategoryOption = { id: string; label: string; count: number };
+type CategoryOption = { id: string; label: string; count: number; icon?: string };
 
 const toCategoryId = (value: string) =>
   value
@@ -29,47 +31,45 @@ const toCategoryId = (value: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 
-const toLegacyProduct = (product: ProductResponse): Product => ({
+const toLegacyCatalogProduct = (
+  product: CatalogProductDto,
+  cat: CatalogCategoryDto
+): Product => ({
   id: product.id ?? '',
   label: product.name ?? '',
   imageURL:
-    product.images?.find((image) => image?.isPrimary)?.url ??
-    product.images?.[0]?.url ??
-    '',
+    [...(product.images ?? [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))[0]
+      ?.url ?? '',
   description: product.description ?? '',
   isAvailable: product.isAvailable ?? true,
   price: centsToDollars(product.price ?? 0),
-  categories:
-    product.categories?.map((category) => ({
-      id: category.id ?? '',
-      name: category.name ?? '',
-    })) ?? [],
-  variantTypes:
-    product.variantGroups?.map((group) => ({
-      id: group.id ?? '',
-      label: group.name ?? '',
-      variants:
-        group.options?.map((option) => ({
-          id: option.id ?? '',
-          label: option.name ?? '',
-          imageURL: '',
-          priceDelta: centsToDollars(option.priceDelta ?? 0),
-          isAvailable: option.isAvailable ?? true,
-        })) ?? [],
-    })) ?? [],
-  addons:
-    product.addonGroups?.map((group) => ({
-      id: group.id ?? '',
-      label: group.name ?? '',
-      options:
-        group.options?.map((option) => ({
-          id: option.id ?? '',
-          label: option.name ?? '',
-          imageURL: '',
-          priceDelta: centsToDollars(option.priceDelta ?? 0),
-          isAvailable: option.isAvailable ?? true,
-        })) ?? [],
-    })) ?? [],
+  categories: [{ id: cat.id ?? '', name: cat.name ?? '', icon: cat.icon ?? undefined }],
+  specialInfo: (product.specialInfo ?? []).map((s) => ({
+    icon: s.icon,
+    name: s.name,
+  })),
+  variantTypes: ((product.variants ?? []) as any[]).map((group) => ({
+    id: group.id ?? '',
+    label: group.name ?? '',
+    variants: (group.options ?? []).map((opt: any) => ({
+      id: opt.id ?? '',
+      label: opt.name ?? '',
+      imageURL: '',
+      priceDelta: centsToDollars(opt.priceDelta ?? 0),
+      isAvailable: opt.isAvailable ?? true,
+    })),
+  })),
+  addons: ((product.addons ?? []) as any[]).map((group) => ({
+    id: group.id ?? '',
+    label: group.name ?? '',
+    options: (group.options ?? []).map((opt: any) => ({
+      id: opt.id ?? '',
+      label: opt.name ?? '',
+      imageURL: '',
+      priceDelta: centsToDollars(opt.priceDelta ?? 0),
+      isAvailable: opt.isAvailable ?? true,
+    })),
+  })),
 });
 
 const ShopView = () => {
@@ -134,48 +134,49 @@ const ShopView = () => {
     }
   }, [dispatch, resolvedShopId]);
 
-  const { data: shopProducts = [] } = useGetProductsByShopQuery(resolvedShopId, {
+  const { data: catalogData } = useGetCatalogQuery(resolvedShopId, {
     skip: !resolvedShopId,
   });
 
-  const normalizedProducts = useMemo<Product[]>(
-    () => shopProducts.map(toLegacyProduct),
-    [shopProducts]
+  const visibleCategories = useMemo(
+    () =>
+      (catalogData?.categories ?? [])
+        .filter((cat) => cat.name && (cat.products?.length ?? 0) > 0)
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+    [catalogData]
   );
 
-  const categories = useMemo<CategoryOption[]>(() => {
-    const map = new Map<string, { label: string; count: number }>();
+  const categories = useMemo<CategoryOption[]>(
+    () =>
+      visibleCategories.map((cat) => ({
+        id: toCategoryId(cat.name!),
+        label: cat.name!,
+        count: cat.products?.length ?? 0,
+        icon: cat.icon ?? undefined,
+      })),
+    [visibleCategories]
+  );
 
-    normalizedProducts.forEach((product) => {
-      const primaryCategory = product.categories[0]?.name?.trim();
-      if (!primaryCategory) return;
-      const id = toCategoryId(primaryCategory);
-      const existing = map.get(id);
-      if (existing) {
-        existing.count += 1;
-      } else {
-        map.set(id, { label: primaryCategory, count: 1 });
-      }
-    });
-
-    return Array.from(map.entries()).map(([id, value]) => ({
-      id,
-      label: value.label,
-      count: value.count,
-    }));
-  }, [normalizedProducts]);
+  const categoryIcons = useMemo<Record<string, string>>(
+    () =>
+      Object.fromEntries(
+        visibleCategories
+          .filter((cat) => cat.icon)
+          .map((cat) => [toCategoryId(cat.name!), cat.icon!])
+      ),
+    [visibleCategories]
+  );
 
   const groupedItems = useMemo<Record<string, Product[]>>(() => {
     const grouped: Record<string, Product[]> = {};
-    normalizedProducts.forEach((product) => {
-      const primaryCategory = product.categories[0]?.name?.trim();
-      if (!primaryCategory) return;
-      const categoryId = toCategoryId(primaryCategory);
-      if (!grouped[categoryId]) grouped[categoryId] = [];
-      grouped[categoryId].push(product);
+    visibleCategories.forEach((cat) => {
+      const id = toCategoryId(cat.name!);
+      grouped[id] = (cat.products ?? [])
+        .filter((p) => p.isAvailable !== false)
+        .map((p) => toLegacyCatalogProduct(p, cat));
     });
     return grouped;
-  }, [normalizedProducts]);
+  }, [visibleCategories]);
 
   const categoryLabels = useMemo(() => {
     return categories.reduce<Record<string, string>>((acc, category) => {
@@ -198,11 +199,7 @@ const ShopView = () => {
   const isLoading = shouldFetchBySlug ? isSlugLoading : isIdLoading;
 
   if (isLoading) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-gray-200 border-t-[var(--brand-primary,#FF8C32)] rounded-full animate-spin" />
-      </div>
-    );
+    return <ShopPageSkeleton />;
   }
 
   if (
@@ -220,26 +217,23 @@ const ShopView = () => {
   }
 
   return (
-    <div className="bg-white" style={brandStyle}>
-      <div className="sticky top-0 z-50 bg-white shadow-sm">
+    <div className="bg-gray-50/60 min-h-screen" style={brandStyle}>
+      <div className="sticky top-0 z-50">
         <NavBar
           shopName={shopName}
           shopId={slug ?? ''}
           logoUrl={resolvedBranding.logoUrl}
-          colors={resolvedBranding.colors}
           onCheckout={() => navigate(`/shops/${slug}/checkout`)}
         />
       </div>
-      <HeroSection
-        heroImageUrl={resolvedBranding.heroImageUrl}
-        colors={resolvedBranding.colors}
-      />
+      <HeroSection heroImageUrl={resolvedBranding.heroImageUrl} />
       <CategoryFilterBar categories={categories} />
       <div className="w-full flex items-center justify-center flex-col mt-4">
         <CustomerMenuList
           groupedItems={groupedItems}
           categoryLabels={categoryLabels}
           categoryCounts={categoryCounts}
+          categoryIcons={categoryIcons}
           onAddToCart={handleAddToCart}
         />
       </div>
