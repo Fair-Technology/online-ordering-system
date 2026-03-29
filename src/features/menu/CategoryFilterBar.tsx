@@ -1,16 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { ICON_MAP } from '../utils/iconMap';
+import { ICON_MAP } from '../../utils/iconMap';
+
 type CategoryOption = { id: string; label: string; count?: number; icon?: string };
 
 interface CategoryFilterBarProps {
   categories: CategoryOption[];
 }
 
+// STICKY_OFFSET accounts for the combined height of the sticky NavBar (64px)
+// and CategoryFilterBar itself (~76px), so scroll-based section detection
+// fires slightly before the heading scrolls fully behind the bars.
+const STICKY_OFFSET = 140;
+
 const CategoryFilterBar: React.FC<CategoryFilterBarProps> = ({ categories }) => {
   const [selected, setSelected] = useState(() => categories[0]?.id ?? '');
   const [hovered, setHovered] = useState('');
-  const STICKY_OFFSET = 140;
 
+  // Keep selected in sync if categories change (e.g. after data loads)
   useEffect(() => {
     if (!categories.length) {
       setSelected('');
@@ -21,6 +27,7 @@ const CategoryFilterBar: React.FC<CategoryFilterBarProps> = ({ categories }) => 
     }
   }, [categories, selected]);
 
+  // Smooth-scroll to the category section and mark it as selected
   const handleClick = (categoryId: string) => {
     setSelected(categoryId);
     setHovered('');
@@ -30,6 +37,10 @@ const CategoryFilterBar: React.FC<CategoryFilterBarProps> = ({ categories }) => 
     });
   };
 
+  // Highlight the category whose section is currently visible as the user scrolls.
+  // Throttled with requestAnimationFrame to avoid layout thrashing on every
+  // scroll event. `ticking` prevents multiple rAF callbacks from being queued
+  // at the same time.
   useEffect(() => {
     if (!categories.length) return;
     const lastCategoryId = categories[categories.length - 1]?.id ?? '';
@@ -49,8 +60,9 @@ const CategoryFilterBar: React.FC<CategoryFilterBarProps> = ({ categories }) => 
         }
       }
 
-      // Ensure the last section gets selected near page bottom even if its top
-      // never crosses the anchor due to limited remaining scroll space.
+      // When the user reaches the very bottom of the page, the last section's
+      // top may never cross the anchor (not enough scroll space), so we force
+      // it to be selected once the page bottom is reached.
       const scrollBottom = window.scrollY + window.innerHeight;
       const pageBottom = document.documentElement.scrollHeight;
       if (pageBottom - scrollBottom <= 4) {
@@ -111,7 +123,10 @@ const CategoryFilterBar: React.FC<CategoryFilterBarProps> = ({ categories }) => 
                     }
             }
           >
-            {cat.icon && (() => { const IC = ICON_MAP[cat.icon]; return IC ? <IC className="w-3.5 h-3.5" /> : null; })()}
+            {cat.icon && (() => {
+              const IC = ICON_MAP[cat.icon];
+              return IC ? <IC className="w-3.5 h-3.5" /> : null;
+            })()}
             <span>{cat.label}</span>
             {typeof cat.count === 'number' ? (
               <span className="ml-2 text-xs opacity-80">{cat.count}</span>

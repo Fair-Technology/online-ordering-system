@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'mewmew_orders_v1';
+const STORAGE_KEY = 'orders_v1';
 
 export interface GuestOrderItem {
   productName: string;

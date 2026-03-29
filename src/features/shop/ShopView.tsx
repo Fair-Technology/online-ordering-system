@@ -1,77 +1,37 @@
-import { CSSProperties, useEffect, useMemo } from 'react';
-import { ShopPageSkeleton } from '../components/Skeletons';
+import { useEffect, useMemo } from 'react';
+import { ShopPageSkeleton } from '../../shared/Skeletons';
 import { useParams, useNavigate } from 'react-router-dom';
-import HeroSection from '../components/HeroSection';
-import CategoryFilterBar from '../components/CategoryFilterBar';
-import CustomerMenuList from '../features/customer/components/CustomerMenuList';
-import Footer from '../components/footer';
+import HeroSection from '../../shared/HeroSection';
+import CategoryFilterBar from '../menu/CategoryFilterBar';
+import MenuList from '../menu/MenuList';
+import Footer from '../../shared/Footer';
 import {
   useGetShopBySlugQuery,
   useGetShopByIdQuery,
   useGetCatalogQuery,
-  type CatalogCategoryDto,
-  type CatalogProductDto,
-} from '../services/api';
-import NavBar from '../components/NavBar';
-import { Product } from '../types/Product';
-import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { setActiveShop } from '../store/slices/shopSlice';
-import { centsToDollars } from '../utils/money';
+} from '../../api/endpoints';
+import NavBar from '../../shared/NavBar';
+import { Product } from '../../types/Product';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { setActiveShop } from '../../store/slices/shopSlice';
 import {
   resolveShopBranding,
   type ShopWithBranding,
-} from '../utils/branding';
+} from '../../utils/branding';
+import { slugifyCategoryName, mapApiProductToProduct } from '../../utils/catalogMapper';
+import { useBrandingStyle } from '../../hooks/useBrandingStyle';
 
 type CategoryOption = { id: string; label: string; count: number; icon?: string };
 
-const toCategoryId = (value: string) =>
-  value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-const toLegacyCatalogProduct = (
-  product: CatalogProductDto,
-  cat: CatalogCategoryDto
-): Product => ({
-  id: product.id ?? '',
-  label: product.name ?? '',
-  imageURL:
-    [...(product.images ?? [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))[0]
-      ?.url ?? '',
-  description: product.description ?? '',
-  isAvailable: product.isAvailable ?? true,
-  price: centsToDollars(product.price ?? 0),
-  categories: [{ id: cat.id ?? '', name: cat.name ?? '', icon: cat.icon ?? undefined }],
-  specialInfo: (product.specialInfo ?? []).map((s) => ({
-    icon: s.icon,
-    name: s.name,
-  })),
-  variantTypes: ((product.variants ?? []) as any[]).map((group) => ({
-    id: group.id ?? '',
-    label: group.name ?? '',
-    variants: (group.options ?? []).map((opt: any) => ({
-      id: opt.id ?? '',
-      label: opt.name ?? '',
-      imageURL: '',
-      priceDelta: centsToDollars(opt.priceDelta ?? 0),
-      isAvailable: opt.isAvailable ?? true,
-    })),
-  })),
-  addons: ((product.addons ?? []) as any[]).map((group) => ({
-    id: group.id ?? '',
-    label: group.name ?? '',
-    options: (group.options ?? []).map((opt: any) => ({
-      id: opt.id ?? '',
-      label: opt.name ?? '',
-      imageURL: '',
-      priceDelta: centsToDollars(opt.priceDelta ?? 0),
-      isAvailable: opt.isAvailable ?? true,
-    })),
-  })),
-});
-
+/**
+ * ShopView — The main menu browsing page for a single shop.
+ *
+ * Data flow:
+ * 1. Fetches shop data by slug (URL) or by ID (Redux store fallback).
+ * 2. Fetches the shop's product catalog once the shop ID is resolved.
+ * 3. Maps API DTOs to the internal Product type via catalogMapper utils.
+ * 4. Applies shop branding via the useBrandingStyle hook.
+ */
 const ShopView = () => {
   const navigate = useNavigate();
   const { shopId: routeShopId, slug } = useParams<{
@@ -80,6 +40,8 @@ const ShopView = () => {
   }>();
   const dispatch = useAppDispatch();
   const storedShopId = useAppSelector((state) => state.shop.activeShopId);
+
+  // Determine whether to fetch by slug (URL) or by ID (stored/route param)
   const shouldFetchBySlug = Boolean(slug);
   const shopIdLookup = shouldFetchBySlug
     ? ''
@@ -96,6 +58,7 @@ const ShopView = () => {
   const { data: shopDataById, isLoading: isIdLoading } = useGetShopByIdQuery(shopIdLookup, {
     skip: !shopIdLookup,
   });
+
   const resolvedShopData = (shouldFetchBySlug
     ? shopDataBySlug
     : shopDataById) as ShopWithBranding | undefined;
@@ -106,28 +69,10 @@ const ShopView = () => {
   const resolvedBranding = resolveShopBranding(resolvedShopData?.branding);
   const shopName = resolvedShopData?.name ?? 'Online Ordering';
 
-  const brandStyle = useMemo(
-    () =>
-      ({
-        '--brand-primary': resolvedBranding.colors.primary,
-        '--brand-secondary': resolvedBranding.colors.secondary,
-        '--brand-tertiary': resolvedBranding.colors.tertiary,
-        '--brand-background': resolvedBranding.colors.background,
-      }) as CSSProperties,
-    [resolvedBranding]
-  );
+  // Apply CSS custom properties and get page wrapper style
+  const brandStyle = useBrandingStyle(resolvedBranding);
 
-  useEffect(() => {
-    const rootStyle = document.documentElement.style;
-    rootStyle.setProperty('--brand-primary', resolvedBranding.colors.primary);
-    rootStyle.setProperty('--brand-secondary', resolvedBranding.colors.secondary);
-    rootStyle.setProperty('--brand-tertiary', resolvedBranding.colors.tertiary);
-    rootStyle.setProperty(
-      '--brand-background',
-      resolvedBranding.colors.background
-    );
-  }, [resolvedBranding]);
-
+  // Persist the resolved shop ID to Redux so other pages can reference it
   useEffect(() => {
     if (resolvedShopId) {
       dispatch(setActiveShop({ shopId: resolvedShopId }));
@@ -138,6 +83,7 @@ const ShopView = () => {
     skip: !resolvedShopId,
   });
 
+  // Filter out empty/unavailable categories and sort by sortOrder
   const visibleCategories = useMemo(
     () =>
       (catalogData?.categories ?? [])
@@ -146,10 +92,11 @@ const ShopView = () => {
     [catalogData]
   );
 
+  // Build the list of category filter options from visible categories
   const categories = useMemo<CategoryOption[]>(
     () =>
       visibleCategories.map((cat) => ({
-        id: toCategoryId(cat.name!),
+        id: slugifyCategoryName(cat.name!),
         label: cat.name!,
         count: cat.products?.length ?? 0,
         icon: cat.icon ?? undefined,
@@ -157,23 +104,25 @@ const ShopView = () => {
     [visibleCategories]
   );
 
+  // Map category slugs to their icon name (for MenuList section headers)
   const categoryIcons = useMemo<Record<string, string>>(
     () =>
       Object.fromEntries(
         visibleCategories
           .filter((cat) => cat.icon)
-          .map((cat) => [toCategoryId(cat.name!), cat.icon!])
+          .map((cat) => [slugifyCategoryName(cat.name!), cat.icon!])
       ),
     [visibleCategories]
   );
 
+  // Group available products by category slug, mapping API DTOs to Product type
   const groupedItems = useMemo<Record<string, Product[]>>(() => {
     const grouped: Record<string, Product[]> = {};
     visibleCategories.forEach((cat) => {
-      const id = toCategoryId(cat.name!);
+      const id = slugifyCategoryName(cat.name!);
       grouped[id] = (cat.products ?? [])
         .filter((p) => p.isAvailable !== false)
-        .map((p) => toLegacyCatalogProduct(p, cat));
+        .map((p) => mapApiProductToProduct(p, cat));
     });
     return grouped;
   }, [visibleCategories]);
@@ -191,10 +140,6 @@ const ShopView = () => {
       return acc;
     }, {});
   }, [categories]);
-
-  const handleAddToCart = (item: Product) => {
-    console.log('Added to cart:', item);
-  };
 
   const isLoading = shouldFetchBySlug ? isSlugLoading : isIdLoading;
 
@@ -229,12 +174,12 @@ const ShopView = () => {
       <HeroSection heroImageUrl={resolvedBranding.heroImageUrl} />
       <CategoryFilterBar categories={categories} />
       <div className="w-full flex items-center justify-center flex-col mt-4">
-        <CustomerMenuList
+        <MenuList
           groupedItems={groupedItems}
           categoryLabels={categoryLabels}
           categoryCounts={categoryCounts}
           categoryIcons={categoryIcons}
-          onAddToCart={handleAddToCart}
+          onAddToCart={() => {}}
         />
       </div>
       <Footer />
