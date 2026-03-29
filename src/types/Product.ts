@@ -1,4 +1,4 @@
-import type { SpecialInfoItem } from '../services/api';
+import type { SpecialInfoItem } from '../api/endpoints';
 export type { SpecialInfoItem };
 
 export interface Product {

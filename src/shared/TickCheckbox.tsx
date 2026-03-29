@@ -17,7 +17,6 @@ const TickCheckbox: React.FC<TickCheckboxProps> = ({
   hint,
   className = '',
 }) => {
-  console.log('TickCheckbox render', { id, checked, label });
   return (
     <label
       htmlFor={id}
@@ -26,13 +25,13 @@ const TickCheckbox: React.FC<TickCheckboxProps> = ({
       <span
         className={`flex items-center justify-center w-6 h-6 rounded border ${
           checked
-            ? 'bg-orange-400 border-transparent'
+            ? 'bg-[var(--brand-primary)] border-transparent'
             : 'bg-white border-gray-300'
         }`}
         onClick={() => onChange(!checked)}
       >
         {checked ? (
-          // simple check icon (white)
+          // Simple checkmark icon in white
           <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none">
             <path
               d="M5 13l4 4L19 7"

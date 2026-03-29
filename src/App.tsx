@@ -1,15 +1,16 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import OnlineOrderingSystem from './pages/onlineOrderingSystem';
-import ShopView from './pages/shopView';
-import CheckoutPage from './pages/CheckoutPage';
-import MyOrdersPage from './pages/MyOrdersPage';
-import NotFound from './pages/notFound';
+import HomePage from './pages/HomePage';
+import ShopView from './features/shop/ShopView';
+import CheckoutPage from './features/checkout/CheckoutPage';
+import MyOrdersPage from './features/orders/MyOrdersPage';
+import NotFound from './pages/NotFound';
 
 const App: React.FC = () => {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<OnlineOrderingSystem />} />
+        <Route path="/" element={<HomePage />} />
         <Route path="/shops/:slug" element={<ShopView />} />
         <Route path="/shops/:slug/checkout" element={<CheckoutPage />} />
         <Route path="/shops/:slug/my-orders" element={<MyOrdersPage />} />

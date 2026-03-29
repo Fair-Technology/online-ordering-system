@@ -1,4 +1,4 @@
-import type { ShopResponse } from '../services/api';
+import type { ShopResponse } from '../api/endpoints';
 
 export type BrandColors = {
   primary: string;

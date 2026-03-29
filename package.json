@@ -8,7 +8,11 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "check": "tsc --noEmit -p tsconfig.json",
-    "codegen:api": "cd openapi && npx @rtk-query/codegen-openapi rtk-query.config.cjs"
+    "codegen:api": "cd openapi && npx @rtk-query/codegen-openapi rtk-query.config.cjs",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:report": "playwright show-report"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -24,6 +28,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
+    "@playwright/test": "^1.58.2",
     "@rtk-query/codegen-openapi": "^2.2.0",
     "@types/node": "^24.4.0",
     "@types/react": "^19.1.10",

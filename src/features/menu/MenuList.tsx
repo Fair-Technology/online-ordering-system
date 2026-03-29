@@ -1,11 +1,11 @@
 import React from 'react';
-import { ICON_MAP } from '../../../utils/iconMap';
-import ItemCard from '../../../components/ItemCard';
-import { Product } from '../../../types/Product';
+import { ICON_MAP } from '../../utils/iconMap';
+import ProductCard from './ProductCard';
+import { Product } from '../../types/Product';
 
 type CategoryLabelMap = Record<string, string>;
 
-interface CustomerMenuListProps {
+interface MenuListProps {
   groupedItems: Record<string, Product[]>;
   categoryLabels: CategoryLabelMap;
   categoryCounts: Record<string, number>;
@@ -13,7 +13,18 @@ interface CustomerMenuListProps {
   onAddToCart: (item: Product) => void;
 }
 
-const CustomerMenuList: React.FC<CustomerMenuListProps> = ({
+/**
+ * MenuList — Renders all menu categories and their product cards.
+ *
+ * Each category section has an `id` matching its slug (from slugifyCategoryName)
+ * so that CategoryFilterBar can scroll to it and detect which section is in view.
+ *
+ * The `menu-rail-mobile` CSS class provides a horizontal scroll rail on mobile
+ * and switches to a responsive grid at sm/md/lg breakpoints (see main.css).
+ * `menu-rail-single` is applied when a category has only one product to prevent
+ * the single card from stretching to full width on mobile.
+ */
+const MenuList: React.FC<MenuListProps> = ({
   groupedItems,
   categoryLabels,
   categoryCounts,
@@ -21,7 +32,7 @@ const CustomerMenuList: React.FC<CustomerMenuListProps> = ({
   onAddToCart,
 }) => {
   const hasAnyMultiItemCategory = Object.values(groupedItems).some(
-    (items) => items.length > 1
+    (items) => items.length > 1,
   );
 
   return (
@@ -32,7 +43,9 @@ const CustomerMenuList: React.FC<CustomerMenuListProps> = ({
         return (
           <section key={categoryId} id={categoryId} className="scroll-mt-36">
             <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-900">
-              {IconComponent && <IconComponent className="h-4 w-4 text-gray-400" />}
+              {IconComponent && (
+                <IconComponent className="h-4 w-4 text-gray-400" />
+              )}
               <span>{categoryLabels[categoryId] ?? categoryId}</span>
               <span className="ml-1 text-sm font-normal text-gray-400">
                 ({categoryCounts[categoryId] ?? items.length})
@@ -44,9 +57,9 @@ const CustomerMenuList: React.FC<CustomerMenuListProps> = ({
             >
               {items.map((item) => (
                 <div key={`${categoryId}-${item.id}`} className="h-full">
-                  <ItemCard
-                    product={item as any}
-                    onAddToCart={() => onAddToCart && onAddToCart(item)}
+                  <ProductCard
+                    product={item}
+                    onAddToCart={() => onAddToCart?.(item)}
                   />
                 </div>
               ))}
@@ -58,4 +71,4 @@ const CustomerMenuList: React.FC<CustomerMenuListProps> = ({
   );
 };
 
-export default CustomerMenuList;
+export default MenuList;

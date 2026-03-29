@@ -1,26 +1,20 @@
-import React, { CSSProperties, useMemo } from 'react';
+import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Receipt } from 'lucide-react';
-import NavBar from '../components/NavBar';
-import Footer from '../components/footer';
-import { getGuestOrders } from '../utils/guestOrders';
-import { formatDollars } from '../utils/money';
-import { useGetShopBySlugQuery } from '../services/api';
-import { resolveShopBranding, type ShopWithBranding } from '../utils/branding';
-
-const statusColors: Record<string, string> = {
-  paid: 'bg-green-100 text-green-700',
-  pending_payment: 'bg-yellow-100 text-yellow-700',
-  failed: 'bg-red-100 text-red-700',
-  cancelled: 'bg-gray-100 text-gray-600',
-  refunded: 'bg-blue-100 text-blue-700',
-};
+import NavBar from '../../shared/NavBar';
+import Footer from '../../shared/Footer';
+import { getGuestOrders } from '../../utils/guestOrders';
+import { formatDollars } from '../../utils/money';
+import { formatDate } from '../../utils/formatting';
+import { STATUS_COLORS, DEFAULT_STATUS_COLOR } from '../../utils/statusColors';
+import { useGetShopBySlugQuery } from '../../api/endpoints';
+import { resolveShopBranding, type ShopWithBranding } from '../../utils/branding';
+import { useBrandingStyle } from '../../hooks/useBrandingStyle';
 
 const MyOrdersPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
 
-  // Shop branding — same pattern as CheckoutPage
   const { data: shopData } = useGetShopBySlugQuery(slug ?? '', {
     skip: !slug,
   });
@@ -28,25 +22,11 @@ const MyOrdersPage: React.FC = () => {
   const resolvedBranding = resolveShopBranding(resolvedShopData?.branding);
   const shopName = resolvedShopData?.name ?? 'Online Ordering';
 
-  const brandStyle = useMemo(
-    () =>
-      ({
-        '--brand-primary': resolvedBranding.colors.primary,
-        '--brand-secondary': resolvedBranding.colors.secondary,
-        '--brand-tertiary': resolvedBranding.colors.tertiary,
-        '--brand-background': resolvedBranding.colors.background,
-      }) as CSSProperties,
-    [resolvedBranding],
-  );
+  // Apply CSS custom properties and get page wrapper style
+  const brandStyle = useBrandingStyle(resolvedBranding);
 
-  // Only show orders for this shop
-  const orders = getGuestOrders().filter((o) => o.shopSlug === slug);
-
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleString(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    });
+  // Only show orders placed at this specific shop
+  const orders = getGuestOrders().filter((order) => order.shopSlug === slug);
 
   return (
     <div className="bg-white min-h-screen flex flex-col" style={brandStyle}>
@@ -70,9 +50,7 @@ const MyOrdersPage: React.FC = () => {
         {orders.length === 0 ? (
           <div className="text-center py-20 space-y-4">
             <Receipt className="w-16 h-16 text-gray-200 mx-auto" />
-            <h2 className="text-xl font-semibold text-gray-700">
-              No orders yet
-            </h2>
+            <h2 className="text-xl font-semibold text-gray-700">No orders yet</h2>
             <p className="text-gray-400 text-sm max-w-xs mx-auto">
               Looks like you haven't placed any orders here. Browse the menu and
               place your first order!
@@ -105,8 +83,7 @@ const MyOrdersPage: React.FC = () => {
                       </span>
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          statusColors[order.status ?? ''] ??
-                          'bg-gray-100 text-gray-600'
+                          STATUS_COLORS[order.status ?? ''] ?? DEFAULT_STATUS_COLOR
                         }`}
                       >
                         {order.status?.replace('_', ' ') ?? 'unknown'}
@@ -124,7 +101,7 @@ const MyOrdersPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Items */}
+                {/* Line items */}
                 <div className="px-5 py-4 space-y-1.5">
                   {(order.items ?? []).map((item, i) => (
                     <div

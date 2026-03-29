@@ -1,12 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import Button from './Button';
-import TickCheckbox from './TickCheckbox';
-import { useAppDispatch } from '../store/hooks';
-import { addItem } from '../store/slices/cartSlice';
-import { formatDollars } from '../utils/money';
-import { ICON_MAP } from '../utils/iconMap';
-import { SPECIAL_INFO_COLORS, DEFAULT_BADGE } from '../utils/badgeColors';
+import Button from '../../shared/Button';
+import TickCheckbox from '../../shared/TickCheckbox';
+import { useAppDispatch } from '../../store/hooks';
+import { addItem, removeItem } from '../../store/slices/cartSlice';
+import { formatDollars } from '../../utils/money';
+import { ICON_MAP } from '../../utils/iconMap';
+import { SPECIAL_INFO_COLORS, DEFAULT_BADGE } from '../../utils/badgeColors';
 
 type VariantOption = {
   id: string;
@@ -38,15 +38,23 @@ interface ProductModalProps {
   product: Product;
   isOpen: boolean;
   onClose: () => void;
-  onAddToCart?: (payload: any) => void; // returns payload added
-  shopId?: string; // optional shop id to scope cart storage
+  onAddToCart?: (payload: any) => void;
+  shopId?: string; // Used to scope cart storage to the correct shop
+  // Edit mode — pre-fills selections and replaces the existing cart item on confirm
+  editItemKey?: string;
+  initialVariantId?: string;
+  initialAddonIds?: string[];
+  initialQuantity?: number;
 }
 
 /**
- * ProductModal
- * - Manages selection of variant + addons and quantity
- * - Calculates unit price and total
- * - Adds to Redux cart (shop-scoped)
+ * ProductModal — Full product detail overlay.
+ *
+ * Manages selection of variant (single-select) and addons (multi-select),
+ * quantity, and price calculation before dispatching to the Redux cart.
+ *
+ * Rendered via createPortal to document.body so it overlays the full viewport
+ * regardless of the parent component's stacking context.
  */
 const ProductModal: React.FC<ProductModalProps> = ({
   product,
@@ -54,55 +62,70 @@ const ProductModal: React.FC<ProductModalProps> = ({
   onClose,
   onAddToCart,
   shopId,
+  editItemKey,
+  initialVariantId: initialVariantIdProp,
+  initialAddonIds: initialAddonIdsProp,
+  initialQuantity: initialQuantityProp,
 }) => {
   const dispatch = useAppDispatch();
-  // determine effective shopId: explicit prop wins, otherwise try url-first-segment
+
+  // Fall back to the slug segment from the URL if shopId is not provided
   const urlParts =
     typeof window !== 'undefined'
       ? window.location.pathname.split('/').filter(Boolean)
       : [];
-  const effectiveShopId = shopId ?? urlParts[0];
+  const effectiveShopId = shopId ?? urlParts[1];
 
-  const initialVariantId = product.variantTypes?.[0]?.variants?.[0]?.id;
-  const [selectedVariantId, setSelectedVariantId] = useState<
-    string | undefined
-  >(initialVariantId);
-  const [selectedAddonIds, setSelectedAddonIds] = useState<Set<string>>(
-    new Set()
+  const defaultVariantId = product.variantTypes?.[0]?.variants?.[0]?.id;
+  const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(
+    initialVariantIdProp ?? defaultVariantId,
   );
-  const [quantity, setQuantity] = useState<number>(1);
+  const [selectedAddonIds, setSelectedAddonIds] = useState<Set<string>>(
+    new Set(initialAddonIdsProp ?? []),
+  );
+  const [quantity, setQuantity] = useState<number>(initialQuantityProp ?? 1);
 
+  // Reset selections to the incoming initial values each time the modal opens.
+  // useState initialises only once on mount, so toggling isOpen without
+  // unmounting the component would show stale selections without this effect.
+  useEffect(() => {
+    if (!isOpen) return;
+    setSelectedVariantId(initialVariantIdProp ?? defaultVariantId);
+    setSelectedAddonIds(new Set(initialAddonIdsProp ?? []));
+    setQuantity(initialQuantityProp ?? 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Flat lookup maps for fast variant/addon option access by ID
   const variantLookup = useMemo(() => {
-    const m = new Map<string, VariantOption>();
-    product.variantTypes?.forEach((g) =>
-      g.variants.forEach((v) => m.set(v.id, v))
+    const map = new Map<string, VariantOption>();
+    product.variantTypes?.forEach((group) =>
+      group.variants.forEach((variant) => map.set(variant.id, variant))
     );
-    return m;
+    return map;
   }, [product]);
 
   const addonLookup = useMemo(() => {
-    const m = new Map<string, AddonOption>();
-    product.addons?.forEach((g) => g.options.forEach((o) => m.set(o.id, o)));
-    return m;
+    const map = new Map<string, AddonOption>();
+    product.addons?.forEach((group) =>
+      group.options.forEach((option) => map.set(option.id, option))
+    );
+    return map;
   }, [product]);
 
+  // Unit price = base price + selected variant delta + sum of selected addon deltas.
+  // All values are in dollars (already converted from cents by mapApiProductToProduct).
   const unitPrice = useMemo(() => {
     const base = product.price || 0;
     const variantDelta = selectedVariantId
       ? variantLookup.get(selectedVariantId)?.priceDelta || 0
       : 0;
     const addonsDelta = Array.from(selectedAddonIds).reduce(
-      (s, id) => s + (addonLookup.get(id)?.priceDelta || 0),
+      (sum, id) => sum + (addonLookup.get(id)?.priceDelta || 0),
       0
     );
     return +(base + variantDelta + addonsDelta).toFixed(2);
-  }, [
-    product.price,
-    selectedVariantId,
-    selectedAddonIds,
-    variantLookup,
-    addonLookup,
-  ]);
+  }, [product.price, selectedVariantId, selectedAddonIds, variantLookup, addonLookup]);
 
   function toggleAddon(id: string) {
     setSelectedAddonIds((prev) => {
@@ -114,7 +137,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
   }
 
   function handleAddToCart() {
-    // dispatch addItem to redux store (cart is persisted by slice)
+    // In edit mode, remove the old cart item before adding the updated one
+    if (editItemKey) {
+      dispatch(removeItem({ key: editItemKey }));
+    }
     dispatch(
       addItem({
         shopId: effectiveShopId,
@@ -129,7 +155,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
         },
       })
     );
-
     const payload = {
       id: product.id,
       name: product.label,
@@ -138,8 +163,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
       variantId: selectedVariantId,
       addonOptionIds: Array.from(selectedAddonIds),
     };
-    onAddToCart && onAddToCart(payload);
-    // reset and close
+    onAddToCart?.(payload);
     setQuantity(1);
     onClose();
   }
@@ -167,6 +191,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
           <div className="flex-1">
             <p className="text-sm text-gray-600 mb-4">{product.description}</p>
 
+            {/* Special info badges — icon + label side by side (full text shown) */}
             {product.specialInfo && product.specialInfo.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {product.specialInfo.map((item, i) => {
@@ -186,16 +211,16 @@ const ProductModal: React.FC<ProductModalProps> = ({
               </div>
             )}
 
-            {/* Variant groups */}
+            {/* Variant groups — single select per group */}
             {product.variantTypes?.map((group) => (
               <div key={group.id} className="mb-3">
                 <div className="font-medium text-sm mb-2">{group.label}</div>
                 <div className="flex gap-2 flex-wrap">
-                  {group.variants.map((v) => (
+                  {group.variants.map((variant) => (
                     <label
-                      key={v.id}
+                      key={variant.id}
                       className={`px-3 py-1 border rounded cursor-pointer text-sm ${
-                        selectedVariantId === v.id
+                        selectedVariantId === variant.id
                           ? 'border-gray-900 bg-gray-50'
                           : 'bg-white'
                       }`}
@@ -203,16 +228,16 @@ const ProductModal: React.FC<ProductModalProps> = ({
                       <input
                         type="radio"
                         name={`variant-${group.id}`}
-                        value={v.id}
-                        checked={selectedVariantId === v.id}
-                        onChange={() => setSelectedVariantId(v.id)}
+                        value={variant.id}
+                        checked={selectedVariantId === variant.id}
+                        onChange={() => setSelectedVariantId(variant.id)}
                         className="hidden"
                       />
                       <div className="flex items-center gap-2">
-                        <span>{v.label}</span>
-                        {v.priceDelta ? (
+                        <span>{variant.label}</span>
+                        {variant.priceDelta ? (
                           <span className="text-xs text-gray-500">
-                            +{formatDollars(v.priceDelta)}
+                            +{formatDollars(variant.priceDelta)}
                           </span>
                         ) : null}
                       </div>
@@ -222,20 +247,20 @@ const ProductModal: React.FC<ProductModalProps> = ({
               </div>
             ))}
 
-            {/* Addon groups using TickCheckbox */}
+            {/* Addon groups — multi-select using TickCheckbox */}
             {product.addons?.map((group) => (
               <div key={group.id} className="mb-3">
                 <div className="font-medium text-sm mb-2">{group.label}</div>
                 <div className="flex flex-col gap-2">
-                  {group.options.map((opt) => (
+                  {group.options.map((option) => (
                     <TickCheckbox
-                      key={opt.id}
-                      checked={selectedAddonIds.has(opt.id)}
-                      onChange={() => toggleAddon(opt.id)}
-                      label={opt.label}
+                      key={option.id}
+                      checked={selectedAddonIds.has(option.id)}
+                      onChange={() => toggleAddon(option.id)}
+                      label={option.label}
                       hint={
-                        opt.priceDelta
-                          ? `+ ${formatDollars(opt.priceDelta)}`
+                        option.priceDelta
+                          ? `+ ${formatDollars(option.priceDelta)}`
                           : undefined
                       }
                     />
@@ -274,13 +299,9 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
             <div className="flex gap-2 mt-6">
               <Button className="flex-1" onClick={handleAddToCart}>
-                Add To Order
+                {editItemKey ? 'Update Order' : 'Add To Order'}
               </Button>
-              <Button
-                variant="outline"
-                className="px-4"
-                onClick={onClose}
-              >
+              <Button variant="outline" className="px-4" onClick={onClose}>
                 Cancel
               </Button>
             </div>

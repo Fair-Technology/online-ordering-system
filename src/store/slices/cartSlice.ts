@@ -25,6 +25,18 @@ const initialState: CartState = {
   items: [],
 };
 
+/**
+ * Generates a unique signature key for a cart line item.
+ *
+ * The same product can appear multiple times if ordered with different
+ * variants or addons, so the key captures all three dimensions:
+ *   productId :: selectedVariantOptionId :: sorted addon option IDs
+ *
+ * Addon IDs are sorted so that selecting them in any order produces the
+ * same key — preventing duplicate entries for identical selections.
+ *
+ * e.g. "abc123::var-sm::addon1,addon2"
+ */
 function makeSignature(payload: {
   id: string;
   variantId?: string;
@@ -34,6 +46,14 @@ function makeSignature(payload: {
   return `${payload.id}::${payload.variantId ?? ''}::${addons}`;
 }
 
+/**
+ * Persists the current cart to localStorage under a shop-scoped key.
+ *
+ * The try/catch is intentional: localStorage may be unavailable in private
+ * browsing mode (Safari) or when storage quota is exceeded. Silently failing
+ * is acceptable here because the in-memory Redux state remains correct and
+ * the user can still complete their session.
+ */
 function persist(state: CartState) {
   try {
     localStorage.setItem(cartKey(state.shopId), JSON.stringify(state.items));
@@ -149,11 +169,11 @@ export const {
   clearCart,
 } = cartSlice.actions;
 
-// selectors
+// Selectors
 export const selectCartItems = (root: { cart: CartState }) => root.cart.items;
 export const selectCartCount = (root: { cart: CartState }) =>
-  root.cart.items.reduce((s, it) => s + it.quantity, 0);
+  root.cart.items.reduce((total, item) => total + item.quantity, 0);
 export const selectCartTotal = (root: { cart: CartState }) =>
-  root.cart.items.reduce((s, it) => s + it.price * it.quantity, 0);
+  root.cart.items.reduce((total, item) => total + item.price * item.quantity, 0);
 
 export default cartSlice.reducer;
